@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:showIn="navigation_view">
+
+    <group android:checkableBehavior="single">
+
+        <item
+            android:id="@+id/nav_dashboard"
+            android:icon="@drawable/ic_dashboard_black_24dp"
+            android:title="Dashboard" />
+
+        <item
+            android:id="@+id/nav_transactions"
+            android:icon="@drawable/ic_expenses_24dp"
+            android:title="Transactions" />
+
+        <item
+            android:id="@+id/nav_budget"
+            android:icon="@drawable/ic_bar_chart_24dp"
+            android:title="Budget" />
+
+        <item
+            android:id="@+id/nav_savings"
+            android:icon="@drawable/ic_savings_goals_24dp"
+            android:title="Savings and Goals" />
+
+        <item
+            android:id="@+id/nav_settings"
+            android:icon="@drawable/ic_settings_24dp"
+            android:title="Settings" />
+    </group>
+</menu>

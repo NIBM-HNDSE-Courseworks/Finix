@@ -1,0 +1,16 @@
+// Top-level build.gradle
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.13.0' // or your AGP version
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0" // only if you use Kotlin
+        // NOTE: no other plugins here
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
