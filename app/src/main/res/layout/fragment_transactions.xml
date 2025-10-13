@@ -1,19 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:padding="16dp"
     tools:context=".ui.transactions.TransactionsFragment">
 
-    <TextView
-        android:id="@+id/textTransactions"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Transactions screen"
-        android:gravity="center"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:padding="16dp" />
+    <!-- Plus Button -->
+    <ImageButton
+        android:id="@+id/buttonAddTransaction"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="@drawable/teal_color_border_button"
+        android:padding="12dp"
+        android:contentDescription="Add Transaction"
+        android:src="@android:drawable/ic_input_add"
+        app:tint="@color/white"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:elevation="4dp" />
 
-
-</FrameLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

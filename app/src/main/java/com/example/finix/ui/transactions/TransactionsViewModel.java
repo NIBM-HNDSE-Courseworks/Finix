@@ -1,59 +1,79 @@
 package com.example.finix.ui.transactions;
 
+import android.app.Application;
+
+import androidx.annotation.NonNull;
+import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
-import androidx.lifecycle.ViewModel;
 
-/**
- * ViewModel for the Transactions Fragment.
- * This class holds and manages the data required by the TransactionsFragment (the View).
- * It survives configuration changes (like screen rotation).
- */
-public class TransactionsViewModel extends ViewModel {
+import com.example.finix.data.Category;
+import com.example.finix.data.CategoryDAO;
+import com.example.finix.data.FinixDatabase;
+import com.example.finix.data.Transaction;
 
-    // MutableLiveData holds the data that can be changed by the ViewModel
-    // and observed (watched) by the Fragment.
+import java.util.ArrayList;
+import java.util.List;
+
+public class TransactionsViewModel extends AndroidViewModel {
+
     private final MutableLiveData<String> mText;
+    private final MutableLiveData<List<String>> categoriesLive;
+    private final CategoryDAO categoryDao;
 
-    // In a real app, this would hold lists of transactions, running balances, etc.,
-    // and methods to interact with the Repository (for SQLite/Oracle access).
-    // private MutableLiveData<List<Transaction>> transactionsList;
-
-    public TransactionsViewModel() {
-        // Initialize the MutableLiveData objects
+    public TransactionsViewModel(@NonNull Application app) {
+        super(app);
         mText = new MutableLiveData<>();
-
-        // Set some default text that the Fragment will display upon creation
-        // In a real app, you would initiate data loading here (e.g., fetch recent transactions).
         mText.setValue("Transactions View: Enter a new expense or view recent activity here.");
 
-        // transactionsList = new MutableLiveData<>();
-        // loadTransactions();
+        categoriesLive = new MutableLiveData<>(new ArrayList<>());
+
+        FinixDatabase db = FinixDatabase.getDatabase(app);
+        categoryDao = db.categoryDao();
+
+        loadCategories(); // Load saved categories from DB
     }
 
-    /**
-     * Exposes the data as LiveData (read-only) to the Fragment.
-     * The Fragment observes this LiveData to update its UI when the data changes.
-     *
-     * @return LiveData object containing the text to display.
-     */
-    public LiveData<String> getText() {
-        return mText;
+    public LiveData<String> getText() { return mText; }
+
+    public LiveData<List<String>> getCategoriesLive() { return categoriesLive; }
+
+    public void loadCategories() {
+        new Thread(() -> {
+            List<Category> list = categoryDao.getAllCategories();
+            List<String> names = new ArrayList<>();
+            for (Category c : list) names.add(c.getName());
+            names.add("Add New Category"); // special option
+            categoriesLive.postValue(names);
+        }).start();
     }
 
-    /*
-    // Placeholder for a future method to load data from a Repository (SQLite/Oracle)
-    private void loadTransactions() {
-        // Example: Logic to fetch transactions from SQLite or Oracle DB
-        // ...
-        // transactionsList.setValue(fetchedList);
+    public void addCategory(String newCategory) {
+        if (newCategory == null || newCategory.trim().isEmpty()) return;
+
+        new Thread(() -> {
+            Category cat = new Category(newCategory.trim());
+            categoryDao.insert(cat);
+            loadCategories(); // refresh LiveData
+        }).start();
     }
 
-    // Placeholder for adding a new transaction
-    public void addTransaction(double amount, String description, boolean isExpense) {
-        // 1. Validate data
-        // 2. Pass data to a Repository for storage in SQLite
-        // 3. Update the LiveData to refresh the UI
+    public void saveTransaction(double amount, String type, String category, long dateTime, String description) {
+        new Thread(() -> {
+            Transaction transaction = new Transaction(amount, type, category, dateTime, description);
+            FinixDatabase db = FinixDatabase.getDatabase(getApplication());
+            db.transactionDao().insert(transaction);
+
+            // Show Toast after saving (run on main thread)
+            android.os.Handler mainHandler = new android.os.Handler(getApplication().getMainLooper());
+            mainHandler.post(() -> {
+                android.widget.Toast.makeText(
+                        getApplication(),
+                        "💾 Transaction saved to: " + db.getOpenHelper().getWritableDatabase().getPath(),
+                        android.widget.Toast.LENGTH_LONG
+                ).show();
+            });
+        }).start();
     }
-    */
+
 }

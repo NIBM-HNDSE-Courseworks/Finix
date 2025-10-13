@@ -9,8 +9,8 @@ import androidx.room.RoomDatabase;
 // entities: Lists all the table models (Entities) included in this database.
 // version: Must be incremented whenever you change the schema (tables/columns).
 // exportSchema: Set to false for simple projects.
-@Database(entities = {Transaction.class, Budget.class, SavingsGoal.class, SynchronizationLog.class},
-        version = 1,
+@Database(entities = {Transaction.class, Budget.class, SavingsGoal.class, SynchronizationLog.class, Category.class},
+        version = 2, // ← increment version
         exportSchema = false)
 public abstract class FinixDatabase extends RoomDatabase {
 
@@ -20,6 +20,8 @@ public abstract class FinixDatabase extends RoomDatabase {
     public abstract BudgetDao budgetDao();
     public abstract SavingsGoalDao savingsGoalDao();
     public abstract SynchronizationLogDao synchronizationLogDao();
+    public abstract CategoryDAO categoryDao(); // ← Add this
+
 
     // --- Singleton Implementation ---
     private static volatile FinixDatabase INSTANCE;
