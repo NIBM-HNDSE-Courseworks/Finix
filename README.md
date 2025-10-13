@@ -67,4 +67,4 @@ To run this project, ensure you have the following services running or simulated
 1.  **Mobile App:** Load the project in Android Studio and run it on an emulator or physical device.
 2.  **Oracle Connection:** A configured connection to the Oracle Database instance to test the synchronization and report generation features.
 
-**Note::** The Oracle connection and PL/SQL procedures are demonstrated via the synchronization logic and generated reports as defined in the deliverables.
+**Note:** The Oracle connection and PL/SQL procedures are demonstrated via the synchronization logic and generated reports as defined in the deliverables.
