@@ -9,4 +9,7 @@
     <color name="white">#FFFFFFFF</color>
     <color name="menu_popup_text_color">#FFFFFF</color> <!-- 🤍 White text for menu -->
     <color name="gray">#FF888888</color> <!-- medium gray -->
+    <color name="dark_gray">#71797E</color> <!-- dark gray -->
+    <color name="delete_red">#FF3B30</color> <!-- Apple-style red -->
+
 </resources>

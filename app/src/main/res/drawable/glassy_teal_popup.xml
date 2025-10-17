@@ -1,8 +1,23 @@
+<!-- Dark opaque glassy teal popup background -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
+
+    <!-- Base dark teal with higher opacity -->
+    <solid android:color="#F0006B6B" />
+
+    <!-- Gradient overlay for subtle depth -->
     <gradient
-        android:startColor="#66E0F2F2"
-        android:endColor="#33B2D8D8"
+        android:startColor="#FA007777"
+        android:endColor="#E6005050"
         android:angle="270" />
-    <corners android:radius="16dp"/>
+
+    <!-- Rounded corners -->
+    <corners android:radius="16dp" />
+
+    <!-- Subtle padding for smooth edge rendering -->
+    <padding
+        android:left="1dp"
+        android:top="1dp"
+        android:right="1dp"
+        android:bottom="1dp" />
 </shape>

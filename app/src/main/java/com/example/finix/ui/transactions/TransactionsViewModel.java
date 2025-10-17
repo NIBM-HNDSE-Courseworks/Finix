@@ -1,79 +1,135 @@
 package com.example.finix.ui.transactions;
 
 import android.app.Application;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.lifecycle.AndroidViewModel;
-import androidx.lifecycle.LiveData;
-import androidx.lifecycle.MutableLiveData;
-
-import com.example.finix.data.Category;
-import com.example.finix.data.CategoryDAO;
-import com.example.finix.data.FinixDatabase;
-import com.example.finix.data.Transaction;
-
-import java.util.ArrayList;
-import java.util.List;
+import androidx.lifecycle.*;
+import com.example.finix.data.*;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class TransactionsViewModel extends AndroidViewModel {
 
-    private final MutableLiveData<String> mText;
-    private final MutableLiveData<List<String>> categoriesLive;
-    private final CategoryDAO categoryDao;
+    private final MutableLiveData<List<Transaction>> incomeLive = new MutableLiveData<>(new ArrayList<>());
+    private final MutableLiveData<List<Transaction>> expenseLive = new MutableLiveData<>(new ArrayList<>());
+    private final MutableLiveData<List<String>> categoriesLive = new MutableLiveData<>(new ArrayList<>());
+
+    private final FinixDatabase db;
 
     public TransactionsViewModel(@NonNull Application app) {
         super(app);
-        mText = new MutableLiveData<>();
-        mText.setValue("Transactions View: Enter a new expense or view recent activity here.");
-
-        categoriesLive = new MutableLiveData<>(new ArrayList<>());
-
-        FinixDatabase db = FinixDatabase.getDatabase(app);
-        categoryDao = db.categoryDao();
-
-        loadCategories(); // Load saved categories from DB
+        db = FinixDatabase.getDatabase(app);
+        loadAllTransactions();
+        loadCategories();
     }
 
-    public LiveData<String> getText() { return mText; }
-
+    public LiveData<List<Transaction>> getIncomeTransactions() { return incomeLive; }
+    public LiveData<List<Transaction>> getExpenseTransactions() { return expenseLive; }
     public LiveData<List<String>> getCategoriesLive() { return categoriesLive; }
 
-    public void loadCategories() {
+    public void addCategory(String name) {
+        if (name == null || name.trim().isEmpty()) return;
+
         new Thread(() -> {
-            List<Category> list = categoryDao.getAllCategories();
-            List<String> names = new ArrayList<>();
-            for (Category c : list) names.add(c.getName());
-            names.add("Add New Category"); // special option
-            categoriesLive.postValue(names);
+            // Insert new category into DB
+            db.categoryDao().insert(new Category(name.trim()));
+            // Reload categories LiveData
+            loadCategories();
         }).start();
     }
 
-    public void addCategory(String newCategory) {
-        if (newCategory == null || newCategory.trim().isEmpty()) return;
-
+    private void loadAllTransactions() {
         new Thread(() -> {
-            Category cat = new Category(newCategory.trim());
-            categoryDao.insert(cat);
-            loadCategories(); // refresh LiveData
+            List<Transaction> all = db.transactionDao().getAllTransactions();
+            incomeLive.postValue(all.stream().filter(t -> "Income".equals(t.getType())).collect(Collectors.toList()));
+            expenseLive.postValue(all.stream().filter(t -> "Expense".equals(t.getType())).collect(Collectors.toList()));
+        }).start();
+    }
+
+    public void loadCategories() {
+        new Thread(() -> {
+            List<String> list = new ArrayList<>();
+            for (Category c : db.categoryDao().getAllCategories()) list.add(c.getName());
+            categoriesLive.postValue(list);
         }).start();
     }
 
     public void saveTransaction(double amount, String type, String category, long dateTime, String description) {
         new Thread(() -> {
-            Transaction transaction = new Transaction(amount, type, category, dateTime, description);
-            FinixDatabase db = FinixDatabase.getDatabase(getApplication());
-            db.transactionDao().insert(transaction);
-
-            // Show Toast after saving (run on main thread)
-            android.os.Handler mainHandler = new android.os.Handler(getApplication().getMainLooper());
-            mainHandler.post(() -> {
-                android.widget.Toast.makeText(
-                        getApplication(),
-                        "💾 Transaction saved to: " + db.getOpenHelper().getWritableDatabase().getPath(),
-                        android.widget.Toast.LENGTH_LONG
-                ).show();
-            });
+            db.transactionDao().insert(new Transaction(amount, type, category, dateTime, description));
+            loadAllTransactions();
         }).start();
     }
 
+    public void updateTransaction(Transaction transaction) {
+        new Thread(() -> {
+            db.transactionDao().update(transaction);
+            loadAllTransactions();
+        }).start();
+    }
+
+    public void deleteTransaction(Transaction transaction) {
+        new Thread(() -> {
+            db.transactionDao().delete(transaction);
+            loadAllTransactions();
+        }).start();
+    }
+
+    public void sortTransactions(String type, String mode) {
+        List<Transaction> current = type.equals("Income")
+                ? new ArrayList<>(Objects.requireNonNull(incomeLive.getValue()))
+                : new ArrayList<>(Objects.requireNonNull(expenseLive.getValue()));
+
+        switch (mode) {
+            case "date_desc":
+                current.sort((a, b) -> Long.compare(b.getDateTime(), a.getDateTime()));
+                break;
+            case "date_asc":
+                current.sort(Comparator.comparingLong(Transaction::getDateTime));
+                break;
+            case "amount_desc":
+                current.sort((a, b) -> Double.compare(b.getAmount(), a.getAmount()));
+                break;
+            case "amount_asc":
+                current.sort(Comparator.comparingDouble(Transaction::getAmount));
+                break;
+        }
+
+        if (type.equals("Income")) incomeLive.setValue(current);
+        else expenseLive.setValue(current);
+    }
+
+    public void filterByCategory(String type, String category, Runnable onSuccess, Runnable onNoResults) {
+        new Thread(() -> {
+            List<Transaction> list = db.transactionDao().getTransactionsByType(type);
+            List<Transaction> filtered;
+
+            if (category == null) {
+                filtered = list;
+            } else {
+                filtered = list.stream()
+                        .filter(t -> t.getCategory().equalsIgnoreCase(category))
+                        .collect(Collectors.toList());
+
+                if (filtered.isEmpty()) {
+                    // Use LiveData instead of Toast
+                    _messageEvent.postValue("No transactions found for category: " + category);
+                    if (onNoResults != null) onNoResults.run();
+                    return; // ❌ don’t update LiveData
+                }
+            }
+
+            if (type.equals("Income")) incomeLive.postValue(filtered);
+            else expenseLive.postValue(filtered);
+
+            new android.os.Handler(getApplication().getMainLooper()).post(() -> {
+                if (onSuccess != null) onSuccess.run();
+            });
+
+        }).start();
+    }
+
+    private final MutableLiveData<String> _messageEvent = new MutableLiveData<>();
+    public LiveData<String> getMessageEvent() { return _messageEvent; }
 }
