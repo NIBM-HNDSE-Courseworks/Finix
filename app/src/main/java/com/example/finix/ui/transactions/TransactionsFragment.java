@@ -173,6 +173,14 @@ public class TransactionsFragment extends Fragment {
         LayoutInflater inflater = LayoutInflater.from(getContext());
         View popupView = inflater.inflate(R.layout.add_edit_transaction_popup, null);
 
+        // --- Title ---
+        TextView tvTitle = popupView.findViewById(R.id.popupTitle);
+        if (transactionToEdit != null) {
+            tvTitle.setText("Edit Transaction"); // Editing
+        } else {
+            tvTitle.setText("Add Transaction");  // Adding new
+        }
+
         EditText etAmount = popupView.findViewById(R.id.etAmount);
         EditText etDescription = popupView.findViewById(R.id.etDescription);
         Button btnSave = popupView.findViewById(R.id.btnSaveTransaction);
