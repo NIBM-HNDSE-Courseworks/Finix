@@ -3,6 +3,8 @@ package com.example.finix;
 
 // 🧩 Importing required Android classes
 import android.os.Bundle;
+import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.View;
 import android.view.Menu;
 
@@ -45,15 +47,72 @@ public class MainActivity extends AppCompatActivity {
         setSupportActionBar(binding.appBarMain.toolbar);
 
         // ➕ Adds a click listener for the floating action button (FAB)
-        binding.appBarMain.fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                // 💬 Shows a small popup message (Snackbar)
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null)
-                        .setAnchorView(R.id.fab).show();
-            }
+        binding.appBarMain.addQuickMenu.setOnClickListener(view -> {
+
+            // Inflate popup layout
+            View popupView = getLayoutInflater().inflate(R.layout.layout_quick_add_popup, null);
+
+            // Create PopupWindow
+            final android.widget.PopupWindow popupWindow = new android.widget.PopupWindow(
+                    popupView,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                    true
+            );
+
+            // Transparent background for vector drawable
+            popupWindow.setBackgroundDrawable(
+                    new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
+            );
+
+            // Convert 12dp gap to pixels
+            int gap = (int) TypedValue.applyDimension(
+                    TypedValue.COMPLEX_UNIT_DIP,
+                    12,
+                    getResources().getDisplayMetrics()
+            );
+
+            // Get FAB location
+            int[] location = new int[2];
+            view.getLocationOnScreen(location);
+            int fabX = location[0];
+            int fabY = location[1];
+
+            // Measure popup
+            popupView.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+            int popupWidth = popupView.getMeasuredWidth();
+            int popupHeight = popupView.getMeasuredHeight();
+
+            // --- Position popup around FAB ---
+            // Example: top-right corner of FAB with small floating gap
+            // Position popup so bottom-right corner points to FAB
+            int xOffset = fabX + view.getWidth() - popupWidth; // align right edges
+            int yOffset = fabY + view.getHeight() - popupHeight; // align bottom edges
+
+// Optional small gap so it "floats"
+            int leftShift = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 40, getResources().getDisplayMetrics());
+            xOffset -= leftShift; // move popup more to the left
+            xOffset -= gap; // shift left slightly
+            yOffset -= gap; // shift up slightly
+
+
+            // Show popup
+            popupWindow.showAtLocation(view, Gravity.NO_GRAVITY, xOffset, yOffset);
+
+            // Handle popup buttons
+            popupView.findViewById(R.id.btnAddTransaction).setOnClickListener(v -> {
+                popupWindow.dismiss();
+            });
+
+            popupView.findViewById(R.id.btnAddBudget).setOnClickListener(v -> {
+                popupWindow.dismiss();
+            });
+
+            popupView.findViewById(R.id.btnAddGoal).setOnClickListener(v -> {
+                popupWindow.dismiss();
+            });
         });
+
 
         // 📂 Gets the drawer layout (side menu)
         DrawerLayout drawer = binding.drawerLayout;

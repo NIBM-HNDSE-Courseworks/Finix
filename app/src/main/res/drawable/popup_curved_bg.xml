@@ -1,0 +1,25 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="240dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+
+    <!-- Dark glassy popup with soft gradient and smooth white border -->
+    <path
+        android:fillColor="#CC333333"
+        android:strokeColor="#80FFFFFF"
+        android:strokeWidth="3"
+        android:pathData="
+            M0,0
+            H320
+            V130
+            Q285,150 300,180
+            H0
+            Z" />
+
+    <!-- Optional gradient overlay for glass effect -->
+    <gradient
+        android:startColor="#55000000"
+        android:endColor="#33000000"
+        android:angle="270" />
+</vector>
