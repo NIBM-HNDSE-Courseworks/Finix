@@ -10,7 +10,7 @@ import androidx.room.RoomDatabase;
 // version: Must be incremented whenever you change the schema (tables/columns).
 // exportSchema: Set to false for simple projects.
 @Database(entities = {Transaction.class, Budget.class, SavingsGoal.class, SynchronizationLog.class, Category.class},
-        version = 2, // ← increment version
+        version = 3, // ← increment version
         exportSchema = false)
 public abstract class FinixDatabase extends RoomDatabase {
 

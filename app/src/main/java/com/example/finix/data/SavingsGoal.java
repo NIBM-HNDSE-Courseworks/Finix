@@ -20,13 +20,14 @@ public class SavingsGoal {
 
     // Foreign Key to the Category table
     @ColumnInfo(name = "category_id")
-    private int categoryId; // Added: Links the goal to a category (e.g., 'Vacation Fund')
+    private int categoryId; // Links the goal to a category (e.g., 'Vacation Fund')
 
-    @ColumnInfo(name = "name")
-    private String name;
+    // Updated: Changed name to goalName and column name to "goal_name"
+    @ColumnInfo(name = "goal_name")
+    private String goalName;
 
     @ColumnInfo(name = "description")
-    private String description; // Added: A short description for the goal
+    private String description; // A short description for the goal
 
     @ColumnInfo(name = "target_amount")
     private double targetAmount;
@@ -35,13 +36,11 @@ public class SavingsGoal {
     private long targetDate;
 
     // Note: 'current_saved_amount' has been removed.
-    // The current saved amount should be calculated dynamically by summing
-    // transactions that are specifically linked to this goal's Category.
 
     // Constructor
-    public SavingsGoal(int categoryId, String name, String description, double targetAmount, long targetDate) {
+    public SavingsGoal(int categoryId, String goalName, String description, double targetAmount, long targetDate) {
         this.categoryId = categoryId;
-        this.name = name;
+        this.goalName = goalName; // Updated parameter
         this.description = description;
         this.targetAmount = targetAmount;
         this.targetDate = targetDate;
@@ -54,8 +53,9 @@ public class SavingsGoal {
     public int getCategoryId() { return categoryId; }
     public void setCategoryId(int categoryId) { this.categoryId = categoryId; }
 
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
+    // Updated Getters and Setters
+    public String getGoalName() { return goalName; }
+    public void setGoalName(String goalName) { this.goalName = goalName; }
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
