@@ -26,8 +26,8 @@ public class SavingsGoal {
     @ColumnInfo(name = "goal_name")
     private String goalName;
 
-    @ColumnInfo(name = "description")
-    private String description; // A short description for the goal
+    @ColumnInfo(name = "goal_description")
+    private String goalDescription; // A short description for the goal
 
     @ColumnInfo(name = "target_amount")
     private double targetAmount;
@@ -38,10 +38,10 @@ public class SavingsGoal {
     // Note: 'current_saved_amount' has been removed.
 
     // Constructor
-    public SavingsGoal(int categoryId, String goalName, String description, double targetAmount, long targetDate) {
+    public SavingsGoal(int categoryId, String goalName, String goalDescription, double targetAmount, long targetDate) {
         this.categoryId = categoryId;
         this.goalName = goalName; // Updated parameter
-        this.description = description;
+        this.goalDescription = goalDescription;
         this.targetAmount = targetAmount;
         this.targetDate = targetDate;
     }
@@ -57,8 +57,8 @@ public class SavingsGoal {
     public String getGoalName() { return goalName; }
     public void setGoalName(String goalName) { this.goalName = goalName; }
 
-    public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
+    public String getGoalDescription() { return goalDescription; }
+    public void setDescription(String description) { this.goalDescription = description; }
 
     public double getTargetAmount() { return targetAmount; }
     public void setTargetAmount(double targetAmount) { this.targetAmount = targetAmount; }
