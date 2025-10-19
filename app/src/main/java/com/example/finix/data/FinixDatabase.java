@@ -10,7 +10,7 @@ import androidx.room.RoomDatabase;
 // version: Must be incremented whenever you change the schema (tables/columns).
 // exportSchema: Set to false for simple projects.
 @Database(entities = {Transaction.class, Budget.class, SavingsGoal.class, SynchronizationLog.class, Category.class},
-        version = 2, // ← increment version
+        version = 1, // ← increment version
         exportSchema = false)
 public abstract class FinixDatabase extends RoomDatabase {
 
@@ -40,7 +40,8 @@ public abstract class FinixDatabase extends RoomDatabase {
                     INSTANCE = Room.databaseBuilder(context.getApplicationContext(),
                                     FinixDatabase.class,
                                     DATABASE_NAME)
-                            // .fallbackToDestructiveMigration() // Use this only for testing
+                            // 💡 FIX: Added to allow Room to clear the database and recreate tables when a migration is missing.
+                            .fallbackToDestructiveMigration()
                             .build();
                 }
             }

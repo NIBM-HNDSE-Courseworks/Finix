@@ -8,7 +8,6 @@
     android:padding="16dp"
     tools:context=".ui.transactions.TransactionsFragment">
 
-    <!-- Add Transaction Button -->
     <ImageButton
         android:id="@+id/buttonAddTransaction"
         android:layout_width="48dp"
@@ -22,7 +21,34 @@
         app:layout_constraintEnd_toEndOf="parent"
         android:elevation="4dp" />
 
-    <!-- Scrollable content -->
+    <ImageView
+        android:id="@+id/imageNoTransactions"
+        android:layout_width="200dp"
+        android:layout_height="200dp"
+        android:src="@drawable/ic_no_transactions"
+        android:contentDescription="No Transactions"
+        android:visibility="gone"
+        app:tint="#BBBBBB"
+        app:layout_constraintTop_toBottomOf="@id/buttonAddTransaction"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintVertical_bias="0.4" />
+
+    <TextView
+    android:id="@+id/textNoTransactions"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:text="No Transactions"
+    android:textColor="#BBBBBB"
+    android:textSize="16sp"
+    android:textStyle="bold"
+    android:visibility="gone"
+    app:layout_constraintTop_toBottomOf="@id/imageNoTransactions"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintEnd_toEndOf="parent"
+    android:layout_marginTop="8dp"/>
+
     <androidx.core.widget.NestedScrollView
         android:id="@+id/scrollViewTransactions"
         android:layout_width="0dp"
@@ -38,32 +64,6 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <!-- No Transactions Placeholder Image -->
-            <ImageView
-                android:id="@+id/imageNoTransactions"
-                android:layout_width="200dp"
-                android:layout_height="200dp"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginTop="32dp"
-                android:src="@drawable/ic_no_transactions"
-                android:contentDescription="No Transactions"
-                android:visibility="gone"
-                app:tint="@color/white"/>
-
-            <!-- No Transactions Text -->
-            <TextView
-                android:id="@+id/textNoTransactions"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="No Transactions"
-                android:textColor="@color/white"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginTop="8dp"
-                android:visibility="gone"/>
-
-            <!-- Income Section with Filter Button -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -106,7 +106,6 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- Income RecyclerView -->
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/recyclerIncome"
                 android:layout_width="match_parent"
@@ -116,7 +115,6 @@
                 android:nestedScrollingEnabled="false"
                 tools:listitem="@layout/item_transaction" />
 
-            <!-- Expenses Section with Filter Button -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -159,7 +157,6 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- Expenses RecyclerView -->
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/recyclerExpenses"
                 android:layout_width="match_parent"

@@ -34,6 +34,14 @@ public class TransactionsFragment extends Fragment {
     private TransactionAdapter incomeAdapter, expenseAdapter;
 
     @Override
+    public void onResume() {
+        super.onResume();
+        // Force a reload just in case the LiveData update was missed
+        // while the fragment was paused/not in the foreground.
+        viewModel.loadAllTransactions();
+    }
+
+    @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
                              ViewGroup container, Bundle savedInstanceState) {
 
@@ -80,6 +88,16 @@ public class TransactionsFragment extends Fragment {
                 showCustomToast(message);
                 // Optional: You might want to clear the event after it's been consumed
                 // (requires a method in the ViewModel or using a SingleEvent LiveData implementation)
+            }
+        });
+
+        // 🔹 Keep category map updated in adapters
+        viewModel.getCategoriesLive().observe(getViewLifecycleOwner(), map -> {
+            if (map != null) {
+                incomeAdapter.setCategoryMap(map);
+                expenseAdapter.setCategoryMap(map);
+                incomeAdapter.notifyDataSetChanged();
+                expenseAdapter.notifyDataSetChanged();
             }
         });
 
@@ -176,9 +194,9 @@ public class TransactionsFragment extends Fragment {
         // --- Title ---
         TextView tvTitle = popupView.findViewById(R.id.popupTitle);
         if (transactionToEdit != null) {
-            tvTitle.setText("Edit Transaction"); // Editing
+            tvTitle.setText("Edit Transaction");
         } else {
-            tvTitle.setText("Add Transaction");  // Adding new
+            tvTitle.setText("Add Transaction");
         }
 
         EditText etAmount = popupView.findViewById(R.id.etAmount);
@@ -194,22 +212,41 @@ public class TransactionsFragment extends Fragment {
         Button btnSaveCategory = popupView.findViewById(R.id.btnSaveCategory);
         Button btnBackCategory = popupView.findViewById(R.id.btnCancelCategory);
 
-        // --- Category adapter ---
+        // --- Category setup (FIX APPLIED HERE) ---
         List<String> categoriesList = new ArrayList<>();
+        Map<String, Integer> categoryNameToIdMap = new HashMap<>();
+
+        // 🟢 FIX: Pre-populate the map using the latest data from the ViewModel
+        Map<Integer, String> currentCategories = viewModel.getCategoryMap();
+
+        if (currentCategories != null) {
+            for (Map.Entry<Integer, String> entry : currentCategories.entrySet()) {
+                categoriesList.add(entry.getValue());
+                categoryNameToIdMap.put(entry.getValue(), entry.getKey());
+            }
+        }
+
+        if (!categoriesList.contains("Add New Category")) {
+            categoriesList.add("Add New Category");
+        }
+        // 🟢 END OF FIX
+
         ArrayAdapter<String> adapter = new ArrayAdapter<>(getContext(),
                 android.R.layout.simple_dropdown_item_1line, categoriesList);
         actCategory.setAdapter(adapter);
         actCategory.setThreshold(0);
 
-        viewModel.getCategoriesLive().observe(getViewLifecycleOwner(), list -> {
-            categoriesList.clear();
-            categoriesList.addAll(list);
-            if (!categoriesList.contains("Add New Category")) categoriesList.add("Add New Category");
-            adapter.notifyDataSetChanged();
+        // ✅ Load categories when user focuses on the field (retains functionality for new categories)
+        actCategory.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus) {
+                refreshCategories(adapter, categoriesList, categoryNameToIdMap, actCategory);
+            }
         });
 
         actCategory.setOnClickListener(v -> {
-            if (!actCategory.isPopupShowing()) actCategory.showDropDown();
+            if (!actCategory.isPopupShowing()) {
+                refreshCategories(adapter, categoriesList, categoryNameToIdMap, actCategory);
+            }
         });
 
         actCategory.setOnItemClickListener((parent, view, position, id) -> {
@@ -220,13 +257,21 @@ public class TransactionsFragment extends Fragment {
             }
         });
 
+        // ✅ Add new category
         btnSaveCategory.setOnClickListener(v -> {
             String newCat = etNewCategory.getText().toString().trim();
             if (!newCat.isEmpty()) {
                 viewModel.addCategory(newCat);
-                actCategory.setText(newCat);
-                llAddCategory.setVisibility(View.GONE);
-                actCategory.setVisibility(View.VISIBLE);
+                showCustomToast("New category added!");
+
+                actCategory.postDelayed(() -> {
+                    actCategory.setText(newCat);
+                    actCategory.setVisibility(View.VISIBLE);
+                    llAddCategory.setVisibility(View.GONE);
+                    actCategory.clearFocus(); // ensures fresh reload next focus
+                }, 200);
+
+                etNewCategory.setText("");
             } else {
                 showCustomToast("Category cannot be empty!");
             }
@@ -237,7 +282,7 @@ public class TransactionsFragment extends Fragment {
             actCategory.setVisibility(View.VISIBLE);
         });
 
-        // --- Date picker ---
+        // --- Date picker setup ---
         btnPickDateTime.setOnClickListener(v -> {
             final Calendar calendar = Calendar.getInstance();
 
@@ -248,13 +293,10 @@ public class TransactionsFragment extends Fragment {
                 } catch (Exception ignored) {}
             }
 
-            // Create DatePickerDialog
             DatePickerDialog dp = new DatePickerDialog(
                     getContext(),
                     (view, y, m, d) -> {
                         calendar.set(y, m, d);
-
-                        // Create TimePickerDialog
                         TimePickerDialog tp = new TimePickerDialog(
                                 getContext(),
                                 (timeView, h, min) -> {
@@ -267,63 +309,25 @@ public class TransactionsFragment extends Fragment {
                                 calendar.get(Calendar.MINUTE),
                                 true
                         );
-
-                        // Show TimePicker
                         tp.show();
-
-                        // Customize TimePicker buttons
-                        tp.getButton(DialogInterface.BUTTON_POSITIVE).setTextColor(Color.parseColor("#00BFA5")); // OK
-                        tp.getButton(DialogInterface.BUTTON_NEGATIVE).setTextColor(Color.parseColor("#FF5252")); // Cancel
-
-                        // Add ripple to TimePicker buttons
-                        int rippleColor = Color.parseColor("#3300BFA5");
-                        RippleDrawable rippleOk = new RippleDrawable(
-                                ColorStateList.valueOf(rippleColor),
-                                null,
-                                null
-                        );
-                        RippleDrawable rippleCancel = new RippleDrawable(
-                                ColorStateList.valueOf(Color.parseColor("#33FF5252")),
-                                null,
-                                null
-                        );
-                        tp.getButton(DialogInterface.BUTTON_POSITIVE).setBackground(rippleOk);
-                        tp.getButton(DialogInterface.BUTTON_NEGATIVE).setBackground(rippleCancel);
+                        tp.getButton(DialogInterface.BUTTON_POSITIVE).setTextColor(Color.parseColor("#00BFA5"));
+                        tp.getButton(DialogInterface.BUTTON_NEGATIVE).setTextColor(Color.parseColor("#FF5252"));
                     },
                     calendar.get(Calendar.YEAR),
                     calendar.get(Calendar.MONTH),
                     calendar.get(Calendar.DAY_OF_MONTH)
             );
-
-            // Show DatePicker
             dp.show();
-
-            // Customize DatePicker buttons
-            dp.getButton(DialogInterface.BUTTON_POSITIVE).setTextColor(Color.parseColor("#00BFA5")); // OK
-            dp.getButton(DialogInterface.BUTTON_NEGATIVE).setTextColor(Color.parseColor("#FF5252")); // Cancel
-
-            // Add ripple to DatePicker buttons
-            int rippleColor = Color.parseColor("#3300BFA5");
-            RippleDrawable rippleOk = new RippleDrawable(
-                    ColorStateList.valueOf(rippleColor),
-                    null,
-                    null
-            );
-            RippleDrawable rippleCancel = new RippleDrawable(
-                    ColorStateList.valueOf(Color.parseColor("#33FF5252")),
-                    null,
-                    null
-            );
-            dp.getButton(DialogInterface.BUTTON_POSITIVE).setBackground(rippleOk);
-            dp.getButton(DialogInterface.BUTTON_NEGATIVE).setBackground(rippleCancel);
+            dp.getButton(DialogInterface.BUTTON_POSITIVE).setTextColor(Color.parseColor("#00BFA5"));
+            dp.getButton(DialogInterface.BUTTON_NEGATIVE).setTextColor(Color.parseColor("#FF5252"));
         });
 
-
-        // --- Preload data if editing ---
+        // --- Preload existing transaction data if editing ---
         if (transactionToEdit != null) {
+            String categoryName = viewModel.getCategoryMap().get(transactionToEdit.getCategoryId());
             etAmount.setText(String.valueOf(transactionToEdit.getAmount()));
             etDescription.setText(transactionToEdit.getDescription());
-            actCategory.setText(transactionToEdit.getCategory());
+            actCategory.setText(categoryName);
             tvDateTime.setText(new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
                     .format(new Date(transactionToEdit.getDateTime())));
             if ("Income".equals(transactionToEdit.getType())) rgType.check(R.id.rbIncome);
@@ -336,18 +340,26 @@ public class TransactionsFragment extends Fragment {
         if (dialog.getWindow() != null)
             dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
 
-        // --- Save ---
+        // --- Save Transaction ---
         btnSave.setOnClickListener(v -> {
             String amountText = etAmount.getText().toString().trim();
             String desc = etDescription.getText().toString().trim();
-            String cat = actCategory.getText().toString().trim();
+            String catName = actCategory.getText().toString().trim();
             String dateText = tvDateTime.getText().toString().trim();
             String type = rgType.getCheckedRadioButtonId() == R.id.rbIncome ? "Income" : "Expense";
 
-            if (amountText.isEmpty() || cat.isEmpty() || dateText.isEmpty()) {
+            if (amountText.isEmpty() || catName.isEmpty() || dateText.isEmpty()) {
                 showCustomToast("Fill all fields!");
                 return;
             }
+
+            // The map is now populated, so this check works correctly even if the user didn't touch the category field
+            if (!categoryNameToIdMap.containsKey(catName)) {
+                showCustomToast("Invalid category selected!");
+                return;
+            }
+
+            int categoryId = categoryNameToIdMap.get(catName);
 
             try {
                 double amount = Double.parseDouble(amountText);
@@ -355,31 +367,29 @@ public class TransactionsFragment extends Fragment {
                         .parse(dateText).getTime();
 
                 if (transactionToEdit != null) {
-                    // 🔹 Check if any value actually changed
                     boolean noChange =
                             Double.compare(transactionToEdit.getAmount(), amount) == 0 &&
                                     Objects.equals(transactionToEdit.getDescription(), desc) &&
-                                    Objects.equals(transactionToEdit.getCategory(), cat) &&
+                                    transactionToEdit.getCategoryId() == categoryId &&
                                     transactionToEdit.getDateTime() == dateMillis &&
                                     Objects.equals(transactionToEdit.getType(), type);
 
                     if (noChange) {
                         showCustomToast("No changes detected!");
+                        dialog.dismiss(); // Dismiss the dialog here
                         return;
                     }
 
-                    // 🔹 Update transaction
                     transactionToEdit.setAmount(amount);
                     transactionToEdit.setDescription(desc);
-                    transactionToEdit.setCategory(cat);
+                    transactionToEdit.setCategoryId(categoryId);
                     transactionToEdit.setDateTime(dateMillis);
                     transactionToEdit.setType(type);
 
                     viewModel.updateTransaction(transactionToEdit);
                     showCustomToast("Transaction updated successfully!");
                 } else {
-                    // 🔹 Add new transaction
-                    viewModel.saveTransaction(amount, type, cat, dateMillis, desc);
+                    viewModel.saveTransaction(amount, type, categoryId, dateMillis, desc, dialog::dismiss);
                     showCustomToast("New transaction added!");
                 }
 
@@ -391,6 +401,36 @@ public class TransactionsFragment extends Fragment {
 
         dialog.show();
         dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+    }
+
+    // 🔹 Helper: Refresh category list when focused
+    public void refreshCategories(ArrayAdapter<String> adapter,
+                                   List<String> categoriesList,
+                                   Map<String, Integer> categoryNameToIdMap,
+                                   AutoCompleteTextView actCategory) {
+
+        // 🔹 Ask ViewModel to reload categories in background
+        viewModel.fetchLatestCategoryMap();
+
+        // 🔹 Observe updated LiveData
+        viewModel.getCategoriesLive().observe(getViewLifecycleOwner(), map -> {
+            if (map == null) return;
+
+            categoriesList.clear();
+            categoryNameToIdMap.clear();
+
+            for (Map.Entry<Integer, String> entry : map.entrySet()) {
+                categoriesList.add(entry.getValue());
+                categoryNameToIdMap.put(entry.getValue(), entry.getKey());
+            }
+
+            if (!categoriesList.contains("Add New Category")) {
+                categoriesList.add("Add New Category");
+            }
+
+            adapter.notifyDataSetChanged();
+            actCategory.post(actCategory::showDropDown);
+        });
     }
 
     private void showFilterMenu(String type) {
@@ -433,30 +473,46 @@ public class TransactionsFragment extends Fragment {
     }
 
     private void showCategoryFilterDialog(String type) {
-        List<String> categories = viewModel.getCategoriesLive().getValue();
-        if (categories == null || categories.isEmpty()) {
+        Map<Integer, String> categoryMap = viewModel.getCategoryMap(); // 🔹 Map: ID → Name
+        if (categoryMap == null || categoryMap.isEmpty()) {
             showCustomToast("No categories available to filter!");
             return;
         }
 
         List<String> options = new ArrayList<>();
         options.add("Show All");
-        options.addAll(categories);
+        // Use a separate list for IDs, aligning with options index
+        List<Integer> categoryIdsInOrder = new ArrayList<>();
+
+        for (Map.Entry<Integer, String> entry : categoryMap.entrySet()) {
+            options.add(entry.getValue());
+            categoryIdsInOrder.add(entry.getKey()); // Add ID in the same order as name is added to options
+        }
 
         TextView filterTextView = type.equals("Income") ? binding.textFilterIncome : binding.textFilterExpenses;
+
+        // 🚨 NEW: Create the runnable for "no results" toast
+        Runnable onNoResultsAction = () -> {
+            showCustomToast("No transactions found for this category.");
+        };
 
         new AlertDialog.Builder(getContext())
                 .setTitle("Choose Category")
                 .setItems(options.toArray(new String[0]), (d, which) -> {
                     if (which == 0) {
+                        // 🟢 Show all
                         viewModel.filterByCategory(type, null,
                                 () -> filterTextView.setText("Filter"),
-                                null);
+                                null); // No 'onNoResults' needed for 'Show All'
                     } else {
-                        String selectedCategory = categories.get(which - 1);
-                        viewModel.filterByCategory(type, selectedCategory,
-                                () -> filterTextView.setText(selectedCategory),
-                                null);
+                        // 🔹 Filter by selected category ID
+                        // The ID is at index 'which - 1' in the categoryIdsInOrder list
+                        int selectedCategoryId = categoryIdsInOrder.get(which - 1);
+                        String selectedName = options.get(which); // Get name from options list
+
+                        viewModel.filterByCategory(type, selectedCategoryId,
+                                () -> filterTextView.setText(selectedName),
+                                onNoResultsAction); // 🚨 PASS THE NEW ACTION HERE
                     }
                 }).show();
     }

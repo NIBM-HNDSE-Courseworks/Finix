@@ -30,7 +30,7 @@ public interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE type = :type ORDER BY date_time DESC")
     List<Transaction> getTransactionsByType(String type);
 
-    // 🔍 Get transactions by category and type
-    @Query("SELECT * FROM transactions WHERE type = :type AND category = :category ORDER BY date_time DESC")
-    List<Transaction> getTransactionsByTypeAndCategory(String type, String category);
+    // 🔍 Get transactions by category_id and type
+    @Query("SELECT * FROM transactions WHERE type = :type AND category_id = :categoryId ORDER BY date_time DESC")
+    List<Transaction> getTransactionsByTypeAndCategory(String type, int categoryId);
 }

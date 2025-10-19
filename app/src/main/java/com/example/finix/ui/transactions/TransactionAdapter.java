@@ -12,6 +12,8 @@ import java.util.*;
 public class TransactionAdapter extends RecyclerView.Adapter<TransactionAdapter.ViewHolder> {
 
     private final List<Transaction> list = new ArrayList<>();
+    // 💡 NEW: Map to store Category ID -> Category Name
+    private Map<Integer, String> categoryMap = new HashMap<>();
     private OnTransactionActionListener listener;
 
     public interface OnTransactionActionListener {
@@ -21,6 +23,12 @@ public class TransactionAdapter extends RecyclerView.Adapter<TransactionAdapter.
 
     public void setListener(OnTransactionActionListener listener) {
         this.listener = listener;
+    }
+
+    // 💡 NEW: Method to update the category map
+    public void setCategoryMap(Map<Integer, String> map) {
+        this.categoryMap = map;
+        // Don't call notifyDataSetChanged here, wait for setTransactions if data changes
     }
 
     public void setTransactions(List<Transaction> transactions) {
@@ -39,7 +47,11 @@ public class TransactionAdapter extends RecyclerView.Adapter<TransactionAdapter.
     @Override
     public void onBindViewHolder(@NonNull ViewHolder h, int pos) {
         Transaction t = list.get(pos);
-        h.tvCategory.setText(t.getCategory());
+
+        // 💡 UPDATED LINE: Resolve category ID to name using the map
+        String categoryName = categoryMap.getOrDefault(t.getCategoryId(), "Unknown Category");
+        h.tvCategory.setText(categoryName);
+
         h.tvDescription.setText(t.getDescription());
         h.tvAmount.setText(String.format(Locale.getDefault(), "%.2f", t.getAmount()));
 

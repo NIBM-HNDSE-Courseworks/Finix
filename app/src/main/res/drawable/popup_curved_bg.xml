@@ -6,7 +6,7 @@
 
     <!-- Dark glassy popup with soft gradient and smooth white border -->
     <path
-        android:fillColor="#CC333333"
+        android:fillColor="#333333"
         android:strokeColor="#80FFFFFF"
         android:strokeWidth="3"
         android:pathData="
