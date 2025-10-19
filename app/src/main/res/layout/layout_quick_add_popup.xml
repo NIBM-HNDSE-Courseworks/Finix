@@ -10,21 +10,28 @@
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnAddTransaction"
-        android:text="Add transaction"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:text="Add Transaction"
+        android:layout_width="200dp"
+        android:layout_height="58dp"
+        app:icon="@drawable/ic_expenses_24dp"
+        app:iconGravity="textStart"
+        app:iconPadding="6dp"
+        app:iconSize="20dp"
         app:cornerRadius="8dp"
         app:backgroundTint="@color/teal_700"
-        app:iconPadding="8dp"
         android:textColor="@android:color/white"
         app:rippleColor="@color/teal_200" />
 
+
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnAddBudget"
-        android:text="Add budget"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:text="Add Budget"
+        android:layout_width="200dp"
+        android:layout_height="48dp"
         android:layout_marginTop="8dp"
+        app:icon="@drawable/ic_bar_chart_24dp"
+        app:iconGravity="textStart"
+        app:iconPadding="8dp"
         app:cornerRadius="8dp"
         app:backgroundTint="@color/teal_700"
         android:textColor="@android:color/white"
@@ -32,10 +39,13 @@
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnAddGoal"
-        android:text="Add goal"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:text="Add Goal"
+        android:layout_width="190dp"
+        android:layout_height="48dp"
         android:layout_marginTop="8dp"
+        app:icon="@drawable/ic_savings_goals_24dp"
+        app:iconGravity="textStart"
+        app:iconPadding="8dp"
         app:cornerRadius="8dp"
         app:backgroundTint="@color/teal_700"
         android:textColor="@android:color/white"
