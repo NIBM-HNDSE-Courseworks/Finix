@@ -2,11 +2,14 @@ package com.example.finix.data;
 
 import androidx.room.ColumnInfo;
 import androidx.room.Entity;
+import androidx.room.ForeignKey;
 import androidx.room.PrimaryKey;
 
 // Defines the table name
-@Entity(tableName = "transactions")
-public class Transaction {
+@Entity(tableName = "transactions",
+        foreignKeys = @ForeignKey(entity = Category.class,
+                parentColumns = "id", childColumns = "category_id",
+                onDelete = ForeignKey.RESTRICT))public class Transaction {
 
     // Primary Key, auto-generates the ID
     @PrimaryKey(autoGenerate = true)
