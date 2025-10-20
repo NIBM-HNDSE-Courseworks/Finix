@@ -19,6 +19,6 @@ public interface BudgetDao {
     List<Budget> getAllBudgets();
 
     // Optional: get budgets by category
-    @Query("SELECT * FROM budgets WHERE category = :category ORDER BY start_date DESC")
+    @Query("SELECT * FROM budgets WHERE category_id = :category ORDER BY start_date DESC")
     List<Budget> getBudgetsByCategory(String category);
 }

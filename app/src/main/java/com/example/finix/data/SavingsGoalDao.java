@@ -19,6 +19,6 @@ public interface SavingsGoalDao {
     List<SavingsGoal> getAllGoals();
 
     // Optional: get goals by name
-    @Query("SELECT * FROM savings_goals WHERE name = :name ORDER BY target_date ASC")
+    @Query("SELECT * FROM savings_goals WHERE goal_name = :name ORDER BY target_date ASC")
     List<SavingsGoal> getGoalsByName(String name);
 }
