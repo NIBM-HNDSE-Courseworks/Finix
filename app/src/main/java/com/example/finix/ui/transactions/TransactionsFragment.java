@@ -11,10 +11,12 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.RippleDrawable;
 import android.os.Bundle;
 import android.os.CountDownTimer;
+import android.text.InputFilter;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.WindowManager;
+import android.view.Window; // Import for Dialog Window
+import android.view.WindowManager; // Import for WindowManager
 import android.widget.*;
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
@@ -117,32 +119,8 @@ public class TransactionsFragment extends Fragment {
 
             @Override
             public void onDelete(Transaction t) {
-                AlertDialog dialog = new AlertDialog.Builder(getContext())
-                        .setTitle("Delete Transaction")
-                        .setMessage("Are you sure you want to delete this transaction?")
-                        .setPositiveButton("Yes", (d, w) -> viewModel.deleteTransaction(t))
-                        .setNegativeButton("No", null)
-                        .create();
-
-                dialog.setOnShowListener(d -> {
-                    // 🔹 Positive button (Yes)
-                    Button btnYes = dialog.getButton(DialogInterface.BUTTON_POSITIVE);
-                    btnYes.setTextColor(Color.parseColor("#00BFA5")); // green-ish
-                    btnYes.setBackground(new RippleDrawable(
-                            ColorStateList.valueOf(Color.parseColor("#3300BFA5")),
-                            null, null
-                    ));
-
-                    // 🔹 Negative button (No)
-                    Button btnNo = dialog.getButton(DialogInterface.BUTTON_NEGATIVE);
-                    btnNo.setTextColor(Color.parseColor("#FF5252")); // red-ish
-                    btnNo.setBackground(new RippleDrawable(
-                            ColorStateList.valueOf(Color.parseColor("#33FF5252")),
-                            null, null
-                    ));
-                });
-
-                dialog.show();
+                // 🔴 UPDATED: Use the custom confirmation dialog
+                showDeleteConfirmation(t);
             }
         });
 
@@ -154,37 +132,57 @@ public class TransactionsFragment extends Fragment {
 
             @Override
             public void onDelete(Transaction t) {
-                AlertDialog dialog = new AlertDialog.Builder(getContext())
-                        .setTitle("Delete Transaction")
-                        .setMessage("Are you sure you want to delete this transaction?")
-                        .setPositiveButton("Yes", (d, w) -> viewModel.deleteTransaction(t))
-                        .setNegativeButton("No", null)
-                        .create();
-
-                dialog.setOnShowListener(d -> {
-                    // 🔹 Positive button (Yes)
-                    Button btnYes = dialog.getButton(DialogInterface.BUTTON_POSITIVE);
-                    btnYes.setTextColor(Color.parseColor("#00BFA5")); // green-ish
-                    btnYes.setBackground(new RippleDrawable(
-                            ColorStateList.valueOf(Color.parseColor("#3300BFA5")),
-                            null, null
-                    ));
-
-                    // 🔹 Negative button (No)
-                    Button btnNo = dialog.getButton(DialogInterface.BUTTON_NEGATIVE);
-                    btnNo.setTextColor(Color.parseColor("#FF5252")); // red-ish
-                    btnNo.setBackground(new RippleDrawable(
-                            ColorStateList.valueOf(Color.parseColor("#33FF5252")),
-                            null, null
-                    ));
-                });
-
-                dialog.show();
+                // 🔴 UPDATED: Use the custom confirmation dialog
+                showDeleteConfirmation(t);
             }
         });
 
         return root;
     }
+
+    // --- NEW METHOD FOR CUSTOM DELETE CONFIRMATION ---
+    private void showDeleteConfirmation(Transaction t) {
+        // Use requireActivity() or requireContext() as Fragment's context for layout inflation
+        View popupView = requireActivity().getLayoutInflater().inflate(R.layout.delete_confirmation_popup, null); // Inflate popup layout
+
+        // 🔴 FIX: Use the correct ID from your XML: R.id.deleteMessage
+        TextView tvMessage = popupView.findViewById(R.id.deleteMessage);
+
+        // Customize the message to be transaction-specific
+        if (tvMessage != null) {
+            // Fetch the category name, defaulting to a generic description if not found
+            String categoryName = viewModel.getCategoryMap().getOrDefault(t.getCategoryId(), "a transaction");
+
+            // Format the message with specific transaction details
+            String message = "Are you sure you want to delete the " + t.getType().toLowerCase() + " of Rs. " + String.format("%.2f", t.getAmount()) + " for '" + categoryName + "'?";
+            tvMessage.setText(message);
+        }
+
+        AlertDialog dialog = new AlertDialog.Builder(requireContext()).setView(popupView).create(); // Create dialog with custom view
+        dialog.show(); // Show the dialog on screen
+
+        Window window = dialog.getWindow(); // Get dialog window to customize size
+        if(window != null){
+            // Set width to 80% screen, height wraps content. Use requireActivity().getResources()
+            window.setLayout((int)(requireActivity().getResources().getDisplayMetrics().widthPixels * 0.8),
+                    WindowManager.LayoutParams.WRAP_CONTENT);
+            // Make background transparent (Assuming this is desired for rounded corners/custom shape)
+            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        }
+
+        Button cancelBtn = popupView.findViewById(R.id.cancelDeleteBtn); // Get cancel button from popup
+        Button confirmBtn = popupView.findViewById(R.id.confirmDeleteBtn); // Get confirm button from popup
+
+        // Close dialog if cancel clicked
+        cancelBtn.setOnClickListener(v -> dialog.dismiss());
+
+        // Handle confirm button click
+        confirmBtn.setOnClickListener(v -> {
+            dialog.dismiss();
+            viewModel.deleteTransaction(t); // Call the ViewModel to perform the actual deletion
+        });
+    }
+
 
     // 🔹 Popup for Add/Edit Transaction
     private void showAddTransactionDialog(Transaction transactionToEdit) {
@@ -211,6 +209,17 @@ public class TransactionsFragment extends Fragment {
         EditText etNewCategory = popupView.findViewById(R.id.etNewCategory);
         Button btnSaveCategory = popupView.findViewById(R.id.btnSaveCategory);
         Button btnBackCategory = popupView.findViewById(R.id.btnCancelCategory);
+
+        // 🟢 ADD CHARACTER LIMITS HERE
+
+        // 1. Amount limit (7 characters)
+        // Note: This only limits the number of characters, the input type should be numeric in XML.
+        etAmount.setFilters(new InputFilter[] { new InputFilter.LengthFilter(7) });
+
+        // 2. New Category limit (12 characters)
+        etNewCategory.setFilters(new InputFilter[] { new InputFilter.LengthFilter(14) });
+
+        // ------------------------------------------
 
         // --- Category setup (FIX APPLIED HERE) ---
         List<String> categoriesList = new ArrayList<>();
@@ -346,10 +355,21 @@ public class TransactionsFragment extends Fragment {
             String desc = etDescription.getText().toString().trim();
             String catName = actCategory.getText().toString().trim();
             String dateText = tvDateTime.getText().toString().trim();
-            String type = rgType.getCheckedRadioButtonId() == R.id.rbIncome ? "Income" : "Expense";
+            // Get the ID of the checked radio button. Returns -1 if none is checked.
+            int checkedTypeId = rgType.getCheckedRadioButtonId();
+            String type = checkedTypeId == R.id.rbIncome ? "Income" : "Expense"; // 'Expense' if not income, but we must check for -1
 
-            if (amountText.isEmpty() || catName.isEmpty() || dateText.isEmpty()) {
+            // 🔴 UPDATED EMPTY CHECK: Check Amount, Category, Date, AND Description.
+            // NOTE: Description is optional in finance apps, but included here as requested.
+            // If description is meant to be optional, remove `|| desc.isEmpty()`.
+            if (amountText.isEmpty() || catName.isEmpty() || dateText.isEmpty() || desc.isEmpty()) {
                 showCustomToast("Fill all fields!");
+                return;
+            }
+
+            // 🔴 ADDED CHECK: Ensure a transaction type (Income/Expense) is selected.
+            if (checkedTypeId == -1) {
+                showCustomToast("Please select transaction type (Income or Expense)!");
                 return;
             }
 
@@ -405,9 +425,9 @@ public class TransactionsFragment extends Fragment {
 
     // 🔹 Helper: Refresh category list when focused
     public void refreshCategories(ArrayAdapter<String> adapter,
-                                   List<String> categoriesList,
-                                   Map<String, Integer> categoryNameToIdMap,
-                                   AutoCompleteTextView actCategory) {
+                                  List<String> categoriesList,
+                                  Map<String, Integer> categoryNameToIdMap,
+                                  AutoCompleteTextView actCategory) {
 
         // 🔹 Ask ViewModel to reload categories in background
         viewModel.fetchLatestCategoryMap();

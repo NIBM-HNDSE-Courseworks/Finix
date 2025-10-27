@@ -48,12 +48,32 @@ public class TransactionAdapter extends RecyclerView.Adapter<TransactionAdapter.
     public void onBindViewHolder(@NonNull ViewHolder h, int pos) {
         Transaction t = list.get(pos);
 
-        // 💡 UPDATED LINE: Resolve category ID to name using the map
+        // 1. Get Category Name
         String categoryName = categoryMap.getOrDefault(t.getCategoryId(), "Unknown Category");
-        h.tvCategory.setText(categoryName);
+
+        // 2. Format Amount String (e.g., "Rs. 9,999,999")
+        String amountString = String.format(Locale.getDefault(), "Rs. %,.0f", t.getAmount());
+
+        // 3. Define the conditions
+        boolean isCategoryTooLong = categoryName.length() > 11;
+        // Condition check for the *formatted* amount string length.
+        // For "Rs. 9,999,999", the length is 13.
+        // For "Rs. 999,999", the length is 11.
+        // We want to limit the category when the amount is a *very large* one, which typically results in 12 or 13 characters.
+        boolean isAmountVeryLarge = amountString.length() == 12 || amountString.length() == 13;
+
+        // 4. Apply character limit logic
+        if (isCategoryTooLong && isAmountVeryLarge) {
+            // Limit category name to 7 characters and append "..."
+            String limitedCategoryName = categoryName.substring(0, 7) + "...";
+            h.tvCategory.setText(limitedCategoryName);
+        } else {
+            // Use the full category name
+            h.tvCategory.setText(categoryName);
+        }
 
         h.tvDescription.setText(t.getDescription());
-        h.tvAmount.setText(String.format(Locale.getDefault(), "%.2f", t.getAmount()));
+        h.tvAmount.setText(amountString); // Use the pre-calculated amount string
 
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
         h.tvDescription.append("\n" + sdf.format(new Date(t.getDateTime())));

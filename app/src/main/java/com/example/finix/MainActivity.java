@@ -8,6 +8,7 @@ import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.drawable.RippleDrawable;
 import android.os.Bundle;
+import android.text.InputFilter;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -134,6 +135,15 @@ public class MainActivity extends AppCompatActivity {
         Button btnSaveCategory = popupView.findViewById(R.id.btnSaveCategory);
         Button btnBackCategory = popupView.findViewById(R.id.btnCancelCategory);
 
+        // 🟢 ADD CHARACTER LIMITS HERE
+
+        // 1. Amount limit (7 characters)
+        // Note: This only limits the number of characters, the input type should be numeric in XML.
+        etAmount.setFilters(new InputFilter[] { new InputFilter.LengthFilter(7) });
+
+        // 2. New Category limit (12 characters)
+        etNewCategory.setFilters(new InputFilter[] { new InputFilter.LengthFilter(14) });
+
         // --- Setup category AutoComplete ---
         List<String> categoriesList = new ArrayList<>();
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, categoriesList);
@@ -199,16 +209,27 @@ public class MainActivity extends AppCompatActivity {
 
         btnSave.setOnClickListener(v -> {
             String amountText = etAmount.getText().toString().trim();
-            String desc = etDescription.getText().toString().trim();
+            String desc = etDescription.getText().toString().trim(); // Description
             String catName = actCategory.getText().toString().trim(); // Category NAME
             String dateText = tvDateTime.getText().toString().trim();
-            String type = rgType.getCheckedRadioButtonId() == R.id.rbIncome ? "Income" : "Expense";
 
-            if (amountText.isEmpty() || catName.isEmpty() || dateText.isEmpty()) {
+            // Get the ID of the checked radio button. Returns -1 if none is checked.
+            int checkedTypeId = rgType.getCheckedRadioButtonId();
+            String type = checkedTypeId == R.id.rbIncome ? "Income" : "Expense"; // Type only determined if one is selected
+
+            // 1. CHECK REQUIRED FIELDS (Amount, Category Name, Date Text, Description)
+            if (amountText.isEmpty() || catName.isEmpty() || dateText.isEmpty() || desc.isEmpty()) {
                 showCustomToast("Fill all fields!");
                 return;
             }
 
+            // 2. CHECK TRANSACTION TYPE SELECTION
+            if (checkedTypeId == -1) {
+                showCustomToast("Please select transaction type (Income or Expense)!");
+                return;
+            }
+
+            // 3. CHECK VALID CATEGORY SELECTION
             if (!categoryNameToIdMap.containsKey(catName)) {
                 showCustomToast("Invalid category selected!");
                 return;
@@ -220,10 +241,13 @@ public class MainActivity extends AppCompatActivity {
                 long dateMillis = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
                         .parse(dateText).getTime();
 
-                // ✅ Save new transaction
-                // Original: viewModel.saveTransaction(amount, type, categoryId, dateMillis, desc);
-                viewModel.saveTransaction(amount, type, categoryId, dateMillis, desc, dialog::dismiss); // Change 3
+                // Save new transaction
+                viewModel.saveTransaction(amount, type, categoryId, dateMillis, desc, dialog::dismiss);
                 showCustomToast("New transaction added!");
+
+                // No need to call dialog.dismiss() again here, as it's passed as a callback
+                // to viewModel.saveTransaction and should be executed upon completion/success.
+
             } catch (Exception e) {
                 showCustomToast("Invalid amount or date!");
             }
