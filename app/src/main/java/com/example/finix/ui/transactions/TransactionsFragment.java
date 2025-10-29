@@ -228,15 +228,17 @@ public class TransactionsFragment extends Fragment {
         // 🟢 FIX: Pre-populate the map using the latest data from the ViewModel
         Map<Integer, String> currentCategories = viewModel.getCategoryMap();
 
+        // ⭐ MODIFICATION: Add "Add New Category" FIRST (to the top)
+        if (!categoriesList.contains("Add New Category")) {
+            categoriesList.add("Add New Category");
+        }
+
+        // ⭐ MODIFICATION: Add all existing categories SECOND (below the new option)
         if (currentCategories != null) {
             for (Map.Entry<Integer, String> entry : currentCategories.entrySet()) {
                 categoriesList.add(entry.getValue());
                 categoryNameToIdMap.put(entry.getValue(), entry.getKey());
             }
-        }
-
-        if (!categoriesList.contains("Add New Category")) {
-            categoriesList.add("Add New Category");
         }
         // 🟢 END OF FIX
 
@@ -439,13 +441,15 @@ public class TransactionsFragment extends Fragment {
             categoriesList.clear();
             categoryNameToIdMap.clear();
 
+            // ⭐ MODIFICATION: Add "Add New Category" FIRST
+            if (!categoriesList.contains("Add New Category")) {
+                categoriesList.add("Add New Category");
+            }
+
+            // ⭐ MODIFICATION: Add all existing categories SECOND
             for (Map.Entry<Integer, String> entry : map.entrySet()) {
                 categoriesList.add(entry.getValue());
                 categoryNameToIdMap.put(entry.getValue(), entry.getKey());
-            }
-
-            if (!categoriesList.contains("Add New Category")) {
-                categoriesList.add("Add New Category");
             }
 
             adapter.notifyDataSetChanged();

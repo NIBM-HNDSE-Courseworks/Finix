@@ -156,6 +156,13 @@ public class MainActivity extends AppCompatActivity {
         viewModel.getCategoriesLive().observe(this, idToNameMap -> {
             categoriesList.clear();
             categoryNameToIdMap.clear();
+
+            // 1. ⭐ MODIFICATION: Add "Add New Category" FIRST (to the top)
+            if (!categoriesList.contains("Add New Category")) {
+                categoriesList.add("Add New Category");
+            }
+
+            // 2. ⭐ MODIFICATION: Add all existing categories SECOND (below the new option)
             if (idToNameMap != null) {
                 for (Map.Entry<Integer, String> entry : idToNameMap.entrySet()) {
                     String name = entry.getValue();
@@ -164,7 +171,7 @@ public class MainActivity extends AppCompatActivity {
                     categoryNameToIdMap.put(name, id);
                 }
             }
-            if (!categoriesList.contains("Add New Category")) categoriesList.add("Add New Category");
+
             adapter.notifyDataSetChanged();
         });
 
@@ -256,7 +263,6 @@ public class MainActivity extends AppCompatActivity {
         dialog.show();
         dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
     }
-
 
     private void openDateTimePicker(TextView tvDateTime) {
         final Calendar calendar = Calendar.getInstance();
