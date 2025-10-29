@@ -37,15 +37,18 @@ public class DashboardViewModel extends AndroidViewModel {
     private final MutableLiveData<List<String>> distinctMonthsLive = new MutableLiveData<>(new ArrayList<>());
     private final MutableLiveData<String> selectedMonthYearLive = new MutableLiveData<>();
 
-    // 💡 NEW: Status to indicate if any transactions exist at all. Used by UI for initial "No data" message.
+    // Dedicated LiveData to force a refresh, even if the selected month string hasn't changed.
+    private final MutableLiveData<Void> forceRefreshTrigger = new MutableLiveData<>();
+
+    // Status to indicate if any transactions exist at all.
     private final MutableLiveData<Boolean> hasTransactionsMutableLive = new MutableLiveData<>(false);
     public final LiveData<Boolean> hasTransactionsLive = hasTransactionsMutableLive;
 
     // Helper to get selected month's range (start and end timestamps)
-    private final LiveData<long[]> dateRangeLive = Transformations.map(selectedMonthYearLive, this::getMonthDateRange);
+    private final MediatorLiveData<long[]> dateRangeMediatorLive = new MediatorLiveData<>();
+    private final LiveData<long[]> dateRangeLive = dateRangeMediatorLive; // Public reference point
 
     // 2. Data Structures for UI (Updated to use MutableLiveData for totals)
-    // We now calculate the total explicitly whenever dateRangeLive changes
     private final MutableLiveData<Double> incomeTotalMutableLive = new MutableLiveData<>();
     public final LiveData<Double> incomeTotalLive = incomeTotalMutableLive;
 
@@ -69,21 +72,55 @@ public class DashboardViewModel extends AndroidViewModel {
         loadDistinctMonths();
         loadCategories();
 
-        // --- Transformations for Transactions (Uses LiveData DAO method) ---
+        // --- Date Range Mediator Setup (For month changes and pull-to-refresh) ---
+        // 1. Listen to month selection change (normal operation)
+        dateRangeMediatorLive.addSource(selectedMonthYearLive, month -> {
+            dateRangeMediatorLive.setValue(getMonthDateRange(month));
+        });
+
+        // 2. Listen to the explicit refresh trigger
+        dateRangeMediatorLive.addSource(forceRefreshTrigger, aVoid -> {
+            String currentMonth = selectedMonthYearLive.getValue();
+            if (currentMonth != null) {
+                dateRangeMediatorLive.setValue(getMonthDateRange(currentMonth));
+            }
+        });
+        // -----------------------------------------------------
+
+        // --- Transformations for Transactions (Now using the fixed dateRangeLive) ---
         monthlyIncomeTransactionsLive = Transformations.switchMap(dateRangeLive, range ->
                 transactionDao.getTransactionsByTypeAndDateRange("Income", range[0], range[1]));
 
         monthlyExpenseTransactionsLive = Transformations.switchMap(dateRangeLive, range ->
                 transactionDao.getTransactionsByTypeAndDateRange("Expense", range[0], range[1]));
 
-        // --- Mediator to calculate Totals (using synchronous DAO on background thread) ---
-        dateRangeLive.observeForever(range -> {
-            // Trigger calculation of totals whenever the date range changes
-            calculateMonthlyTotal("Income", range[0], range[1], incomeTotalMutableLive);
-            calculateMonthlyTotal("Expense", range[0], range[1], expenseTotalMutableLive);
+        // ⭐ CRITICAL FIX: Mediator to trigger Totals calculation on date change OR new data (transactions)
+        MediatorLiveData<long[]> totalCalculationTrigger = new MediatorLiveData<>();
+
+        // Source 1: Triggers when the month/date range changes
+        totalCalculationTrigger.addSource(dateRangeLive, totalCalculationTrigger::setValue);
+
+        // Source 2 & 3: Triggers when the underlying transaction data changes (i.e., new transaction added)
+        // We set the current range again to force the total calculation to run.
+        totalCalculationTrigger.addSource(monthlyIncomeTransactionsLive, transactions -> {
+            long[] currentRange = dateRangeLive.getValue();
+            if (currentRange != null) totalCalculationTrigger.setValue(currentRange);
+        });
+        totalCalculationTrigger.addSource(monthlyExpenseTransactionsLive, transactions -> {
+            long[] currentRange = dateRangeLive.getValue();
+            if (currentRange != null) totalCalculationTrigger.setValue(currentRange);
         });
 
-        // --- Transformations for Comparison Text ---
+        // Observer: Executes the synchronous total queries on a background thread
+        totalCalculationTrigger.observeForever(range -> {
+            if (range != null) {
+                calculateMonthlyTotal("Income", range[0], range[1], incomeTotalMutableLive);
+                calculateMonthlyTotal("Expense", range[0], range[1], expenseTotalMutableLive);
+            }
+        });
+        // -----------------------------------------------------------------------------
+
+        // --- Transformations for Comparison Text (These fire correctly when income/expense totals update) ---
         incomeComparisonLive = new MediatorLiveData<>();
         expenseComparisonLive = new MediatorLiveData<>();
 
@@ -125,7 +162,7 @@ public class DashboardViewModel extends AndroidViewModel {
         return categoryMapLive;
     }
 
-    // 💡 NEW Getter for the overall data status
+    // NEW Getter for the overall data status
     public LiveData<Boolean> getHasTransactionsLive() {
         return hasTransactionsLive;
     }
@@ -173,7 +210,7 @@ public class DashboardViewModel extends AndroidViewModel {
             List<Long> timestamps = transactionDao.getDistinctMonthYear();
             List<String> months = new ArrayList<>();
 
-            // 💡 NEW: Set the hasTransactions status
+            // NEW: Set the hasTransactions status
             hasTransactionsMutableLive.postValue(!timestamps.isEmpty());
 
             String lastMonthYear = null;
@@ -203,8 +240,15 @@ public class DashboardViewModel extends AndroidViewModel {
      * @param monthYear The selected month/year string.
      */
     public void setSelectedMonth(String monthYear) {
-        if (monthYear != null && !monthYear.equals(selectedMonthYearLive.getValue())) {
-            selectedMonthYearLive.setValue(monthYear);
+        if (monthYear != null) {
+            if (!monthYear.equals(selectedMonthYearLive.getValue())) {
+                // Normal selection: month changed, update value
+                selectedMonthYearLive.setValue(monthYear);
+            } else {
+                // Explicit Refresh: month is the same, so we trigger the force refresh LiveData
+                // This ensures the date range re-calculates, re-triggering the switchMaps (DAO queries).
+                forceRefreshTrigger.setValue(null);
+            }
         }
     }
 
@@ -215,7 +259,7 @@ public class DashboardViewModel extends AndroidViewModel {
         executor.execute(() -> {
             List<String> distinctMonths = distinctMonthsLive.getValue();
 
-            // 💡 NEW: Check if there are NO transactions at all.
+            // Check if there are NO transactions at all.
             if (distinctMonths == null || distinctMonths.isEmpty()) {
                 String noDataText = "No transactions saved yet.";
                 String color = "#607D8B"; // Neutral grey
@@ -283,7 +327,7 @@ public class DashboardViewModel extends AndroidViewModel {
             } else {
                 String action = difference > 0 ? "Increased" : "Decreased";
 
-                // 💡 CRITICAL FIX: Invert color logic for Expenses
+                // CRITICAL FIX: Invert color logic for Expenses
                 if (type.equals("Income")) {
                     // Income: Higher is GOOD (Teal/Green), Lower is BAD (Red)
                     color = difference > 0 ? "#00BFA5" : "#E57373";

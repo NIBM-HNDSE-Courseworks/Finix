@@ -34,7 +34,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-// ❌ REMOVED: implements OnChartValueSelectedListener
 public class DashboardFragment extends Fragment {
 
     private FragmentDashboardBinding binding;
@@ -100,7 +99,7 @@ public class DashboardFragment extends Fragment {
             currentIncomeTotal = total != null ? total : 0.0; // Store total
             binding.incomeAmount.setText(String.format(Locale.getDefault(), "Rs. %.2f", currentIncomeTotal));
 
-            // 💡 FIX: Safely check if the chart is highlighted before accessing array length (NullPointerException fix)
+            // Safely check if the chart is highlighted before accessing array length
             if (binding.incomeChart.getData() != null) {
                 Highlight[] highlights = binding.incomeChart.getHighlighted();
                 if (highlights == null || highlights.length == 0) {
@@ -123,7 +122,7 @@ public class DashboardFragment extends Fragment {
             currentExpenseTotal = total != null ? total : 0.0; // Store total
             binding.expenseAmount.setText(String.format(Locale.getDefault(), "Rs. %.2f", currentExpenseTotal));
 
-            // 💡 FIX: Safely check if the chart is highlighted before accessing array length (NullPointerException fix)
+            // Safely check if the chart is highlighted before accessing array length
             if (binding.expenseChart.getData() != null) {
                 Highlight[] highlights = binding.expenseChart.getHighlighted();
                 if (highlights == null || highlights.length == 0) {
@@ -146,11 +145,37 @@ public class DashboardFragment extends Fragment {
         // --- 4. Observe Chart Data (Draw the graphs) ---
         viewModel.monthlyIncomeTransactionsLive.observe(getViewLifecycleOwner(), incomeList -> {
             updatePieChart(binding.incomeChart, incomeList, categoryMap, "Income");
+
+            // ⭐ FIX: Stop refresh indicator here. This acts as a safety measure
+            // in case the expense list observer doesn't fire or takes too long.
+            if (binding.swipeRefreshLayout.isRefreshing()) {
+                binding.swipeRefreshLayout.setRefreshing(false);
+            }
         });
 
         viewModel.monthlyExpenseTransactionsLive.observe(getViewLifecycleOwner(), expenseList -> {
             updatePieChart(binding.expenseChart, expenseList, categoryMap, "Expense");
+
+            // ⭐ Keep: Stop refresh indicator here too, as it was originally intended to be the last step.
+            if (binding.swipeRefreshLayout.isRefreshing()) {
+                binding.swipeRefreshLayout.setRefreshing(false);
+            }
         });
+
+        // ⭐ Setup Swipe to Refresh Listener
+        binding.swipeRefreshLayout.setOnRefreshListener(this::refreshData);
+    }
+
+    // ⭐ Method to handle the refresh logic
+    private void refreshData() {
+        if (currentMonthYearFilter != null) {
+            // Re-select the current month to force the ViewModel's LiveData to reload/re-evaluate
+            viewModel.setSelectedMonth(currentMonthYearFilter);
+            // The indicator is dismissed by the LiveData observers once data arrives.
+        } else {
+            // If no filter is set (e.g., initial load is still pending), dismiss immediately
+            binding.swipeRefreshLayout.setRefreshing(false);
+        }
     }
 
     // --- Chart Drawing Methods ---
