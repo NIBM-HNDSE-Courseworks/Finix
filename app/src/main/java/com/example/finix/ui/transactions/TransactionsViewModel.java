@@ -8,6 +8,7 @@ import androidx.lifecycle.*;
 
 import com.example.finix.data.*; // Assuming this imports Transaction and Category classes
 
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -16,6 +17,8 @@ public class TransactionsViewModel extends AndroidViewModel {
     private final MutableLiveData<List<Transaction>> incomeLive = new MutableLiveData<>(new ArrayList<>());
     private final MutableLiveData<List<Transaction>> expenseLive = new MutableLiveData<>(new ArrayList<>());
     private final MutableLiveData<Map<Integer, String>> categoryMapLive = new MutableLiveData<>(new HashMap<>());
+    // 🆕 NEW: LiveData for the distinct Month/Year strings (e.g., "October 2025")
+    private final MutableLiveData<List<String>> distinctMonthsLive = new MutableLiveData<>(new ArrayList<>());
 
     private final FinixDatabase db;
 
@@ -28,12 +31,14 @@ public class TransactionsViewModel extends AndroidViewModel {
         loadCategories(); // Load categories first
         loadAllTransactions();
         fetchLatestCategoryMap(); // So adapters get initial names even before editing
+        loadDistinctMonths(); // 🆕 NEW: Load distinct months/years
     }
 
     public LiveData<List<Transaction>> getIncomeTransactions() { return incomeLive; }
     public LiveData<List<Transaction>> getExpenseTransactions() { return expenseLive; }
-
     public LiveData<Map<Integer, String>> getCategoriesLive() { return categoryMapLive; }
+    // 🆕 NEW: Getter for the distinct months LiveData
+    public LiveData<List<String>> getDistinctMonthsLive() { return distinctMonthsLive; }
 
     public Map<Integer, String> getCategoryMap() { return categoryMapLive.getValue(); }
 
@@ -46,10 +51,22 @@ public class TransactionsViewModel extends AndroidViewModel {
         }).start();
     }
 
-    // ✅ FIX HELPER: Performs the blocking database read and posts results.
-    // This runs on the calling thread (must be a background thread).
-    private void _doLoadTransactionsAndPost() {
+    /**
+     * 🆕 MODIFIED: Performs the blocking database read and posts results, now accepting optional date filters.
+     * @param monthYearString The month and year string to filter by (e.g., "October 2025"), or null for all.
+     */
+    private void _doLoadTransactionsAndPost(String monthYearString) {
         List<Transaction> all = db.transactionDao().getAllTransactions();
+
+        // If a filter is applied, perform filtering on the list
+        if (monthYearString != null) {
+            SimpleDateFormat monthYearFormat = new SimpleDateFormat("MMMM yyyy", Locale.getDefault());
+
+            all = all.stream()
+                    .filter(t -> monthYearString.equals(monthYearFormat.format(new Date(t.getDateTime()))))
+                    .collect(Collectors.toList());
+        }
+
         incomeLive.postValue(all.stream()
                 .filter(t -> "Income".equals(t.getType()))
                 .collect(Collectors.toList()));
@@ -58,9 +75,39 @@ public class TransactionsViewModel extends AndroidViewModel {
                 .collect(Collectors.toList()));
     }
 
-    // 🔄 UPDATED: Public method starts a new thread to call the private helper.
+    // 🔄 UPDATED: Public method starts a new thread to call the private helper (no filter).
     public void loadAllTransactions() {
-        new Thread(this::_doLoadTransactionsAndPost).start();
+        new Thread(() -> _doLoadTransactionsAndPost(null)).start();
+    }
+
+    /**
+     * 🆕 NEW: Filters transactions by month and year.
+     * @param monthYearString The month and year string (e.g., "October 2025").
+     */
+    public void filterByMonthYear(String monthYearString) {
+        // Run the load/filter on a background thread
+        new Thread(() -> {
+            _doLoadTransactionsAndPost(monthYearString);
+        }).start();
+    }
+
+    /**
+     * 🆕 NEW: Loads all distinct Month/Year strings where transactions exist.
+     */
+    public void loadDistinctMonths() {
+        new Thread(() -> {
+            List<Long> distinctTimeMillis = db.transactionDao().getDistinctMonthYear();
+            Set<String> distinctMonthYearSet = new LinkedHashSet<>();
+            SimpleDateFormat sdf = new SimpleDateFormat("MMMM yyyy", Locale.getDefault());
+
+            for (Long time : distinctTimeMillis) {
+                // Format the long timestamp into a readable Month Year string
+                distinctMonthYearSet.add(sdf.format(new Date(time)));
+            }
+
+            // Convert the Set to a List and post the value
+            distinctMonthsLive.postValue(new ArrayList<>(distinctMonthYearSet));
+        }).start();
     }
 
     public void loadCategories() {
@@ -73,7 +120,6 @@ public class TransactionsViewModel extends AndroidViewModel {
         }).start();
     }
 
-    // 🛠️ CORRECTED: Fixed the map.put error below.
     public void fetchLatestCategoryMap() {
         new Thread(() -> {
             Map<Integer, String> map = new HashMap<>();
@@ -81,7 +127,6 @@ public class TransactionsViewModel extends AndroidViewModel {
 
             if (allCategories != null) {
                 for (Category c : allCategories) {
-                    // Corrected from map.put(c.getId(), c.getId(), c.getName());
                     map.put(c.getId(), c.getName());
                 }
                 categoryMapLive.postValue(map);
@@ -94,13 +139,16 @@ public class TransactionsViewModel extends AndroidViewModel {
             // 1. Save to DB
             db.transactionDao().insert(new Transaction(amount, type, categoryId, dateTime, description));
 
-            // 2. ⚡ FIX: Call the synchronous helper on this same thread.
-            _doLoadTransactionsAndPost();
+            // 2. ⚡ FIX: Call the synchronous helper on this same thread (no filter applied after save).
+            _doLoadTransactionsAndPost(null);
 
-            // 3. Reload categories just in case
+            // 3. 🆕 NEW: Reload distinct months
+            loadDistinctMonths();
+
+            // 4. Reload categories just in case
             loadCategories();
 
-            // 4. Execute callback on the main thread after DB operations complete
+            // 5. Execute callback on the main thread after DB operations complete
             if (onComplete != null) new android.os.Handler(getApplication().getMainLooper()).post(onComplete);
         }).start();
     }
@@ -110,10 +158,13 @@ public class TransactionsViewModel extends AndroidViewModel {
             // 1. Update DB
             db.transactionDao().update(transaction);
 
-            // 2. ⚡ FIX: Call the synchronous helper on this same thread.
-            _doLoadTransactionsAndPost();
+            // 2. ⚡ FIX: Call the synchronous helper on this same thread (no filter applied after update).
+            _doLoadTransactionsAndPost(null);
 
-            // 3. Reload categories just in case
+            // 3. 🆕 NEW: Reload distinct months
+            loadDistinctMonths();
+
+            // 4. Reload categories just in case
             loadCategories();
         }).start();
     }
@@ -123,10 +174,13 @@ public class TransactionsViewModel extends AndroidViewModel {
             // 1. Delete from DB
             db.transactionDao().delete(transaction);
 
-            // 2. ⚡ FIX: Call the synchronous helper on this same thread.
-            _doLoadTransactionsAndPost();
+            // 2. ⚡ FIX: Call the synchronous helper on this same thread (no filter applied after delete).
+            _doLoadTransactionsAndPost(null);
 
-            // 3. Reload categories just in case
+            // 3. 🆕 NEW: Reload distinct months
+            loadDistinctMonths();
+
+            // 4. Reload categories just in case
             loadCategories();
         }).start();
     }
@@ -155,9 +209,9 @@ public class TransactionsViewModel extends AndroidViewModel {
         else expenseLive.setValue(current);
     }
 
-    // 🔄 UPDATED: Added onNoResults Runnable to prevent posting empty list to LiveData
     public void filterByCategory(String type, Integer categoryId, Runnable onComplete, Runnable onNoResults) {
         new Thread(() -> {
+            // NOTE: The month/year filter is ignored when filtering by category
             List<Transaction> all = db.transactionDao().getAllTransactions();
             List<Transaction> filtered;
 
@@ -168,15 +222,9 @@ public class TransactionsViewModel extends AndroidViewModel {
                         .collect(Collectors.toList());
 
                 if (categoryId != null && filtered.isEmpty()) {
-                    // Category filter applied, but NO results.
-                    // 1. Run the toast (onNoResults).
-                    // 2. DO NOT update LiveData.
-                    // 3. DO NOT run onComplete (which updates the filter text).
                     if (onNoResults != null) new android.os.Handler(getApplication().getMainLooper()).post(onNoResults);
                 } else {
-                    // Update the list (either 'Show All' or a non-empty filter result).
                     incomeLive.postValue(filtered);
-                    // 🚨 Move onComplete (update text) HERE, only when the list is actually updated.
                     if (onComplete != null) new android.os.Handler(getApplication().getMainLooper()).post(onComplete);
                 }
             } else { // Expense
@@ -186,22 +234,12 @@ public class TransactionsViewModel extends AndroidViewModel {
                         .collect(Collectors.toList());
 
                 if (categoryId != null && filtered.isEmpty()) {
-                    // Category filter applied, but NO results.
-                    // 1. Run the toast (onNoResults).
-                    // 2. DO NOT update LiveData.
-                    // 3. DO NOT run onComplete (which updates the filter text).
                     if (onNoResults != null) new android.os.Handler(getApplication().getMainLooper()).post(onNoResults);
                 } else {
-                    // Update the list normally.
                     expenseLive.postValue(filtered);
-                    // 🚨 Move onComplete (update text) HERE, only when the list is actually updated.
                     if (onComplete != null) new android.os.Handler(getApplication().getMainLooper()).post(onComplete);
                 }
             }
-
-            // ❌ REMOVE the unconditional onComplete call from here.
-            // if (onComplete != null) new android.os.Handler(getApplication().getMainLooper()).post(onComplete);
-
         }).start();
     }
 }

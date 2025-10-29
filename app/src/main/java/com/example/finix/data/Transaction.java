@@ -4,12 +4,16 @@ import androidx.room.ColumnInfo;
 import androidx.room.Entity;
 import androidx.room.ForeignKey;
 import androidx.room.PrimaryKey;
+import androidx.room.Index; // 💡 Import the Index class
 
-// Defines the table name
+// Defines the table name and now includes an INDEX on category_id
 @Entity(tableName = "transactions",
         foreignKeys = @ForeignKey(entity = Category.class,
                 parentColumns = "id", childColumns = "category_id",
-                onDelete = ForeignKey.RESTRICT))public class Transaction {
+                onDelete = ForeignKey.RESTRICT),
+        // 🚨 ADDED: Index on category_id to prevent full table scans on FK checks
+        indices = {@Index(value = {"category_id"})})
+public class Transaction {
 
     // Primary Key, auto-generates the ID
     @PrimaryKey(autoGenerate = true)

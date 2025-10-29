@@ -38,12 +38,29 @@ public class TransactionsFragment extends Fragment {
     private TransactionsViewModel viewModel;
     private TransactionAdapter incomeAdapter, expenseAdapter;
 
+    // 🆕 NEW: Variable to hold the current list of available month/years
+    private final List<String> distinctMonths = new ArrayList<>();
+
+    // 🆕 NEW: Variable to store the currently selected filter month/year
+    private String currentMonthYearFilter = null;
+
     @Override
     public void onResume() {
         super.onResume();
-        Log.d(TAG, "onResume: Fragment becoming visible. Forcing transaction reload.");
-        // Force a reload just in case the LiveData update was missed
-        viewModel.loadAllTransactions();
+        Log.d(TAG, "onResume: Fragment becoming visible. Checking filter status for reload.");
+
+        // Check if a month filter is currently active (set either by user or by default logic).
+        if (currentMonthYearFilter != null) {
+            // If an active filter exists, re-run it to ensure data is fresh and the filter is maintained.
+            Log.d(TAG, "onResume: Re-applying current month filter: " + currentMonthYearFilter);
+            viewModel.filterByMonthYear(currentMonthYearFilter);
+        } else {
+            // If no filter is active (i.e., "Show All" is active), reload all transactions.
+            // This also ensures the ViewModel's distinct months are up-to-date, which triggers
+            // the logic in updateMonthYearSpinner to set the default current month.
+            Log.d(TAG, "onResume: No month filter active. Reloading all transactions.");
+            viewModel.loadAllTransactions();
+        }
     }
 
     @Override
@@ -86,7 +103,6 @@ public class TransactionsFragment extends Fragment {
             Log.e(TAG, "onCreateView: Failed to get transaction_item_spacing dimension.", e);
         }
 
-
         // 🔹 Observe transactions
         viewModel.getIncomeTransactions().observe(getViewLifecycleOwner(), list -> {
             Log.d(TAG, "Income LiveData updated. Count: " + (list != null ? list.size() : 0));
@@ -118,11 +134,20 @@ public class TransactionsFragment extends Fragment {
             }
         });
 
+        // 🔹 🆕 NEW: Observe distinct months/years for the Spinner
+        viewModel.getDistinctMonthsLive().observe(getViewLifecycleOwner(), months -> {
+            Log.d(TAG, "Distinct Months LiveData updated. Count: " + (months != null ? months.size() : 0));
+            updateMonthYearSpinner(months);
+        });
+
         // 🔹 Add transaction
         binding.buttonAddTransaction.setOnClickListener(v -> {
             Log.d(TAG, "Add Transaction button clicked. Showing Add/Edit dialog.");
             showAddTransactionDialog(null);
         });
+
+        // 🔹 🆕 NEW: Set up Month/Year Spinner Listener
+        setupMonthYearSpinner();
 
         // 🔹 Filters
         binding.buttonFilterIncome.setOnClickListener(v -> showFilterMenu("Income"));
@@ -160,6 +185,100 @@ public class TransactionsFragment extends Fragment {
         Log.d(TAG, "onCreateView: Listeners set up successfully.");
 
         return root;
+    }
+
+    // 🆕 NEW: Setup the Spinner and its listener
+    private void setupMonthYearSpinner() {
+        binding.spinnerMonthYear.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                if (position == 0) {
+                    // "Show All" selected
+                    if (currentMonthYearFilter != null) {
+                        Log.i(TAG, "Spinner selection: Show All.");
+                        viewModel.loadAllTransactions();
+                        currentMonthYearFilter = null;
+                    }
+                } else {
+                    // A specific month/year is selected
+                    String selectedMonthYear = distinctMonths.get(position - 1);
+                    if (!Objects.equals(selectedMonthYear, currentMonthYearFilter)) {
+                        Log.i(TAG, "Spinner selection: Filtering by " + selectedMonthYear);
+                        viewModel.filterByMonthYear(selectedMonthYear);
+                        currentMonthYearFilter = selectedMonthYear;
+                    }
+                }
+
+                // ❌ REMOVED: Custom text color logic is gone
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+                // Do nothing
+            }
+        });
+        Log.d(TAG, "setupMonthYearSpinner: Listener attached.");
+    }
+
+    // 🆕 UPDATED: Update the Spinner's data and set the default current month filter.
+    private void updateMonthYearSpinner(List<String> months) {
+        distinctMonths.clear();
+        if (months != null) {
+            // ASSUMPTION: 'months' list is sorted in descending chronological order (newest month first).
+            distinctMonths.addAll(months);
+        }
+
+        // 1. Create the final list for the adapter
+        List<String> adapterList = new ArrayList<>();
+        adapterList.add("Show All"); // The default, first option
+        adapterList.addAll(distinctMonths); // Add the actual month/year values
+
+        // 2. Create and set the adapter
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(),
+                android.R.layout.simple_spinner_item,
+                adapterList);
+
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        binding.spinnerMonthYear.setAdapter(adapter);
+
+        // 3. Set the selection and apply filter if needed
+        boolean isInitialDefaultSet = currentMonthYearFilter == null && adapterList.size() > 1;
+
+        if (isInitialDefaultSet) {
+            // --- LOGIC for initial default selection: Select the most recent month ---
+
+            // Select the most recent month, which is at index 1 (after "Show All").
+            binding.spinnerMonthYear.setSelection(1);
+
+            // Manually apply the filter for the default month since setSelection doesn't
+            // trigger onItemSelected on initial load.
+            String defaultSelection = adapterList.get(1);
+            viewModel.filterByMonthYear(defaultSelection); // Apply filter
+            currentMonthYearFilter = defaultSelection;     // Store filter state
+
+            Log.i(TAG, "updateMonthYearSpinner: Default selection set to most recent month: " + defaultSelection);
+        } else if (currentMonthYearFilter != null) {
+            // Maintain the currently active filter (after resume or when a month is selected)
+            int index = distinctMonths.indexOf(currentMonthYearFilter);
+            if (index != -1) {
+                binding.spinnerMonthYear.setSelection(index + 1); // +1 because of "Show All"
+                Log.d(TAG, "updateMonthYearSpinner: Maintaining current filter: " + currentMonthYearFilter + " at index " + (index + 1));
+            } else {
+                // Active filter disappeared (e.g., all transactions in that month were deleted)
+                binding.spinnerMonthYear.setSelection(0);
+                currentMonthYearFilter = null;
+                Log.w(TAG, "updateMonthYearSpinner: Active filter disappeared. Resetting to 'Show All'.");
+                viewModel.loadAllTransactions(); // Force load all transactions
+            }
+        } else {
+            // Default to "Show All" if no transactions exist.
+            binding.spinnerMonthYear.setSelection(0);
+            Log.d(TAG, "updateMonthYearSpinner: Defaulting/Resetting to 'Show All'.");
+        }
+
+        // Hide the spinner if there are no months (only 'Show All')
+        binding.spinnerMonthYear.setVisibility(adapterList.size() > 1 ? View.VISIBLE : View.GONE);
+        Log.d(TAG, "updateMonthYearSpinner: Adapter set. Items: " + adapterList.size());
     }
 
     // --- NEW METHOD FOR CUSTOM DELETE CONFIRMATION ---

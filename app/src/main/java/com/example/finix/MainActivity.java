@@ -136,12 +136,7 @@ public class MainActivity extends AppCompatActivity {
         Button btnBackCategory = popupView.findViewById(R.id.btnCancelCategory);
 
         // 🟢 ADD CHARACTER LIMITS HERE
-
-        // 1. Amount limit (7 characters)
-        // Note: This only limits the number of characters, the input type should be numeric in XML.
         etAmount.setFilters(new InputFilter[] { new InputFilter.LengthFilter(7) });
-
-        // 2. New Category limit (12 characters)
         etNewCategory.setFilters(new InputFilter[] { new InputFilter.LengthFilter(14) });
 
         // --- Setup category AutoComplete ---
@@ -154,17 +149,27 @@ public class MainActivity extends AppCompatActivity {
 
         // Observe categories from ViewModel
         viewModel.getCategoriesLive().observe(this, idToNameMap -> {
-            categoriesList.clear();
+            categoriesList.clear(); // Clear the list for fresh data
             categoryNameToIdMap.clear();
+
+            // 🆕 NEW: Add "Add New Category" first
+            categoriesList.add("Add New Category");
+
             if (idToNameMap != null) {
                 for (Map.Entry<Integer, String> entry : idToNameMap.entrySet()) {
                     String name = entry.getValue();
                     Integer id = entry.getKey();
-                    categoriesList.add(name);
-                    categoryNameToIdMap.put(name, id);
+                    // Ensure we don't accidentally add it twice if it existed as a real category name
+                    if (!"Add New Category".equals(name)) {
+                        categoriesList.add(name);
+                        categoryNameToIdMap.put(name, id);
+                    }
                 }
             }
-            if (!categoriesList.contains("Add New Category")) categoriesList.add("Add New Category");
+
+            // ❌ REMOVED: The previous check at the end is no longer needed.
+            // if (!categoriesList.contains("Add New Category")) categoriesList.add("Add New Category");
+
             adapter.notifyDataSetChanged();
         });
 

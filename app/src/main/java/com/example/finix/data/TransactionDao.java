@@ -33,4 +33,9 @@ public interface TransactionDao {
     // 🔍 Get transactions by category_id and type
     @Query("SELECT * FROM transactions WHERE type = :type AND category_id = :categoryId ORDER BY date_time DESC")
     List<Transaction> getTransactionsByTypeAndCategory(String type, int categoryId);
+
+    // 🆕 NEW: Get all distinct month/year timestamps
+    // We get the raw long, then format in the ViewModel
+    @Query("SELECT DISTINCT date_time FROM transactions ORDER BY date_time DESC")
+    List<Long> getDistinctMonthYear();
 }
