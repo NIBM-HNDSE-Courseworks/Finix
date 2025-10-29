@@ -37,6 +37,10 @@ public class DashboardViewModel extends AndroidViewModel {
     private final MutableLiveData<List<String>> distinctMonthsLive = new MutableLiveData<>(new ArrayList<>());
     private final MutableLiveData<String> selectedMonthYearLive = new MutableLiveData<>();
 
+    // 💡 NEW: Status to indicate if any transactions exist at all. Used by UI for initial "No data" message.
+    private final MutableLiveData<Boolean> hasTransactionsMutableLive = new MutableLiveData<>(false);
+    public final LiveData<Boolean> hasTransactionsLive = hasTransactionsMutableLive;
+
     // Helper to get selected month's range (start and end timestamps)
     private final LiveData<long[]> dateRangeLive = Transformations.map(selectedMonthYearLive, this::getMonthDateRange);
 
@@ -121,6 +125,11 @@ public class DashboardViewModel extends AndroidViewModel {
         return categoryMapLive;
     }
 
+    // 💡 NEW Getter for the overall data status
+    public LiveData<Boolean> getHasTransactionsLive() {
+        return hasTransactionsLive;
+    }
+
     // --- Core Logic Methods ---
 
     /**
@@ -164,6 +173,9 @@ public class DashboardViewModel extends AndroidViewModel {
             List<Long> timestamps = transactionDao.getDistinctMonthYear();
             List<String> months = new ArrayList<>();
 
+            // 💡 NEW: Set the hasTransactions status
+            hasTransactionsMutableLive.postValue(!timestamps.isEmpty());
+
             String lastMonthYear = null;
             Calendar cal = Calendar.getInstance();
 
@@ -201,12 +213,23 @@ public class DashboardViewModel extends AndroidViewModel {
      */
     private void calculateComparison(LiveData<Double> currentTotalLive, String type, MediatorLiveData<String> comparisonLive) {
         executor.execute(() -> {
+            List<String> distinctMonths = distinctMonthsLive.getValue();
+
+            // 💡 NEW: Check if there are NO transactions at all.
+            if (distinctMonths == null || distinctMonths.isEmpty()) {
+                String noDataText = "No transactions saved yet.";
+                String color = "#607D8B"; // Neutral grey
+                comparisonLive.postValue(color + "|" + noDataText);
+                return;
+            }
+
             String selectedMonth = selectedMonthYearLive.getValue();
             // Get the current total synchronously (safe because we are on a background thread)
             Double currentTotal = currentTotalLive.getValue();
-            List<String> distinctMonths = distinctMonthsLive.getValue();
 
-            if (selectedMonth == null || currentTotal == null || distinctMonths == null || distinctMonths.isEmpty()) {
+
+            if (selectedMonth == null || currentTotal == null) {
+                // Should only happen transiently or if selectedMonthYearLive wasn't initialized
                 comparisonLive.postValue(null);
                 return;
             }
@@ -217,7 +240,7 @@ public class DashboardViewModel extends AndroidViewModel {
             // --- CRITICAL FIX: Handle case where no previous month exists ---
             if (selectedIndex == distinctMonths.size() - 1) {
                 // This is the first recorded month, so there's nothing to compare to.
-                String noDataText = "No previous month data";
+                String noDataText = "First month with data recorded";
                 String color = "#607D8B"; // Neutral grey
                 comparisonLive.postValue(color + "|" + noDataText);
                 return;
@@ -263,10 +286,10 @@ public class DashboardViewModel extends AndroidViewModel {
                 // 💡 CRITICAL FIX: Invert color logic for Expenses
                 if (type.equals("Income")) {
                     // Income: Higher is GOOD (Teal/Green), Lower is BAD (Red)
-                    color = difference > 0 ? "#00BFA5" : "#FF5252";
+                    color = difference > 0 ? "#00BFA5" : "#E57373";
                 } else { // type.equals("Expense")
                     // Expense: Lower is GOOD (Teal/Green), Higher is BAD (Red)
-                    color = difference < 0 ? "#00BFA5" : "#FF5252";
+                    color = difference < 0 ? "#00BFA5" : "#E57373";
                 }
 
                 // Ensure correct formatting
