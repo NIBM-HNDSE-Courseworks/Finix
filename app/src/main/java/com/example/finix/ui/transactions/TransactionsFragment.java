@@ -12,6 +12,7 @@ import android.graphics.drawable.RippleDrawable;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.text.InputFilter;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -220,78 +221,119 @@ public class TransactionsFragment extends Fragment {
         etNewCategory.setFilters(new InputFilter[] { new InputFilter.LengthFilter(14) });
 
         // ------------------------------------------
+        // --- Category setup (FIX + EXTENSIVE DEBUGGING) ---
+        Log.d("DEBUG_CATEGORY", "🔰 Starting category setup inside showAddTransactionDialog()");
 
-        // --- Category setup (FIX APPLIED HERE) ---
+        // 🧩 Initialize category structures
         List<String> categoriesList = new ArrayList<>();
         Map<String, Integer> categoryNameToIdMap = new HashMap<>();
 
-        // 🟢 FIX: Pre-populate the map using the latest data from the ViewModel
+        // 🟢 FIX: Pre-populate map using latest data from ViewModel
         Map<Integer, String> currentCategories = viewModel.getCategoryMap();
-
-        // ⭐ MODIFICATION: Add "Add New Category" FIRST (to the top)
-        if (!categoriesList.contains("Add New Category")) {
-            categoriesList.add("Add New Category");
+        if (currentCategories == null) {
+            Log.w("DEBUG_CATEGORY", "⚠️ currentCategories is NULL — ViewModel might not be initialized yet!");
+        } else {
+            Log.d("DEBUG_CATEGORY", "✅ currentCategories fetched with size: " + currentCategories.size());
+            for (Map.Entry<Integer, String> e : currentCategories.entrySet()) {
+                Log.d("DEBUG_CATEGORY", "📦 Existing category → ID: " + e.getKey() + " | Name: " + e.getValue());
+            }
         }
 
-        // ⭐ MODIFICATION: Add all existing categories SECOND (below the new option)
+        // ⭐ Add "Add New Category" FIRST
+        if (!categoriesList.contains("Add New Category")) {
+            categoriesList.add("Add New Category");
+            Log.d("DEBUG_CATEGORY", "➕ Added default option: 'Add New Category'");
+        }
+
+        // ⭐ Add all existing categories SECOND
         if (currentCategories != null) {
             for (Map.Entry<Integer, String> entry : currentCategories.entrySet()) {
                 categoriesList.add(entry.getValue());
                 categoryNameToIdMap.put(entry.getValue(), entry.getKey());
+                Log.d("DEBUG_CATEGORY", "✅ Added category to list: " + entry.getValue() + " (ID: " + entry.getKey() + ")");
             }
+        } else {
+            Log.w("DEBUG_CATEGORY", "⚠️ Skipping category addition because currentCategories == null");
         }
-        // 🟢 END OF FIX
 
+        // ✅ Adapter setup
         ArrayAdapter<String> adapter = new ArrayAdapter<>(getContext(),
                 android.R.layout.simple_dropdown_item_1line, categoriesList);
         actCategory.setAdapter(adapter);
         actCategory.setThreshold(0);
+        Log.d("DEBUG_CATEGORY", "📋 Adapter created with " + categoriesList.size() + " items.");
 
-        // ✅ Load categories when user focuses on the field (retains functionality for new categories)
+        // ✅ Focus Listener — refresh on focus
         actCategory.setOnFocusChangeListener((v, hasFocus) -> {
+            Log.d("DEBUG_CATEGORY", "🟦 FocusChange → hasFocus=" + hasFocus);
             if (hasFocus) {
+                Log.d("DEBUG_CATEGORY", "🔁 Calling refreshCategories() due to focus gained");
                 refreshCategories(adapter, categoriesList, categoryNameToIdMap, actCategory);
             }
         });
 
+        // ✅ Click Listener — refresh and show dropdown
         actCategory.setOnClickListener(v -> {
-            if (!actCategory.isPopupShowing()) {
+            Log.d("DEBUG_CATEGORY", "🟨 Click detected on category field");
+            boolean popupShowing = actCategory.isPopupShowing();
+            Log.d("DEBUG_CATEGORY", "📊 isPopupShowing() → " + popupShowing);
+            if (!popupShowing) {
+                Log.d("DEBUG_CATEGORY", "🔁 Refreshing categories before showing dropdown");
                 refreshCategories(adapter, categoriesList, categoryNameToIdMap, actCategory);
+            } else {
+                Log.d("DEBUG_CATEGORY", "⏭️ Popup already showing — skipping refresh");
             }
         });
 
+        // ✅ Dropdown item selected
         actCategory.setOnItemClickListener((parent, view, position, id) -> {
             String selected = adapter.getItem(position);
+            Log.d("DEBUG_CATEGORY", "🟩 Item clicked → " + selected + " (position=" + position + ")");
             if ("Add New Category".equals(selected)) {
+                Log.d("DEBUG_CATEGORY", "🆕 User chose 'Add New Category' — showing input layout");
                 llAddCategory.setVisibility(View.VISIBLE);
                 actCategory.setVisibility(View.GONE);
+            } else {
+                Log.d("DEBUG_CATEGORY", "📦 Selected existing category: " + selected);
             }
         });
 
-        // ✅ Add new category
+        // ✅ Add new category button
         btnSaveCategory.setOnClickListener(v -> {
             String newCat = etNewCategory.getText().toString().trim();
+            Log.d("DEBUG_CATEGORY", "🟨 Save button clicked with input: '" + newCat + "'");
             if (!newCat.isEmpty()) {
+                Log.d("DEBUG_CATEGORY", "✅ Adding new category: " + newCat);
                 viewModel.addCategory(newCat);
                 showCustomToast("New category added!");
 
                 actCategory.postDelayed(() -> {
+                    Log.d("DEBUG_CATEGORY", "⏳ Post-delay → setting new category in field: " + newCat);
                     actCategory.setText(newCat);
                     actCategory.setVisibility(View.VISIBLE);
                     llAddCategory.setVisibility(View.GONE);
-                    actCategory.clearFocus(); // ensures fresh reload next focus
+                    actCategory.clearFocus();
+                    Log.d("DEBUG_CATEGORY", "🔁 UI restored to main category field after adding new category");
                 }, 200);
 
                 etNewCategory.setText("");
+                Log.d("DEBUG_CATEGORY", "🧹 Cleared input field for new category");
             } else {
+                Log.w("DEBUG_CATEGORY", "⚠️ Attempted to save empty category!");
                 showCustomToast("Category cannot be empty!");
             }
         });
 
-        btnBackCategory.setOnClickListener(v -> {
-            llAddCategory.setVisibility(View.GONE);
-            actCategory.setVisibility(View.VISIBLE);
-        });
+        // ✅ Back button for category input
+                btnBackCategory.setOnClickListener(v -> {
+                    Log.d("DEBUG_CATEGORY", "🔙 Back button clicked — returning to main category dropdown");
+                    llAddCategory.setVisibility(View.GONE);
+                    actCategory.setVisibility(View.VISIBLE);
+                });
+
+                Log.d("DEBUG_CATEGORY", "🏁 Finished category setup block");
+        // ------------------------------------------
+
 
         // --- Date picker setup ---
         btnPickDateTime.setOnClickListener(v -> {
@@ -425,36 +467,55 @@ public class TransactionsFragment extends Fragment {
         dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
     }
 
-    // 🔹 Helper: Refresh category list when focused
+    // 🔹 Helper: Refresh category list when focused (with debugging 🧩)
     public void refreshCategories(ArrayAdapter<String> adapter,
                                   List<String> categoriesList,
                                   Map<String, Integer> categoryNameToIdMap,
                                   AutoCompleteTextView actCategory) {
 
-        // 🔹 Ask ViewModel to reload categories in background
-        viewModel.fetchLatestCategoryMap();
+        Log.d("CategoryDebug", "🔁 refreshCategories() called!");
 
-        // 🔹 Observe updated LiveData
-        viewModel.getCategoriesLive().observe(getViewLifecycleOwner(), map -> {
-            if (map == null) return;
+        new Thread(() -> {
+            Log.d("CategoryDebug", "📦 Getting current category map...");
+            Map<Integer, String> map = viewModel.getCategoryMap();
 
-            categoriesList.clear();
-            categoryNameToIdMap.clear();
+            Log.d("CategoryDebug", "🧠 Forcing DB refresh with fetchLatestCategoryMap()...");
+            viewModel.fetchLatestCategoryMap();
 
-            // ⭐ MODIFICATION: Add "Add New Category" FIRST
-            if (!categoriesList.contains("Add New Category")) {
+            try {
+                Log.d("CategoryDebug", "⏳ Waiting 200ms for DB to refresh...");
+                Thread.sleep(200);
+            } catch (InterruptedException ignored) {
+                Log.e("CategoryDebug", "⚠️ Thread interrupted while waiting!");
+            }
+
+            Map<Integer, String> updatedMap = viewModel.getCategoryMap();
+            Log.d("CategoryDebug", "✅ Got updated map: " + (updatedMap != null ? updatedMap.size() + " entries" : "null"));
+
+            requireActivity().runOnUiThread(() -> {
+                if (updatedMap == null) {
+                    Log.w("CategoryDebug", "⚠️ updatedMap is null — skipping UI update!");
+                    return;
+                }
+
+                Log.d("CategoryDebug", "🧹 Clearing old lists...");
+                categoriesList.clear();
+                categoryNameToIdMap.clear();
+
+                Log.d("CategoryDebug", "➕ Adding 'Add New Category' first...");
                 categoriesList.add("Add New Category");
-            }
 
-            // ⭐ MODIFICATION: Add all existing categories SECOND
-            for (Map.Entry<Integer, String> entry : map.entrySet()) {
-                categoriesList.add(entry.getValue());
-                categoryNameToIdMap.put(entry.getValue(), entry.getKey());
-            }
+                for (Map.Entry<Integer, String> entry : updatedMap.entrySet()) {
+                    Log.d("CategoryDebug", "📄 Adding category: " + entry.getValue() + " (ID: " + entry.getKey() + ")");
+                    categoriesList.add(entry.getValue());
+                    categoryNameToIdMap.put(entry.getValue(), entry.getKey());
+                }
 
-            adapter.notifyDataSetChanged();
-            actCategory.post(actCategory::showDropDown);
-        });
+                adapter.notifyDataSetChanged();
+                Log.d("CategoryDebug", "🔔 Adapter refreshed, showing dropdown now...");
+                actCategory.showDropDown();
+            });
+        }).start();
     }
 
     private void showFilterMenu(String type) {
