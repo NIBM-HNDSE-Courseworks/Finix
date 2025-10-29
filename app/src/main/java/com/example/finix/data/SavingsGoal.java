@@ -41,7 +41,7 @@ public class SavingsGoal {
         this.targetDate = targetDate;
     }
 
-    // Getters and Setters
+    // Getters and Setters all
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
 

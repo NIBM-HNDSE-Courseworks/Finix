@@ -38,7 +38,7 @@ public class SavingsGoalsFragment extends Fragment {
      * @param param2 Parameter 2.
      * @return A new instance of fragment SavingsGoalsFragment.
      */
-    // TODO: Rename and change types and number of parameters
+    //  Rename and change types and number of parameters
     public static SavingsGoalsFragment newInstance(String param1, String param2) {
         SavingsGoalsFragment fragment = new SavingsGoalsFragment();
         Bundle args = new Bundle();
