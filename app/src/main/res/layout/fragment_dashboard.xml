@@ -37,7 +37,7 @@
             android:background="@drawable/rounded_gray_border_background"
             android:text="Transactions"
             android:textColor="@android:color/white"
-            android:textSize="20sp"
+            android:textSize="18sp"
             android:textStyle="bold"
             android:paddingStart="16dp"
             android:paddingEnd="16dp"

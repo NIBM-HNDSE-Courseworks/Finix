@@ -5,10 +5,8 @@ import android.graphics.Color;
 import android.os.Bundle;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -20,21 +18,23 @@ import com.example.finix.data.FinixDatabase;
 import com.example.finix.data.Transaction;
 import com.example.finix.databinding.FragmentDashboardBinding;
 
-// 💡 NEW: MPAndroidChart Imports
 import com.github.mikephil.charting.charts.PieChart;
 import com.github.mikephil.charting.components.Legend;
 import com.github.mikephil.charting.data.PieData;
 import com.github.mikephil.charting.data.PieDataSet;
 import com.github.mikephil.charting.data.PieEntry;
-import com.github.mikephil.charting.formatter.ValueFormatter;
+import com.github.mikephil.charting.listener.OnChartValueSelectedListener;
+import com.github.mikephil.charting.highlight.Highlight;
+import com.github.mikephil.charting.data.Entry;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.stream.Collectors; // Requires Java 8 (Android API 24+)
+import java.util.stream.Collectors;
 
+// ❌ REMOVED: implements OnChartValueSelectedListener
 public class DashboardFragment extends Fragment {
 
     private FragmentDashboardBinding binding;
@@ -43,6 +43,10 @@ public class DashboardFragment extends Fragment {
     private List<String> distinctMonths = new ArrayList<>();
     private String currentMonthYearFilter = null;
     private Map<Integer, String> categoryMap = new HashMap<>(); // Local copy of category map
+
+    // Store the current month's total for easy reset on chart de-selection
+    private double currentIncomeTotal = 0.0;
+    private double currentExpenseTotal = 0.0;
 
     public DashboardFragment() {
         // Required empty public constructor
@@ -72,7 +76,7 @@ public class DashboardFragment extends Fragment {
 
         setupMonthYearSpinnerListener();
 
-        // 💡 NEW: Setup Chart views initially
+        // Setup Chart views initially and set the listener
         setupChart(binding.incomeChart);
         setupChart(binding.expenseChart);
 
@@ -93,8 +97,16 @@ public class DashboardFragment extends Fragment {
 
         // --- 3. Observe LiveData for UI Updates (Cards) ---
         viewModel.incomeTotalLive.observe(getViewLifecycleOwner(), total -> {
-            // 💰 FIX: Changed "$%.2f" to "Rs. %.2f"
-            binding.incomeAmount.setText(String.format(Locale.getDefault(), "Rs. %.2f", total != null ? total : 0.0));
+            currentIncomeTotal = total != null ? total : 0.0; // Store total
+            binding.incomeAmount.setText(String.format(Locale.getDefault(), "Rs. %.2f", currentIncomeTotal));
+
+            // 💡 FIX: Safely check if the chart is highlighted before accessing array length (NullPointerException fix)
+            if (binding.incomeChart.getData() != null) {
+                Highlight[] highlights = binding.incomeChart.getHighlighted();
+                if (highlights == null || highlights.length == 0) {
+                    updateChartCenterTextToTotal(binding.incomeChart, currentIncomeTotal, "Income");
+                }
+            }
         });
 
         viewModel.incomeComparisonLive.observe(getViewLifecycleOwner(), comparison -> {
@@ -108,8 +120,16 @@ public class DashboardFragment extends Fragment {
         });
 
         viewModel.expenseTotalLive.observe(getViewLifecycleOwner(), total -> {
-            // 💰 FIX: Changed "$%.2f" to "Rs. %.2f"
-            binding.expenseAmount.setText(String.format(Locale.getDefault(), "Rs. %.2f", total != null ? total : 0.0));
+            currentExpenseTotal = total != null ? total : 0.0; // Store total
+            binding.expenseAmount.setText(String.format(Locale.getDefault(), "Rs. %.2f", currentExpenseTotal));
+
+            // 💡 FIX: Safely check if the chart is highlighted before accessing array length (NullPointerException fix)
+            if (binding.expenseChart.getData() != null) {
+                Highlight[] highlights = binding.expenseChart.getHighlighted();
+                if (highlights == null || highlights.length == 0) {
+                    updateChartCenterTextToTotal(binding.expenseChart, currentExpenseTotal, "Expense");
+                }
+            }
         });
 
         viewModel.expenseComparisonLive.observe(getViewLifecycleOwner(), comparison -> {
@@ -125,17 +145,25 @@ public class DashboardFragment extends Fragment {
 
         // --- 4. Observe Chart Data (Draw the graphs) ---
         viewModel.monthlyIncomeTransactionsLive.observe(getViewLifecycleOwner(), incomeList -> {
-            // ✅ CORRECTED: Using binding.incomeChart
             updatePieChart(binding.incomeChart, incomeList, categoryMap, "Income");
         });
 
         viewModel.monthlyExpenseTransactionsLive.observe(getViewLifecycleOwner(), expenseList -> {
-            // ✅ CORRECTED: Using binding.expenseChart
             updatePieChart(binding.expenseChart, expenseList, categoryMap, "Expense");
         });
     }
 
     // --- Chart Drawing Methods ---
+
+    /**
+     * Helper method to set the center text to the total amount.
+     */
+    private void updateChartCenterTextToTotal(PieChart chart, double totalAmount, String type) {
+        String centerAmount = String.format(Locale.getDefault(), "Rs. %.0f", totalAmount);
+        chart.setCenterText(centerAmount + "\n" + type);
+        chart.setCenterTextColor(Color.WHITE);
+        chart.highlightValue(null); // Clear any highlight
+    }
 
     /**
      * Initial setup for the PieChart style.
@@ -154,11 +182,40 @@ public class DashboardFragment extends Fragment {
         chart.setHighlightPerTapEnabled(true);
         chart.setCenterTextSize(10f);
 
-        // ⚪ FIX: Set the center text color to White
+        // Set the center text color to White
         chart.setCenterTextColor(Color.WHITE);
 
         Legend l = chart.getLegend();
         l.setEnabled(false); // Hide legend since slices are small, full legend is not needed
+
+        // FIX: Set an anonymous listener directly on the chart instance.
+        chart.setOnChartValueSelectedListener(new OnChartValueSelectedListener() {
+            @Override
+            public void onValueSelected(Entry e, Highlight h) {
+                if (e instanceof PieEntry) {
+                    PieEntry entry = (PieEntry) e;
+                    String categoryName = entry.getLabel();
+                    double categoryTotal = entry.getValue();
+
+                    // Update center text to show Category Total
+                    String formattedAmount = String.format(Locale.getDefault(), "Rs. %.2f", categoryTotal);
+
+                    // 'chart' is accessible here
+                    chart.setCenterText(formattedAmount + "\n" + categoryName);
+                    chart.setCenterTextColor(Color.WHITE);
+                }
+            }
+
+            @Override
+            public void onNothingSelected() {
+                // Determine which stored total to use for the reset
+                if (chart == binding.incomeChart) {
+                    updateChartCenterTextToTotal(chart, currentIncomeTotal, "Income");
+                } else if (chart == binding.expenseChart) {
+                    updateChartCenterTextToTotal(chart, currentExpenseTotal, "Expense");
+                }
+            }
+        });
     }
 
     /**
@@ -195,7 +252,7 @@ public class DashboardFragment extends Fragment {
         // 3. Create PieDataSet
         PieDataSet dataSet = new PieDataSet(entries, "");
 
-        // 🎨 UPDATED: Using a more cohesive and professional color palette matching a financial app theme.
+        // Updated darker, ash-toned palette
         final int[] CHART_COLORS = {
                 Color.parseColor("#00695C"), // Dark Teal (Rich and deep)
                 Color.parseColor("#455A64"), // Dark Blue Grey (Strong, neutral contrast)
@@ -218,10 +275,8 @@ public class DashboardFragment extends Fragment {
 
         chart.setData(data);
 
-        // Set center text to show the total amount
-        // 💰 FIX: Changed "$%.0f" to "Rs. %.0f"
-        String centerAmount = String.format(Locale.getDefault(), "Rs. %.0f", totalAmount);
-        chart.setCenterText(centerAmount + "\n" + type);
+        // Set center text using the helper function for consistency
+        updateChartCenterTextToTotal(chart, totalAmount, type);
 
         chart.animateY(1000);
         chart.invalidate(); // Refresh chart
