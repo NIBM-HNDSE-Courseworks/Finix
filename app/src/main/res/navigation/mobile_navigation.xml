@@ -2,8 +2,7 @@
 <navigation xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/mobile_navigation"
-    app:startDestination="@+id/nav_dashboard">
+    app:startDestination="@id/nav_savings">
 
     <fragment
         android:id="@+id/nav_dashboard"
@@ -25,8 +24,8 @@
 
     <fragment
         android:id="@+id/nav_savings"
-        android:name="com.example.finix.ui.savings.SavingsGoalsFragment"
-        android:label="Savings and Goals"
+        android:name="com.example.finix.ui.savings.SavingsGoalScreen"
+        android:label="Savings Goals"
         tools:layout="@layout/fragment_savings_goals" />
 
     <fragment
@@ -34,13 +33,4 @@
         android:name="com.example.finix.ui.settings.SettingsFragment"
         android:label="Settings"
         tools:layout="@layout/fragment_settings" />
-
 </navigation>
-
-    <!-- 💬 COMMENTS BELOW 💬 -->
-    <!-- 🧭 This file defines the app's navigation graph. -->
-    <!-- 📍 'app:startDestination' sets the first screen when app opens. -->
-    <!-- 🧩 Each <fragment> represents a screen (Dashboard, Transactions, etc). -->
-    <!-- 🪄 'android:name' points to the Fragment class file. -->
-    <!-- 🎨 'tools:layout' helps Android Studio preview the UI layout. -->
-    <!-- ⚙️ This XML is used by the Navigation Component to handle app navigation smoothly. -->

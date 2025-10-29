@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="#4DB6AC"
+    android:padding="12dp"
+    android:layout_marginBottom="8dp"
+    android:elevation="2dp"
+    android:clipToPadding="false"
+    android:layout_marginHorizontal="8dp">
+
+    <!-- Top Row: Goal name + info icon + category name -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="4dp">
+
+        <!-- Goal name -->
+        <TextView
+            android:id="@+id/tvGoalName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Goal Name"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:layout_weight="1" />
+
+        <!-- Info icon -->
+        <ImageView
+            android:id="@+id/ivInfo"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:src="@android:drawable/ic_menu_info_details"
+            android:tint="#FFFFFF"
+            android:layout_marginEnd="8dp" />
+
+        <!-- Category name -->
+        <TextView
+            android:id="@+id/tvCategoryName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Category"
+            android:textColor="#E0F2F1"
+            android:textStyle="italic"
+            android:textSize="13sp" />
+    </LinearLayout>
+
+    <!-- Bottom Row: Target Amount + Target Date -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_gravity="fill_horizontal"
+
+        android:layout_marginTop="2dp">
+
+        <TextView
+            android:id="@+id/tvTargetAmount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Target: $2500"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/tvTargetDate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="2025-12-30"
+            android:textColor="#E0F2F1"
+            android:textSize="13sp" />
+    </LinearLayout>
+</LinearLayout>
