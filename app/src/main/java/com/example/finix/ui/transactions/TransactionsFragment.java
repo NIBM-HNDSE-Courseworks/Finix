@@ -242,21 +242,23 @@ public class TransactionsFragment extends Fragment {
         binding.spinnerMonthYear.setAdapter(adapter);
 
         // 3. Set the selection and apply filter if needed
+        // Check if there's no current filter AND at least one month is available (adapterList size > 1)
         boolean isInitialDefaultSet = currentMonthYearFilter == null && adapterList.size() > 1;
 
         if (isInitialDefaultSet) {
-            // --- LOGIC for initial default selection: Select the most recent month ---
+            // --- LOGIC for initial default selection: Select the latest month ---
 
-            // Select the most recent month, which is at index 1 (after "Show All").
-            binding.spinnerMonthYear.setSelection(1);
+            // Select the latest month, which is at index 1 (after "Show All").
+            final int LATEST_MONTH_INDEX = 1;
+            binding.spinnerMonthYear.setSelection(LATEST_MONTH_INDEX);
 
             // Manually apply the filter for the default month since setSelection doesn't
             // trigger onItemSelected on initial load.
-            String defaultSelection = adapterList.get(1);
+            String defaultSelection = adapterList.get(LATEST_MONTH_INDEX);
             viewModel.filterByMonthYear(defaultSelection); // Apply filter
             currentMonthYearFilter = defaultSelection;     // Store filter state
 
-            Log.i(TAG, "updateMonthYearSpinner: Default selection set to most recent month: " + defaultSelection);
+            Log.i(TAG, "updateMonthYearSpinner: Default selection set to latest month: " + defaultSelection);
         } else if (currentMonthYearFilter != null) {
             // Maintain the currently active filter (after resume or when a month is selected)
             int index = distinctMonths.indexOf(currentMonthYearFilter);

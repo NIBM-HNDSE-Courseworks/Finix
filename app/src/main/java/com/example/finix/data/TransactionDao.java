@@ -1,5 +1,6 @@
 package com.example.finix.data;
 
+import androidx.lifecycle.LiveData;
 import androidx.room.Dao;
 import androidx.room.Insert;
 import androidx.room.Query;
@@ -38,4 +39,12 @@ public interface TransactionDao {
     // We get the raw long, then format in the ViewModel
     @Query("SELECT DISTINCT date_time FROM transactions ORDER BY date_time DESC")
     List<Long> getDistinctMonthYear();
+
+    // 💰 NEW: Get the total amount of a type (Income/Expense) within a date range
+    @Query("SELECT SUM(amount) FROM transactions WHERE type = :type AND date_time BETWEEN :startTime AND :endTime")
+    LiveData<Double> getTotalAmountByTypeAndDateRange(String type, long startTime, long endTime); //
+
+    // 📈 NEW: Get all transactions of a type within a date range (for chart data)
+    @Query("SELECT * FROM transactions WHERE type = :type AND date_time BETWEEN :startTime AND :endTime ORDER BY date_time DESC")
+    LiveData<List<Transaction>> getTransactionsByTypeAndDateRange(String type, long startTime, long endTime);
 }
