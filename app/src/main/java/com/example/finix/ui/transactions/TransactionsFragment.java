@@ -4,23 +4,22 @@ import android.app.AlertDialog;
 import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
 import android.content.DialogInterface;
-import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
-import android.graphics.drawable.RippleDrawable;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.text.InputFilter;
-import android.util.Log;
+import android.util.Log; // <-- DEBUGGING: Import Log class
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.Window; // Import for Dialog Window
-import android.view.WindowManager; // Import for WindowManager
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.*;
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.Observer; // Import for explicit observer
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -32,6 +31,9 @@ import java.util.*;
 
 public class TransactionsFragment extends Fragment {
 
+    // DEBUGGING: Define a TAG for logging
+    private static final String TAG = "Finix_TransFragment";
+
     private FragmentTransactionsBinding binding;
     private TransactionsViewModel viewModel;
     private TransactionAdapter incomeAdapter, expenseAdapter;
@@ -39,14 +41,16 @@ public class TransactionsFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
+        Log.d(TAG, "onResume: Fragment becoming visible. Forcing transaction reload.");
         // Force a reload just in case the LiveData update was missed
-        // while the fragment was paused/not in the foreground.
         viewModel.loadAllTransactions();
     }
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
                              ViewGroup container, Bundle savedInstanceState) {
+
+        Log.d(TAG, "onCreateView: Starting fragment initialization.");
 
         viewModel = new ViewModelProvider(this).get(TransactionsViewModel.class);
         binding = FragmentTransactionsBinding.inflate(inflater, container, false);
@@ -63,39 +67,49 @@ public class TransactionsFragment extends Fragment {
 
         binding.recyclerIncome.setAdapter(incomeAdapter);
         binding.recyclerExpenses.setAdapter(expenseAdapter);
+        Log.d(TAG, "onCreateView: RecyclerViews and adapters initialized.");
 
         // 🔹 Add spacing between items
-        int spacing = getResources().getDimensionPixelSize(R.dimen.transaction_item_spacing);
-        RecyclerView.ItemDecoration decoration = new RecyclerView.ItemDecoration() {
-            @Override
-            public void getItemOffsets(@NonNull Rect outRect, @NonNull View view,
-                                       @NonNull RecyclerView parent, @NonNull RecyclerView.State state) {
-                outRect.bottom = spacing;
-            }
-        };
-        binding.recyclerIncome.addItemDecoration(decoration);
-        binding.recyclerExpenses.addItemDecoration(decoration);
+        try {
+            int spacing = getResources().getDimensionPixelSize(R.dimen.transaction_item_spacing);
+            RecyclerView.ItemDecoration decoration = new RecyclerView.ItemDecoration() {
+                @Override
+                public void getItemOffsets(@NonNull Rect outRect, @NonNull View view,
+                                           @NonNull RecyclerView parent, @NonNull RecyclerView.State state) {
+                    outRect.bottom = spacing;
+                }
+            };
+            binding.recyclerIncome.addItemDecoration(decoration);
+            binding.recyclerExpenses.addItemDecoration(decoration);
+            Log.d(TAG, "onCreateView: Item spacing added. Spacing value: " + spacing);
+        } catch (Exception e) {
+            Log.e(TAG, "onCreateView: Failed to get transaction_item_spacing dimension.", e);
+        }
+
 
         // 🔹 Observe transactions
         viewModel.getIncomeTransactions().observe(getViewLifecycleOwner(), list -> {
+            Log.d(TAG, "Income LiveData updated. Count: " + (list != null ? list.size() : 0));
             incomeAdapter.setTransactions(list);
             updateTransactionVisibility();
         });
         viewModel.getExpenseTransactions().observe(getViewLifecycleOwner(), list -> {
+            Log.d(TAG, "Expense LiveData updated. Count: " + (list != null ? list.size() : 0));
             expenseAdapter.setTransactions(list);
             updateTransactionVisibility();
         });
 
         viewModel.getMessageEvent().observe(getViewLifecycleOwner(), message -> {
             if (message != null) {
+                Log.i(TAG, "MessageEvent received: " + message);
                 showCustomToast(message);
-                // Optional: You might want to clear the event after it's been consumed
-                // (requires a method in the ViewModel or using a SingleEvent LiveData implementation)
             }
         });
 
         // 🔹 Keep category map updated in adapters
         viewModel.getCategoriesLive().observe(getViewLifecycleOwner(), map -> {
+            int count = (map != null) ? map.size() : 0;
+            Log.d(TAG, "Category LiveData updated for adapters. Category Count: " + count);
             if (map != null) {
                 incomeAdapter.setCategoryMap(map);
                 expenseAdapter.setCategoryMap(map);
@@ -105,7 +119,10 @@ public class TransactionsFragment extends Fragment {
         });
 
         // 🔹 Add transaction
-        binding.buttonAddTransaction.setOnClickListener(v -> showAddTransactionDialog(null));
+        binding.buttonAddTransaction.setOnClickListener(v -> {
+            Log.d(TAG, "Add Transaction button clicked. Showing Add/Edit dialog.");
+            showAddTransactionDialog(null);
+        });
 
         // 🔹 Filters
         binding.buttonFilterIncome.setOnClickListener(v -> showFilterMenu("Income"));
@@ -115,12 +132,13 @@ public class TransactionsFragment extends Fragment {
         incomeAdapter.setListener(new TransactionAdapter.OnTransactionActionListener() {
             @Override
             public void onEdit(Transaction t) {
+                Log.d(TAG, "Income transaction EDIT clicked for ID: " + t.getId());
                 showAddTransactionDialog(t);
             }
 
             @Override
             public void onDelete(Transaction t) {
-                // 🔴 UPDATED: Use the custom confirmation dialog
+                Log.d(TAG, "Income transaction DELETE clicked for ID: " + t.getId());
                 showDeleteConfirmation(t);
             }
         });
@@ -128,75 +146,77 @@ public class TransactionsFragment extends Fragment {
         expenseAdapter.setListener(new TransactionAdapter.OnTransactionActionListener() {
             @Override
             public void onEdit(Transaction t) {
+                Log.d(TAG, "Expense transaction EDIT clicked for ID: " + t.getId());
                 showAddTransactionDialog(t);
             }
 
             @Override
             public void onDelete(Transaction t) {
-                // 🔴 UPDATED: Use the custom confirmation dialog
+                Log.d(TAG, "Expense transaction DELETE clicked for ID: " + t.getId());
                 showDeleteConfirmation(t);
             }
         });
+
+        Log.d(TAG, "onCreateView: Listeners set up successfully.");
 
         return root;
     }
 
     // --- NEW METHOD FOR CUSTOM DELETE CONFIRMATION ---
     private void showDeleteConfirmation(Transaction t) {
-        // Use requireActivity() or requireContext() as Fragment's context for layout inflation
-        View popupView = requireActivity().getLayoutInflater().inflate(R.layout.delete_confirmation_popup, null); // Inflate popup layout
+        Log.d(TAG, "showDeleteConfirmation: Preparing dialog for transaction ID: " + t.getId());
+        View popupView = requireActivity().getLayoutInflater().inflate(R.layout.delete_confirmation_popup, null);
 
-        // 🔴 FIX: Use the correct ID from your XML: R.id.deleteMessage
         TextView tvMessage = popupView.findViewById(R.id.deleteMessage);
 
-        // Customize the message to be transaction-specific
         if (tvMessage != null) {
-            // Fetch the category name, defaulting to a generic description if not found
             String categoryName = viewModel.getCategoryMap().getOrDefault(t.getCategoryId(), "a transaction");
-
-            // Format the message with specific transaction details
             String message = "Are you sure you want to delete the " + t.getType().toLowerCase() + " of Rs. " + String.format("%.2f", t.getAmount()) + " for '" + categoryName + "'?";
             tvMessage.setText(message);
+            Log.d(TAG, "showDeleteConfirmation: Message set: " + message);
         }
 
-        AlertDialog dialog = new AlertDialog.Builder(requireContext()).setView(popupView).create(); // Create dialog with custom view
-        dialog.show(); // Show the dialog on screen
+        AlertDialog dialog = new AlertDialog.Builder(requireContext()).setView(popupView).create();
+        dialog.show();
 
-        Window window = dialog.getWindow(); // Get dialog window to customize size
+        Window window = dialog.getWindow();
         if(window != null){
-            // Set width to 80% screen, height wraps content. Use requireActivity().getResources()
-            window.setLayout((int)(requireActivity().getResources().getDisplayMetrics().widthPixels * 0.8),
-                    WindowManager.LayoutParams.WRAP_CONTENT);
-            // Make background transparent (Assuming this is desired for rounded corners/custom shape)
+            int dialogWidth = (int)(requireActivity().getResources().getDisplayMetrics().widthPixels * 0.8);
+            window.setLayout(dialogWidth, WindowManager.LayoutParams.WRAP_CONTENT);
             window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            Log.d(TAG, "showDeleteConfirmation: Dialog size and background set.");
         }
 
-        Button cancelBtn = popupView.findViewById(R.id.cancelDeleteBtn); // Get cancel button from popup
-        Button confirmBtn = popupView.findViewById(R.id.confirmDeleteBtn); // Get confirm button from popup
+        Button cancelBtn = popupView.findViewById(R.id.cancelDeleteBtn);
+        Button confirmBtn = popupView.findViewById(R.id.confirmDeleteBtn);
 
-        // Close dialog if cancel clicked
-        cancelBtn.setOnClickListener(v -> dialog.dismiss());
-
-        // Handle confirm button click
-        confirmBtn.setOnClickListener(v -> {
+        cancelBtn.setOnClickListener(v -> {
+            Log.d(TAG, "Delete dialog: Cancel clicked.");
             dialog.dismiss();
-            viewModel.deleteTransaction(t); // Call the ViewModel to perform the actual deletion
+        });
+
+        confirmBtn.setOnClickListener(v -> {
+            Log.i(TAG, "Delete dialog: Confirm clicked. Deleting transaction ID: " + t.getId());
+            dialog.dismiss();
+            viewModel.deleteTransaction(t);
         });
     }
 
 
     // 🔹 Popup for Add/Edit Transaction
     private void showAddTransactionDialog(Transaction transactionToEdit) {
+        if (transactionToEdit != null) {
+            Log.i(TAG, "showAddTransactionDialog: Editing existing transaction ID: " + transactionToEdit.getId());
+        } else {
+            Log.i(TAG, "showAddTransactionDialog: Adding new transaction.");
+        }
+
         LayoutInflater inflater = LayoutInflater.from(getContext());
         View popupView = inflater.inflate(R.layout.add_edit_transaction_popup, null);
 
-        // --- Title ---
+        // --- View Initialization ---
         TextView tvTitle = popupView.findViewById(R.id.popupTitle);
-        if (transactionToEdit != null) {
-            tvTitle.setText("Edit Transaction");
-        } else {
-            tvTitle.setText("Add Transaction");
-        }
+        tvTitle.setText(transactionToEdit != null ? "Edit Transaction" : "Add Transaction");
 
         EditText etAmount = popupView.findViewById(R.id.etAmount);
         EditText etDescription = popupView.findViewById(R.id.etDescription);
@@ -212,138 +232,104 @@ public class TransactionsFragment extends Fragment {
         Button btnBackCategory = popupView.findViewById(R.id.btnCancelCategory);
 
         // 🟢 ADD CHARACTER LIMITS HERE
-
-        // 1. Amount limit (7 characters)
-        // Note: This only limits the number of characters, the input type should be numeric in XML.
         etAmount.setFilters(new InputFilter[] { new InputFilter.LengthFilter(7) });
-
-        // 2. New Category limit (12 characters)
         etNewCategory.setFilters(new InputFilter[] { new InputFilter.LengthFilter(14) });
+        Log.d(TAG, "Dialog: Input filters (limits) applied.");
 
-        // ------------------------------------------
-        // --- Category setup (FIX + EXTENSIVE DEBUGGING) ---
-        Log.d("DEBUG_CATEGORY", "🔰 Starting category setup inside showAddTransactionDialog()");
-
-        // 🧩 Initialize category structures
+        // --- Category setup ---
         List<String> categoriesList = new ArrayList<>();
         Map<String, Integer> categoryNameToIdMap = new HashMap<>();
 
-        // 🟢 FIX: Pre-populate map using latest data from ViewModel
+        // Ensure "Add New Category" is the first entry
+        categoriesList.add("Add New Category");
+
+        // Initial pre-population of categories from ViewModel's current state
         Map<Integer, String> currentCategories = viewModel.getCategoryMap();
-        if (currentCategories == null) {
-            Log.w("DEBUG_CATEGORY", "⚠️ currentCategories is NULL — ViewModel might not be initialized yet!");
-        } else {
-            Log.d("DEBUG_CATEGORY", "✅ currentCategories fetched with size: " + currentCategories.size());
-            for (Map.Entry<Integer, String> e : currentCategories.entrySet()) {
-                Log.d("DEBUG_CATEGORY", "📦 Existing category → ID: " + e.getKey() + " | Name: " + e.getValue());
-            }
-        }
-
-        // ⭐ Add "Add New Category" FIRST
-        if (!categoriesList.contains("Add New Category")) {
-            categoriesList.add("Add New Category");
-            Log.d("DEBUG_CATEGORY", "➕ Added default option: 'Add New Category'");
-        }
-
-        // ⭐ Add all existing categories SECOND
         if (currentCategories != null) {
             for (Map.Entry<Integer, String> entry : currentCategories.entrySet()) {
                 categoriesList.add(entry.getValue());
                 categoryNameToIdMap.put(entry.getValue(), entry.getKey());
-                Log.d("DEBUG_CATEGORY", "✅ Added category to list: " + entry.getValue() + " (ID: " + entry.getKey() + ")");
             }
-        } else {
-            Log.w("DEBUG_CATEGORY", "⚠️ Skipping category addition because currentCategories == null");
         }
+        Log.d(TAG, "Dialog: Initial category list size: " + categoriesList.size());
 
-        // ✅ Adapter setup
+
         ArrayAdapter<String> adapter = new ArrayAdapter<>(getContext(),
                 android.R.layout.simple_dropdown_item_1line, categoriesList);
         actCategory.setAdapter(adapter);
         actCategory.setThreshold(0);
-        Log.d("DEBUG_CATEGORY", "📋 Adapter created with " + categoriesList.size() + " items.");
 
-        // ✅ Focus Listener — refresh on focus
+        // Force refresh on focus and click!
         actCategory.setOnFocusChangeListener((v, hasFocus) -> {
-            Log.d("DEBUG_CATEGORY", "🟦 FocusChange → hasFocus=" + hasFocus);
             if (hasFocus) {
-                Log.d("DEBUG_CATEGORY", "🔁 Calling refreshCategories() due to focus gained");
+                Log.d(TAG, "Category AutoCompleteTextView gained focus. Refreshing categories.");
                 refreshCategories(adapter, categoriesList, categoryNameToIdMap, actCategory);
+                actCategory.post(() -> {
+                    actCategory.showDropDown(); // Always show latest items
+                });
             }
         });
 
-        // ✅ Click Listener — refresh and show dropdown
         actCategory.setOnClickListener(v -> {
-            Log.d("DEBUG_CATEGORY", "🟨 Click detected on category field");
-            boolean popupShowing = actCategory.isPopupShowing();
-            Log.d("DEBUG_CATEGORY", "📊 isPopupShowing() → " + popupShowing);
-            if (!popupShowing) {
-                Log.d("DEBUG_CATEGORY", "🔁 Refreshing categories before showing dropdown");
+            if (!actCategory.isPopupShowing()) {
+                Log.d(TAG, "Category AutoCompleteTextView clicked. Refreshing categories.");
                 refreshCategories(adapter, categoriesList, categoryNameToIdMap, actCategory);
-            } else {
-                Log.d("DEBUG_CATEGORY", "⏭️ Popup already showing — skipping refresh");
+                actCategory.post(() -> {
+                    actCategory.showDropDown(); // Always show latest items
+                });
             }
         });
 
-        // ✅ Dropdown item selected
         actCategory.setOnItemClickListener((parent, view, position, id) -> {
             String selected = adapter.getItem(position);
-            Log.d("DEBUG_CATEGORY", "🟩 Item clicked → " + selected + " (position=" + position + ")");
+            Log.d(TAG, "Dialog: Category selected: " + selected);
             if ("Add New Category".equals(selected)) {
-                Log.d("DEBUG_CATEGORY", "🆕 User chose 'Add New Category' — showing input layout");
                 llAddCategory.setVisibility(View.VISIBLE);
                 actCategory.setVisibility(View.GONE);
-            } else {
-                Log.d("DEBUG_CATEGORY", "📦 Selected existing category: " + selected);
+                etNewCategory.requestFocus();
+                Log.d(TAG, "Dialog: 'Add New Category' selected. Showing input field.");
             }
         });
 
-        // ✅ Add new category button
+        // ✅ Add new category - CRITICAL FIX APPLIED HERE
         btnSaveCategory.setOnClickListener(v -> {
             String newCat = etNewCategory.getText().toString().trim();
-            Log.d("DEBUG_CATEGORY", "🟨 Save button clicked with input: '" + newCat + "'");
             if (!newCat.isEmpty()) {
-                Log.d("DEBUG_CATEGORY", "✅ Adding new category: " + newCat);
+                Log.d(TAG, "Dialog: Saving new category: " + newCat);
+
+                // 1. Add category (ASYNC WRITE to DB, triggers LiveData update)
                 viewModel.addCategory(newCat);
                 showCustomToast("New category added!");
 
-                actCategory.postDelayed(() -> {
-                    Log.d("DEBUG_CATEGORY", "⏳ Post-delay → setting new category in field: " + newCat);
-                    actCategory.setText(newCat);
-                    actCategory.setVisibility(View.VISIBLE);
-                    llAddCategory.setVisibility(View.GONE);
-                    actCategory.clearFocus();
-                    Log.d("DEBUG_CATEGORY", "🔁 UI restored to main category field after adding new category");
-                }, 200);
+                // 2. CRITICAL FIX: Wait for LiveData confirmation and perform UI switch/text set
+                // This ensures the local lists/map are updated before setting the text.
+                onCategoryAdded(newCat, adapter, categoriesList, categoryNameToIdMap,
+                        actCategory, llAddCategory, etNewCategory);
 
-                etNewCategory.setText("");
-                Log.d("DEBUG_CATEGORY", "🧹 Cleared input field for new category");
             } else {
-                Log.w("DEBUG_CATEGORY", "⚠️ Attempted to save empty category!");
                 showCustomToast("Category cannot be empty!");
+                Log.w(TAG, "Dialog: Attempted to save empty category.");
             }
         });
 
-        // ✅ Back button for category input
-                btnBackCategory.setOnClickListener(v -> {
-                    Log.d("DEBUG_CATEGORY", "🔙 Back button clicked — returning to main category dropdown");
-                    llAddCategory.setVisibility(View.GONE);
-                    actCategory.setVisibility(View.VISIBLE);
-                });
-
-                Log.d("DEBUG_CATEGORY", "🏁 Finished category setup block");
-        // ------------------------------------------
-
+        btnBackCategory.setOnClickListener(v -> {
+            llAddCategory.setVisibility(View.GONE);
+            actCategory.setVisibility(View.VISIBLE);
+            Log.d(TAG, "Dialog: Cancel Add Category button clicked.");
+        });
 
         // --- Date picker setup ---
         btnPickDateTime.setOnClickListener(v -> {
+            Log.d(TAG, "Dialog: Date/Time picker clicked.");
             final Calendar calendar = Calendar.getInstance();
+            SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
 
             if (!tvDateTime.getText().toString().isEmpty()) {
                 try {
-                    calendar.setTime(new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
-                            .parse(tvDateTime.getText().toString()));
-                } catch (Exception ignored) {}
+                    calendar.setTime(format.parse(tvDateTime.getText().toString()));
+                } catch (Exception e) {
+                    Log.e(TAG, "Dialog: Failed to parse existing date time string.", e);
+                }
             }
 
             DatePickerDialog dp = new DatePickerDialog(
@@ -355,8 +341,9 @@ public class TransactionsFragment extends Fragment {
                                 (timeView, h, min) -> {
                                     calendar.set(Calendar.HOUR_OF_DAY, h);
                                     calendar.set(Calendar.MINUTE, min);
-                                    tvDateTime.setText(new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
-                                            .format(calendar.getTime()));
+                                    String selectedDateTime = format.format(calendar.getTime());
+                                    tvDateTime.setText(selectedDateTime);
+                                    Log.d(TAG, "Dialog: Selected date/time: " + selectedDateTime);
                                 },
                                 calendar.get(Calendar.HOUR_OF_DAY),
                                 calendar.get(Calendar.MINUTE),
@@ -378,13 +365,16 @@ public class TransactionsFragment extends Fragment {
         // --- Preload existing transaction data if editing ---
         if (transactionToEdit != null) {
             String categoryName = viewModel.getCategoryMap().get(transactionToEdit.getCategoryId());
+            SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
+
             etAmount.setText(String.valueOf(transactionToEdit.getAmount()));
             etDescription.setText(transactionToEdit.getDescription());
             actCategory.setText(categoryName);
-            tvDateTime.setText(new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
-                    .format(new Date(transactionToEdit.getDateTime())));
-            if ("Income".equals(transactionToEdit.getType())) rgType.check(R.id.rbIncome);
-            else rgType.check(R.id.rbExpense);
+            tvDateTime.setText(format.format(new Date(transactionToEdit.getDateTime())));
+
+            int radioId = "Income".equals(transactionToEdit.getType()) ? R.id.rbIncome : R.id.rbExpense;
+            rgType.check(radioId);
+            Log.d(TAG, "Dialog: Preloaded existing data for Edit mode. Category: " + categoryName + ", Type ID: " + radioId);
         }
 
         AlertDialog dialog = new AlertDialog.Builder(getContext())
@@ -393,37 +383,45 @@ public class TransactionsFragment extends Fragment {
         if (dialog.getWindow() != null)
             dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
 
+        dialog.show();
+        dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+        Log.d(TAG, "Dialog: Add/Edit Transaction dialog shown.");
+
         // --- Save Transaction ---
         btnSave.setOnClickListener(v -> {
+            Log.d(TAG, "Dialog: Save Transaction button clicked.");
             String amountText = etAmount.getText().toString().trim();
             String desc = etDescription.getText().toString().trim();
             String catName = actCategory.getText().toString().trim();
             String dateText = tvDateTime.getText().toString().trim();
-            // Get the ID of the checked radio button. Returns -1 if none is checked.
             int checkedTypeId = rgType.getCheckedRadioButtonId();
-            String type = checkedTypeId == R.id.rbIncome ? "Income" : "Expense"; // 'Expense' if not income, but we must check for -1
+            String type = checkedTypeId == R.id.rbIncome ? "Income" : "Expense";
 
-            // 🔴 UPDATED EMPTY CHECK: Check Amount, Category, Date, AND Description.
-            // NOTE: Description is optional in finance apps, but included here as requested.
-            // If description is meant to be optional, remove `|| desc.isEmpty()`.
+            // 🔴 Validation Checks
             if (amountText.isEmpty() || catName.isEmpty() || dateText.isEmpty() || desc.isEmpty()) {
                 showCustomToast("Fill all fields!");
+                Log.w(TAG, "Validation Failed: Empty fields detected.");
                 return;
             }
 
-            // 🔴 ADDED CHECK: Ensure a transaction type (Income/Expense) is selected.
             if (checkedTypeId == -1) {
                 showCustomToast("Please select transaction type (Income or Expense)!");
+                Log.w(TAG, "Validation Failed: No transaction type selected.");
                 return;
             }
 
-            // The map is now populated, so this check works correctly even if the user didn't touch the category field
             if (!categoryNameToIdMap.containsKey(catName)) {
-                showCustomToast("Invalid category selected!");
+                if ("Add New Category".equals(catName)) {
+                    showCustomToast("Please select a valid category or complete adding a new one!");
+                } else {
+                    showCustomToast("Invalid category selected! Ensure it's from the list.");
+                }
+                Log.w(TAG, "Validation Failed: Invalid category name: " + catName);
                 return;
             }
 
             int categoryId = categoryNameToIdMap.get(catName);
+            Log.d(TAG, "Validation Passed. Category Name: " + catName + ", ID: " + categoryId);
 
             try {
                 double amount = Double.parseDouble(amountText);
@@ -431,6 +429,7 @@ public class TransactionsFragment extends Fragment {
                         .parse(dateText).getTime();
 
                 if (transactionToEdit != null) {
+                    // Check for changes in Edit mode
                     boolean noChange =
                             Double.compare(transactionToEdit.getAmount(), amount) == 0 &&
                                     Objects.equals(transactionToEdit.getDescription(), desc) &&
@@ -440,10 +439,12 @@ public class TransactionsFragment extends Fragment {
 
                     if (noChange) {
                         showCustomToast("No changes detected!");
-                        dialog.dismiss(); // Dismiss the dialog here
+                        dialog.dismiss();
+                        Log.i(TAG, "Edit transaction: No changes detected. Dismissing dialog.");
                         return;
                     }
 
+                    // Perform update
                     transactionToEdit.setAmount(amount);
                     transactionToEdit.setDescription(desc);
                     transactionToEdit.setCategoryId(categoryId);
@@ -452,73 +453,134 @@ public class TransactionsFragment extends Fragment {
 
                     viewModel.updateTransaction(transactionToEdit);
                     showCustomToast("Transaction updated successfully!");
+                    Log.i(TAG, "Edit transaction: Update initiated for ID: " + transactionToEdit.getId());
                 } else {
+                    // Perform save
                     viewModel.saveTransaction(amount, type, categoryId, dateMillis, desc, dialog::dismiss);
                     showCustomToast("New transaction added!");
+                    Log.i(TAG, "New transaction: Save initiated.");
                 }
 
                 dialog.dismiss();
             } catch (Exception e) {
                 showCustomToast("Invalid amount or date format!");
+                Log.e(TAG, "Save Failed: Parsing error (Amount/Date).", e);
             }
         });
-
-        dialog.show();
-        dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
     }
 
-    // 🔹 Helper: Refresh category list when focused (with debugging 🧩)
+    // --- NEW METHOD: Waits for LiveData update before completing category add UI switch ---
+    private void onCategoryAdded(String newCat, ArrayAdapter<String> adapter,
+                                 List<String> categoriesList,
+                                 Map<String, Integer> categoryNameToIdMap,
+                                 AutoCompleteTextView actCategory,
+                                 LinearLayout llAddCategory,
+                                 EditText etNewCategory) {
+
+        Log.d(TAG, "onCategoryAdded: Waiting for LiveData confirmation for '" + newCat + "'.");
+
+        // Attach a one-time observer that waits for the LiveData to reflect the newly added category.
+        Observer<Map<Integer, String>> oneTimeObserver = new Observer<Map<Integer, String>>() {
+            @Override
+            public void onChanged(Map<Integer, String> map) {
+                Log.d(TAG, "onCategoryAdded Observer: LiveData changed. Size: " + (map != null ? map.size() : 0));
+
+                if (map != null && map.containsValue(newCat)) {
+
+                    // 1. Update local lists and map (Essential for subsequent validation/selection)
+                    categoriesList.clear();
+                    categoryNameToIdMap.clear();
+                    categoriesList.add("Add New Category");
+
+                    for (Map.Entry<Integer, String> entry : map.entrySet()) {
+                        categoriesList.add(entry.getValue());
+                        categoryNameToIdMap.put(entry.getValue(), entry.getKey());
+                    }
+                    adapter.notifyDataSetChanged();
+
+                    Log.i(TAG, "onCategoryAdded Observer: Category '" + newCat + "' confirmed. Performing UI switch.");
+
+                    // 2. Perform the UI switch and set the text on the main thread
+                    actCategory.post(() -> {
+                        actCategory.setText(newCat);
+                        actCategory.setVisibility(View.VISIBLE);
+                        llAddCategory.setVisibility(View.GONE);
+                        actCategory.clearFocus();
+                        etNewCategory.setText(""); // Clear the input field
+                    });
+
+                    // 3. CRUCIAL: Remove the observer after confirmation to avoid unnecessary future calls
+                    viewModel.getCategoriesLive().removeObserver(this);
+                } else if (map != null) {
+                    Log.d(TAG, "onCategoryAdded Observer: Category not yet present. Waiting...");
+                }
+            }
+        };
+
+        // Attach the observer. The viewModel.addCategory() call should soon trigger the update.
+        viewModel.getCategoriesLive().observe(getViewLifecycleOwner(), oneTimeObserver);
+        // Also call fetch to ensure we don't miss the initial value or a quick update.
+        viewModel.fetchLatestCategoryMap();
+    }
+
+
+    // 🔹 Helper: Refresh category list when focused
     public void refreshCategories(ArrayAdapter<String> adapter,
                                   List<String> categoriesList,
                                   Map<String, Integer> categoryNameToIdMap,
                                   AutoCompleteTextView actCategory) {
 
-        Log.d("CategoryDebug", "🔁 refreshCategories() called!");
+        Log.d(TAG, "refreshCategories: Triggering category fetch from ViewModel.");
 
-        new Thread(() -> {
-            Log.d("CategoryDebug", "📦 Getting current category map...");
-            Map<Integer, String> map = viewModel.getCategoryMap();
+        // 1. Force the ViewModel to fetch/reload the latest categories from its source (e.g., database)
+        viewModel.fetchLatestCategoryMap();
 
-            Log.d("CategoryDebug", "🧠 Forcing DB refresh with fetchLatestCategoryMap()...");
-            viewModel.fetchLatestCategoryMap();
+        // 2. Observer to receive the *single* update after the fetch is complete.
+        Observer<Map<Integer, String>> categoryObserver = new Observer<Map<Integer, String>>() {
+            @Override
+            public void onChanged(Map<Integer, String> map) {
+                Log.d(TAG, "refreshCategories: LiveData onChanged triggered.");
 
-            try {
-                Log.d("CategoryDebug", "⏳ Waiting 200ms for DB to refresh...");
-                Thread.sleep(200);
-            } catch (InterruptedException ignored) {
-                Log.e("CategoryDebug", "⚠️ Thread interrupted while waiting!");
-            }
-
-            Map<Integer, String> updatedMap = viewModel.getCategoryMap();
-            Log.d("CategoryDebug", "✅ Got updated map: " + (updatedMap != null ? updatedMap.size() + " entries" : "null"));
-
-            requireActivity().runOnUiThread(() -> {
-                if (updatedMap == null) {
-                    Log.w("CategoryDebug", "⚠️ updatedMap is null — skipping UI update!");
+                if (map == null) {
+                    Log.w(TAG, "refreshCategories: Category map is null. Removing observer.");
+                    viewModel.getCategoriesLive().removeObserver(this);
                     return;
                 }
 
-                Log.d("CategoryDebug", "🧹 Clearing old lists...");
+                // --- Update the local lists and map ---
                 categoriesList.clear();
                 categoryNameToIdMap.clear();
 
-                Log.d("CategoryDebug", "➕ Adding 'Add New Category' first...");
+                // Add the placeholder
                 categoriesList.add("Add New Category");
 
-                for (Map.Entry<Integer, String> entry : updatedMap.entrySet()) {
-                    Log.d("CategoryDebug", "📄 Adding category: " + entry.getValue() + " (ID: " + entry.getKey() + ")");
+                // Populate with fresh data
+                for (Map.Entry<Integer, String> entry : map.entrySet()) {
                     categoriesList.add(entry.getValue());
                     categoryNameToIdMap.put(entry.getValue(), entry.getKey());
                 }
+                Log.d(TAG, "refreshCategories: Populated with " + map.size() + " categories. Total list size: " + categoriesList.size());
 
+                // --- Notify and show the dropdown ---
                 adapter.notifyDataSetChanged();
-                Log.d("CategoryDebug", "🔔 Adapter refreshed, showing dropdown now...");
-                actCategory.showDropDown();
-            });
-        }).start();
+
+                if (actCategory.getVisibility() == View.VISIBLE) {
+                    actCategory.post(actCategory::showDropDown);
+                }
+
+                // CRUCIAL: Remove the observer after the update to prevent multiple observations
+                viewModel.getCategoriesLive().removeObserver(this);
+                Log.d(TAG, "refreshCategories: Observer removed successfully.");
+            }
+        };
+
+        // Attach the observer
+        viewModel.getCategoriesLive().observe(getViewLifecycleOwner(), categoryObserver);
+        Log.d(TAG, "refreshCategories: New observer attached.");
     }
 
     private void showFilterMenu(String type) {
+        Log.d(TAG, "showFilterMenu: Showing filter menu for type: " + type);
         androidx.appcompat.widget.PopupMenu popup = new androidx.appcompat.widget.PopupMenu(getContext(),
                 type.equals("Income") ? binding.buttonFilterIncome : binding.buttonFilterExpenses);
         popup.getMenu().add("Sort by Date (Newest)");
@@ -530,6 +592,7 @@ public class TransactionsFragment extends Fragment {
         popup.setOnMenuItemClickListener(item -> {
             TextView filterTextView = type.equals("Income") ? binding.textFilterIncome : binding.textFilterExpenses;
             String selectedTitle = item.getTitle().toString();
+            Log.d(TAG, "Filter menu item selected: " + selectedTitle + " for " + type);
 
             switch (selectedTitle) {
                 case "Sort by Date (Newest)":
@@ -558,46 +621,49 @@ public class TransactionsFragment extends Fragment {
     }
 
     private void showCategoryFilterDialog(String type) {
-        Map<Integer, String> categoryMap = viewModel.getCategoryMap(); // 🔹 Map: ID → Name
+        Log.d(TAG, "showCategoryFilterDialog: Preparing category filter for type: " + type);
+        Map<Integer, String> categoryMap = viewModel.getCategoryMap();
         if (categoryMap == null || categoryMap.isEmpty()) {
             showCustomToast("No categories available to filter!");
+            Log.w(TAG, "showCategoryFilterDialog: No categories found.");
             return;
         }
 
         List<String> options = new ArrayList<>();
         options.add("Show All");
-        // Use a separate list for IDs, aligning with options index
         List<Integer> categoryIdsInOrder = new ArrayList<>();
 
         for (Map.Entry<Integer, String> entry : categoryMap.entrySet()) {
             options.add(entry.getValue());
-            categoryIdsInOrder.add(entry.getKey()); // Add ID in the same order as name is added to options
+            categoryIdsInOrder.add(entry.getKey());
         }
+        Log.d(TAG, "showCategoryFilterDialog: Filter options count: " + options.size());
 
         TextView filterTextView = type.equals("Income") ? binding.textFilterIncome : binding.textFilterExpenses;
 
-        // 🚨 NEW: Create the runnable for "no results" toast
         Runnable onNoResultsAction = () -> {
             showCustomToast("No transactions found for this category.");
+            Log.i(TAG, "showCategoryFilterDialog: No results found toast shown.");
         };
 
         new AlertDialog.Builder(getContext())
                 .setTitle("Choose Category")
                 .setItems(options.toArray(new String[0]), (d, which) -> {
+                    String selectedName = options.get(which);
+                    Log.d(TAG, "Category Filter Dialog selected index: " + which + ", Name: " + selectedName);
+
                     if (which == 0) {
-                        // 🟢 Show all
                         viewModel.filterByCategory(type, null,
                                 () -> filterTextView.setText("Filter"),
-                                null); // No 'onNoResults' needed for 'Show All'
+                                null);
+                        Log.i(TAG, "Category Filter: Showing All transactions for " + type);
                     } else {
-                        // 🔹 Filter by selected category ID
-                        // The ID is at index 'which - 1' in the categoryIdsInOrder list
                         int selectedCategoryId = categoryIdsInOrder.get(which - 1);
-                        String selectedName = options.get(which); // Get name from options list
 
                         viewModel.filterByCategory(type, selectedCategoryId,
                                 () -> filterTextView.setText(selectedName),
-                                onNoResultsAction); // 🚨 PASS THE NEW ACTION HERE
+                                onNoResultsAction);
+                        Log.i(TAG, "Category Filter: Filtering by ID " + selectedCategoryId + " (" + selectedName + ") for " + type);
                     }
                 }).show();
     }
@@ -608,6 +674,9 @@ public class TransactionsFragment extends Fragment {
 
         boolean hasIncome = incomeList != null && !incomeList.isEmpty();
         boolean hasExpense = expenseList != null && !expenseList.isEmpty();
+        boolean empty = !hasIncome && !hasExpense;
+
+        Log.d(TAG, "updateTransactionVisibility: Income? " + hasIncome + ", Expense? " + hasExpense + ", Empty? " + empty);
 
         binding.textIncomeLabel.setVisibility(hasIncome ? View.VISIBLE : View.GONE);
         binding.recyclerIncome.setVisibility(hasIncome ? View.VISIBLE : View.GONE);
@@ -617,58 +686,62 @@ public class TransactionsFragment extends Fragment {
         binding.recyclerExpenses.setVisibility(hasExpense ? View.VISIBLE : View.GONE);
         binding.buttonFilterExpenses.setVisibility(hasExpense ? View.VISIBLE : View.GONE);
 
-        boolean empty = !hasIncome && !hasExpense;
         binding.imageNoTransactions.setVisibility(empty ? View.VISIBLE : View.GONE);
         binding.textNoTransactions.setVisibility(empty ? View.VISIBLE : View.GONE);
     }
 
-    private void showCustomToast(String message) { // Method to show a custom toast-like message popup
-        LayoutInflater inflater = getLayoutInflater(); // Get layout inflater for inflating XML
-        View layout = inflater.inflate(R.layout.custom_message, null); // Inflate custom toast layout
+    private void showCustomToast(String message) {
+        Log.d(TAG, "showCustomToast: Displaying message: " + message);
+        LayoutInflater inflater = getLayoutInflater();
+        View layout = inflater.inflate(R.layout.custom_message, null);
 
-        // 🔹 Initialize views inside custom layout
-        TextView toastMessage = layout.findViewById(R.id.toast_message); // Text field for message
-        ImageView close = layout.findViewById(R.id.toast_close); // Close (X) button
-        ProgressBar progressBar = layout.findViewById(R.id.toast_progress); // Progress bar for auto-dismiss timer
+        TextView toastMessage = layout.findViewById(R.id.toast_message);
+        ImageView close = layout.findViewById(R.id.toast_close);
+        ProgressBar progressBar = layout.findViewById(R.id.toast_progress);
 
-        toastMessage.setText(message); // Set message text
-        progressBar.setProgress(100); // Start with full progress (100%)
+        toastMessage.setText(message);
+        progressBar.setProgress(100);
 
-        // 🔹 Create dialog to show custom toast
         AlertDialog dialog = new AlertDialog.Builder(getContext()).setView(layout).create();
-        close.setOnClickListener(v -> dialog.dismiss()); // Close button → dismiss toast
+        close.setOnClickListener(v -> {
+            Log.d(TAG, "Custom Toast closed by user.");
+            dialog.dismiss();
+        });
 
-        if (dialog.getWindow() != null) { // Customize dialog window
-            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT)); // Transparent background
-            dialog.getWindow().setDimAmount(0f); // No dim background
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            dialog.getWindow().setDimAmount(0f);
 
-            WindowManager.LayoutParams params = dialog.getWindow().getAttributes(); // Get window attributes
-            params.width = WindowManager.LayoutParams.MATCH_PARENT; // Full width
-            params.height = WindowManager.LayoutParams.WRAP_CONTENT; // Wrap height
-            params.gravity = android.view.Gravity.TOP; // Show at top of screen
-            params.y = 50; // Add top margin (distance from status bar)
-            dialog.getWindow().setAttributes(params); // Apply attributes
+            WindowManager.LayoutParams params = dialog.getWindow().getAttributes();
+            params.width = WindowManager.LayoutParams.MATCH_PARENT;
+            params.height = WindowManager.LayoutParams.WRAP_CONTENT;
+            params.gravity = android.view.Gravity.TOP;
+            params.y = 50;
+            dialog.getWindow().setAttributes(params);
         }
 
-        dialog.show(); // Show the custom toast dialog
+        dialog.show();
 
         // 🔹 Countdown timer for auto-dismiss with progress bar
-        new CountDownTimer(3000, 50) { // 3 seconds total, tick every 50ms
-            public void onTick(long millisUntilFinished) { // Update progress on each tick
+        new CountDownTimer(3000, 50) {
+            public void onTick(long millisUntilFinished) {
                 int progress = (int) Math.max(0, Math.round((millisUntilFinished / 3000.0) * 100));
-                // Convert remaining time to percentage
-                progressBar.setProgress(progress); // Update progress bar
+                progressBar.setProgress(progress);
             }
 
-            public void onFinish() { // Called after 3 seconds
-                if (dialog.isShowing()) dialog.dismiss(); // Auto dismiss toast if still showing
+            public void onFinish() {
+                if (dialog.isShowing()) {
+                    Log.d(TAG, "Custom Toast auto-dismissed.");
+                    dialog.dismiss();
+                }
             }
-        }.start(); // Start countdown
+        }.start();
     }
 
     @Override
     public void onDestroyView() {
         super.onDestroyView();
+        Log.d(TAG, "onDestroyView: Binding cleared.");
         binding = null;
     }
 }

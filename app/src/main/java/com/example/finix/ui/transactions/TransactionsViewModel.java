@@ -3,8 +3,6 @@
 package com.example.finix.ui.transactions;
 
 import android.app.Application;
-import android.util.Log;
-
 import androidx.annotation.NonNull;
 import androidx.lifecycle.*;
 
@@ -40,34 +38,11 @@ public class TransactionsViewModel extends AndroidViewModel {
     public Map<Integer, String> getCategoryMap() { return categoryMapLive.getValue(); }
 
     public void addCategory(String name) {
-        Log.d("CategoryDebug", "🟢 addCategory() called with name: " + name);
-
-        if (name == null || name.trim().isEmpty()) {
-            Log.w("CategoryDebug", "⚠️ addCategory() aborted — category name is null or empty!");
-            return;
-        }
+        if (name == null || name.trim().isEmpty()) return;
 
         new Thread(() -> {
-            try {
-                String trimmedName = name.trim();
-                Log.d("CategoryDebug", "💾 Inserting new category into DB: " + trimmedName);
-
-                db.categoryDao().insert(new Category(trimmedName));
-
-                Log.d("CategoryDebug", "✅ Insert successful — reloading categories...");
-                loadCategories(); // reload after insertion
-
-                // Recheck after short delay to confirm insertion in DB
-                try { Thread.sleep(300); } catch (InterruptedException ignored) {}
-                List<Category> allCats = db.categoryDao().getAllCategories();
-                Log.d("CategoryDebug", "📊 DB now contains " + allCats.size() + " categories after insert.");
-                for (Category c : allCats) {
-                    Log.d("CategoryDebug", "📄 ID: " + c.getId() + ", Name: " + c.getName());
-                }
-
-            } catch (Exception e) {
-                Log.e("CategoryDebug", "❌ Error inserting category: " + e.getMessage(), e);
-            }
+            db.categoryDao().insert(new Category(name.trim()));
+            loadCategories(); // Reload after insertion
         }).start();
     }
 
@@ -89,31 +64,12 @@ public class TransactionsViewModel extends AndroidViewModel {
     }
 
     public void loadCategories() {
-        Log.d("CategoryDebug", "🔁 loadCategories() called — starting background thread...");
-
         new Thread(() -> {
-            try {
-                Log.d("CategoryDebug", "📥 Fetching categories from DB...");
-                List<Category> allCategories = db.categoryDao().getAllCategories();
-
-                Log.d("CategoryDebug", "✅ Categories fetched: " + (allCategories != null ? allCategories.size() : 0));
-
-                Map<Integer, String> map = new HashMap<>();
-                if (allCategories != null) {
-                    for (Category c : allCategories) {
-                        Log.d("CategoryDebug", "📄 Category -> ID: " + c.getId() + ", Name: " + c.getName());
-                        map.put(c.getId(), c.getName());
-                    }
-                } else {
-                    Log.w("CategoryDebug", "⚠️ allCategories is NULL from DB!");
-                }
-
-                categoryMapLive.postValue(map);
-                Log.d("CategoryDebug", "📤 categoryMapLive updated with " + map.size() + " entries!");
-
-            } catch (Exception e) {
-                Log.e("CategoryDebug", "❌ Error loading categories: " + e.getMessage(), e);
+            Map<Integer, String> map = new HashMap<>();
+            for (Category c : db.categoryDao().getAllCategories()) {
+                map.put(c.getId(), c.getName());
             }
+            categoryMapLive.postValue(map);
         }).start();
     }
 
