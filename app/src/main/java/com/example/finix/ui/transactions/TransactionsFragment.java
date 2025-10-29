@@ -187,6 +187,22 @@ public class TransactionsFragment extends Fragment {
         return root;
     }
 
+    private void onTransactionModified() {
+        Log.i(TAG, "onTransactionModified: Transaction change detected. Re-applying filter or reloading all.");
+
+        // Check if a filter is active
+        if (currentMonthYearFilter != null) {
+            // Re-apply the current filter to refresh the data
+            // This will also trigger the distinct month LiveData to update the spinner
+            viewModel.filterByMonthYear(currentMonthYearFilter);
+            Log.d(TAG, "onTransactionModified: Re-applied filter: " + currentMonthYearFilter);
+        } else {
+            // If "Show All" was active, load all to refresh data and distinct month list
+            viewModel.loadAllTransactions();
+            Log.d(TAG, "onTransactionModified: Reloaded all transactions (Show All).");
+        }
+    }
+
     // 🆕 NEW: Setup the Spinner and its listener
     private void setupMonthYearSpinner() {
         binding.spinnerMonthYear.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
@@ -319,10 +335,23 @@ public class TransactionsFragment extends Fragment {
         confirmBtn.setOnClickListener(v -> {
             Log.i(TAG, "Delete dialog: Confirm clicked. Deleting transaction ID: " + t.getId());
             dialog.dismiss();
+
+            // 1. Initiate the delete operation
             viewModel.deleteTransaction(t);
+
+            // 2. 🏆 CRITICAL FIX: Reload the list (with filter) after deletion
+            // Use a short delay to ensure the database operation completes before we refresh.
+            new CountDownTimer(100, 100) {
+                @Override
+                public void onTick(long l) {}
+
+                @Override
+                public void onFinish() {
+                    onTransactionModified(); // Re-applies the current filter or reloads all
+                }
+            }.start();
         });
     }
-
 
     // 🔹 Popup for Add/Edit Transaction
     private void showAddTransactionDialog(Transaction transactionToEdit) {
@@ -575,11 +604,24 @@ public class TransactionsFragment extends Fragment {
                     viewModel.updateTransaction(transactionToEdit);
                     showCustomToast("Transaction updated successfully!");
                     Log.i(TAG, "Edit transaction: Update initiated for ID: " + transactionToEdit.getId());
+
+                    // 🏆 CRITICAL FIX: Re-apply filter after update
+                    onTransactionModified();
+
                 } else {
+                    // Prepare the callback for new save
+                    Runnable onSuccess = () -> {
+                        dialog.dismiss();
+                        onTransactionModified(); // 🏆 CRITICAL FIX: Re-apply filter after save
+                    };
+
                     // Perform save
-                    viewModel.saveTransaction(amount, type, categoryId, dateMillis, desc, dialog::dismiss);
+                    // NOTE: The ViewModel's saveTransaction MUST call the onSuccess Runnable
+                    // once the transaction is successfully written to the database.
+                    viewModel.saveTransaction(amount, type, categoryId, dateMillis, desc, onSuccess);
                     showCustomToast("New transaction added!");
                     Log.i(TAG, "New transaction: Save initiated.");
+                    return; // Return here as onSuccess will handle dialog dismissal
                 }
 
                 dialog.dismiss();

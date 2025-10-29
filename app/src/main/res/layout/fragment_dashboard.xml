@@ -14,7 +14,7 @@
 
         <Spinner
             android:id="@+id/spinnerMonthYear"
-            android:layout_width="200dp"
+            android:layout_width="0dp"
             android:layout_height="48dp"
             android:layout_marginTop="8dp"
             android:background="@drawable/teal_color_border_button_outline"
@@ -24,18 +24,20 @@
             android:prompt="@string/select_month_year"
             android:spinnerMode="dropdown"
             app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/label_transactions"
             app:layout_constraintTop_toTopOf="parent"
-            tools:listitem="@android:layout/simple_spinner_dropdown_item" />
+            app:layout_constraintBottom_toTopOf="@id/income_card" />
 
         <TextView
             android:id="@+id/label_transactions"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="24dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="8dp"
             android:background="@drawable/rounded_gray_border_background"
             android:text="Transactions"
             android:textColor="@android:color/white"
-            android:textSize="16sp"
+            android:textSize="20sp"
             android:textStyle="bold"
             android:paddingStart="16dp"
             android:paddingEnd="16dp"
@@ -43,7 +45,8 @@
             android:paddingBottom="8dp"
             app:layout_constraintBottom_toBottomOf="@+id/spinnerMonthYear"
             app:layout_constraintStart_toEndOf="@+id/spinnerMonthYear"
-            app:layout_constraintTop_toTopOf="@+id/spinnerMonthYear" />
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
         <androidx.cardview.widget.CardView
             android:id="@+id/income_card"
@@ -59,34 +62,41 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
 
+                <!-- UPDATED: Income Title Styling -->
                 <TextView
                     android:id="@+id/income_title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:background="@drawable/rounded_gray_border_background"
                     android:text="Monthly Income"
+                    android:textColor="@android:color/white"
+                    android:textSize="16sp"
                     android:textStyle="bold"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:paddingTop="6dp"
+                    android:paddingBottom="6dp"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent" />
 
-                <View
-                    android:id="@+id/income_chart_placeholder"
-                    android:layout_width="80dp"
-                    android:layout_height="40dp"
-                    android:background="#A3E4D7"
-                    app:layout_constraintBottom_toTopOf="@id/income_amount"
+                <com.github.mikephil.charting.charts.PieChart
+                    android:id="@+id/incomeChart"
+                    android:layout_width="match_parent"
+                    android:layout_height="200dp"
+                    android:layout_marginTop="16dp"
+                    app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintTop_toTopOf="parent"
-                    tools:ignore="ContentDescription" />
+                    app:layout_constraintTop_toBottomOf="@id/income_title" />
 
                 <TextView
                     android:id="@+id/income_amount"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:textSize="32sp"
+                    android:layout_marginTop="16dp"
+                    android:textSize="18sp"
                     android:textStyle="bold"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/income_title"
+                    app:layout_constraintTop_toBottomOf="@id/incomeChart"
                     tools:text="$7,672" />
 
                 <TextView
@@ -117,34 +127,41 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
 
+                <!-- UPDATED: Expense Title Styling -->
                 <TextView
                     android:id="@+id/expense_title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:background="@drawable/rounded_gray_border_background"
                     android:text="Monthly Expense"
+                    android:textColor="@android:color/white"
+                    android:textSize="16sp"
                     android:textStyle="bold"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:paddingTop="6dp"
+                    android:paddingBottom="6dp"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent" />
 
-                <View
-                    android:id="@+id/expense_chart_placeholder"
-                    android:layout_width="80dp"
-                    android:layout_height="40dp"
-                    android:background="#F5B7B1"
-                    app:layout_constraintBottom_toTopOf="@id/expense_amount"
+                <com.github.mikephil.charting.charts.PieChart
+                    android:id="@+id/expenseChart"
+                    android:layout_width="match_parent"
+                    android:layout_height="200dp"
+                    android:layout_marginTop="16dp"
+                    app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintTop_toTopOf="parent"
-                    tools:ignore="ContentDescription" />
+                    app:layout_constraintTop_toBottomOf="@id/expense_title" />
 
                 <TextView
                     android:id="@+id/expense_amount"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:textSize="32sp"
+                    android:layout_marginTop="16dp"
+                    android:textSize="18sp"
                     android:textStyle="bold"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/expense_title"
+                    app:layout_constraintTop_toBottomOf="@id/expenseChart"
                     tools:text="$3,634" />
 
                 <TextView

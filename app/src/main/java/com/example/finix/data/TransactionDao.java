@@ -40,9 +40,9 @@ public interface TransactionDao {
     @Query("SELECT DISTINCT date_time FROM transactions ORDER BY date_time DESC")
     List<Long> getDistinctMonthYear();
 
-    // 💰 NEW: Get the total amount of a type (Income/Expense) within a date range
+    // 💰 FIX: Synchronous query for the comparison calculation
     @Query("SELECT SUM(amount) FROM transactions WHERE type = :type AND date_time BETWEEN :startTime AND :endTime")
-    LiveData<Double> getTotalAmountByTypeAndDateRange(String type, long startTime, long endTime); //
+    Double getPreviousMonthTotalSync(String type, long startTime, long endTime); // NOTE: Returns Double, not LiveData!
 
     // 📈 NEW: Get all transactions of a type within a date range (for chart data)
     @Query("SELECT * FROM transactions WHERE type = :type AND date_time BETWEEN :startTime AND :endTime ORDER BY date_time DESC")

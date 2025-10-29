@@ -140,6 +140,7 @@ public class TransactionsViewModel extends AndroidViewModel {
             db.transactionDao().insert(new Transaction(amount, type, categoryId, dateTime, description));
 
             // 2. ⚡ FIX: Call the synchronous helper on this same thread (no filter applied after save).
+            // NOTE: This call updates incomeLive/expenseLive to show the LATEST data (all transactions).
             _doLoadTransactionsAndPost(null);
 
             // 3. 🆕 NEW: Reload distinct months
@@ -149,8 +150,11 @@ public class TransactionsViewModel extends AndroidViewModel {
             loadCategories();
 
             // 5. Execute callback on the main thread after DB operations complete
+            // This is the correct place to call the 'onSuccess' or 'onComplete' action.
             if (onComplete != null) new android.os.Handler(getApplication().getMainLooper()).post(onComplete);
         }).start();
+
+        // ❌ REMOVED: The premature call to 'onSuccess.run()' that was here.
     }
 
     public void updateTransaction(Transaction transaction) {

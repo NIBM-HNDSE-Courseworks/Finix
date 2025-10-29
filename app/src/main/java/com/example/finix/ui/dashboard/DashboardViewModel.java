@@ -7,6 +7,9 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MediatorLiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.Transformations;
+
+import com.example.finix.data.Category;
+import com.example.finix.data.CategoryDAO;
 import com.example.finix.data.FinixDatabase;
 import com.example.finix.data.Transaction;
 import com.example.finix.data.TransactionDao;
@@ -15,15 +18,17 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.stream.Collectors;
 
 public class DashboardViewModel extends AndroidViewModel {
 
     private final TransactionDao transactionDao;
+    private final CategoryDAO categoryDao;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final SimpleDateFormat monthYearFormatter = new SimpleDateFormat("MMMM yyyy", Locale.getDefault());
     private final SimpleDateFormat monthFormatter = new SimpleDateFormat("MMMM", Locale.getDefault());
@@ -32,41 +37,49 @@ public class DashboardViewModel extends AndroidViewModel {
     private final MutableLiveData<List<String>> distinctMonthsLive = new MutableLiveData<>(new ArrayList<>());
     private final MutableLiveData<String> selectedMonthYearLive = new MutableLiveData<>();
 
-    // 2. Data Structures for UI
-    public final LiveData<Double> incomeTotalLive;
-    public final LiveData<String> incomeComparisonLive;
-    public final LiveData<Double> expenseTotalLive;
-    public final LiveData<String> expenseComparisonLive;
-
-    // 3. Data for Charts
-    public final LiveData<List<Transaction>> monthlyIncomeTransactionsLive;
-    public final LiveData<List<Transaction>> monthlyExpenseTransactionsLive;
-
     // Helper to get selected month's range (start and end timestamps)
     private final LiveData<long[]> dateRangeLive = Transformations.map(selectedMonthYearLive, this::getMonthDateRange);
 
-    public DashboardViewModel(@NonNull Application application) {
+    // 2. Data Structures for UI (Updated to use MutableLiveData for totals)
+    // We now calculate the total explicitly whenever dateRangeLive changes
+    private final MutableLiveData<Double> incomeTotalMutableLive = new MutableLiveData<>();
+    public final LiveData<Double> incomeTotalLive = incomeTotalMutableLive;
+
+    private final MutableLiveData<Double> expenseTotalMutableLive = new MutableLiveData<>();
+    public final LiveData<Double> expenseTotalLive = expenseTotalMutableLive;
+
+    public final LiveData<String> incomeComparisonLive;
+    public final LiveData<String> expenseComparisonLive;
+
+    // 3. Data for Charts (Uses LiveData DAO method)
+    public final LiveData<List<Transaction>> monthlyIncomeTransactionsLive;
+    public final LiveData<List<Transaction>> monthlyExpenseTransactionsLive;
+
+    // Chart Data
+    private final MutableLiveData<Map<Integer, String>> categoryMapLive = new MutableLiveData<>(new HashMap<>());
+
+    public DashboardViewModel(@NonNull Application application, CategoryDAO categoryDao) {
         super(application);
         transactionDao = FinixDatabase.getDatabase(application).transactionDao();
-        loadDistinctMonths(); // Load initial list of months
+        this.categoryDao = categoryDao;
+        loadDistinctMonths();
+        loadCategories();
 
-        // --- Transformations for Totals and Transactions ---
-        // This is a powerful MVVM pattern: whenever dateRangeLive changes, the underlying database query changes.
-
-        incomeTotalLive = Transformations.switchMap(dateRangeLive, range ->
-                transactionDao.getTotalAmountByTypeAndDateRange("Income", range[0], range[1]));
-
-        expenseTotalLive = Transformations.switchMap(dateRangeLive, range ->
-                transactionDao.getTotalAmountByTypeAndDateRange("Expense", range[0], range[1]));
-
+        // --- Transformations for Transactions (Uses LiveData DAO method) ---
         monthlyIncomeTransactionsLive = Transformations.switchMap(dateRangeLive, range ->
                 transactionDao.getTransactionsByTypeAndDateRange("Income", range[0], range[1]));
 
         monthlyExpenseTransactionsLive = Transformations.switchMap(dateRangeLive, range ->
                 transactionDao.getTransactionsByTypeAndDateRange("Expense", range[0], range[1]));
 
+        // --- Mediator to calculate Totals (using synchronous DAO on background thread) ---
+        dateRangeLive.observeForever(range -> {
+            // Trigger calculation of totals whenever the date range changes
+            calculateMonthlyTotal("Income", range[0], range[1], incomeTotalMutableLive);
+            calculateMonthlyTotal("Expense", range[0], range[1], expenseTotalMutableLive);
+        });
+
         // --- Transformations for Comparison Text ---
-        // Comparison requires knowing the selected month and the total from the previous recorded month.
         incomeComparisonLive = new MediatorLiveData<>();
         expenseComparisonLive = new MediatorLiveData<>();
 
@@ -83,6 +96,17 @@ public class DashboardViewModel extends AndroidViewModel {
         });
     }
 
+    /**
+     * Executes the synchronous total query on a background thread and posts the result.
+     */
+    private void calculateMonthlyTotal(String type, long startTime, long endTime, MutableLiveData<Double> totalLive) {
+        executor.execute(() -> {
+            // Uses the synchronous DAO method: getPreviousMonthTotalSync
+            Double total = transactionDao.getPreviousMonthTotalSync(type, startTime, endTime);
+            totalLive.postValue(total != null ? total : 0.0);
+        });
+    }
+
     // --- Public Getters for Fragment ---
 
     public LiveData<List<String>> getDistinctMonthsLive() {
@@ -91,6 +115,10 @@ public class DashboardViewModel extends AndroidViewModel {
 
     public LiveData<String> getSelectedMonthYearLive() {
         return selectedMonthYearLive;
+    }
+
+    public LiveData<Map<Integer, String>> getCategoryMapLive() {
+        return categoryMapLive;
     }
 
     // --- Core Logic Methods ---
@@ -132,10 +160,10 @@ public class DashboardViewModel extends AndroidViewModel {
      */
     private void loadDistinctMonths() {
         executor.execute(() -> {
-            List<Long> timestamps = transactionDao.getDistinctMonthYear(); //
+            // Uses the new DAO method: getDistinctMonthYear()
+            List<Long> timestamps = transactionDao.getDistinctMonthYear();
             List<String> months = new ArrayList<>();
 
-            // Use Calendar and SimpleDateFormat to get unique "MMMM yyyy" strings
             String lastMonthYear = null;
             Calendar cal = Calendar.getInstance();
 
@@ -144,7 +172,6 @@ public class DashboardViewModel extends AndroidViewModel {
                     cal.setTimeInMillis(timestamp);
                     String currentMonthYear = monthYearFormatter.format(cal.getTime());
 
-                    // Only add the month/year if it's different from the previous one
                     if (!currentMonthYear.equals(lastMonthYear)) {
                         months.add(currentMonthYear);
                         lastMonthYear = currentMonthYear;
@@ -152,6 +179,10 @@ public class DashboardViewModel extends AndroidViewModel {
                 }
             }
             distinctMonthsLive.postValue(months);
+            // Initialize selected month to the newest one
+            if (!months.isEmpty() && selectedMonthYearLive.getValue() == null) {
+                selectedMonthYearLive.postValue(months.get(0));
+            }
         });
     }
 
@@ -160,17 +191,18 @@ public class DashboardViewModel extends AndroidViewModel {
      * @param monthYear The selected month/year string.
      */
     public void setSelectedMonth(String monthYear) {
-        if (!monthYear.equals(selectedMonthYearLive.getValue())) {
+        if (monthYear != null && !monthYear.equals(selectedMonthYearLive.getValue())) {
             selectedMonthYearLive.setValue(monthYear);
         }
     }
 
     /**
-     * Calculates the comparison text (e.g., "Increased +$1,000 from last month").
+     * Calculates the comparison text (e.g., "Increased +Rs. 1,000 from last month").
      */
     private void calculateComparison(LiveData<Double> currentTotalLive, String type, MediatorLiveData<String> comparisonLive) {
         executor.execute(() -> {
             String selectedMonth = selectedMonthYearLive.getValue();
+            // Get the current total synchronously (safe because we are on a background thread)
             Double currentTotal = currentTotalLive.getValue();
             List<String> distinctMonths = distinctMonthsLive.getValue();
 
@@ -182,47 +214,85 @@ public class DashboardViewModel extends AndroidViewModel {
             // 1. Find the index of the selected month
             int selectedIndex = distinctMonths.indexOf(selectedMonth);
 
-            // 2. Determine the previous recorded month (next in the descending list)
+            // --- CRITICAL FIX: Handle case where no previous month exists ---
+            if (selectedIndex == distinctMonths.size() - 1) {
+                // This is the first recorded month, so there's nothing to compare to.
+                String noDataText = "No previous month data";
+                String color = "#607D8B"; // Neutral grey
+                comparisonLive.postValue(color + "|" + noDataText);
+                return;
+            }
+            // -----------------------------------------------------------------
+
+
+            // 2. Determine the previous recorded month
             Double prevTotal = 0.0;
             String prevMonthName = "last month";
 
+            // If we are not at the end of the list, a previous month exists (since the list is newest first)
             if (selectedIndex != -1 && selectedIndex + 1 < distinctMonths.size()) {
                 String previousMonthYear = distinctMonths.get(selectedIndex + 1);
 
                 // Get the date range for the previous month
                 long[] prevRange = getMonthDateRange(previousMonthYear);
 
-                // Wait synchronously for the previous month's total from the DB
-                prevTotal = transactionDao.getTotalAmountByTypeAndDateRange(type, prevRange[0], prevRange[1]).getValue();
-                prevTotal = (prevTotal != null) ? prevTotal : 0.0;
+                // Uses the synchronous DAO method: getPreviousMonthTotalSync
+                Double prevTotalResult = transactionDao.getPreviousMonthTotalSync(type, prevRange[0], prevRange[1]);
+                prevTotal = (prevTotalResult != null) ? prevTotalResult : 0.0;
 
                 try {
                     prevMonthName = monthFormatter.format(monthYearFormatter.parse(previousMonthYear));
                 } catch (Exception e) {
-                    // Fallback to "last month"
+                    // Fallback
                 }
-            } else if (distinctMonths.size() > 1) {
-                // If the selected month is the *newest* one, and there is a previous one (size > 1),
-                // it's already covered by index + 1
             }
 
             // 3. Calculate difference
             double difference = currentTotal - prevTotal;
             String sign = difference >= 0 ? "+" : "-";
-            String color = difference >= 0 ? "#00BFA5" : "#FF5252"; // Teal/Red
 
             String comparisonText;
+            String color;
+
             if (Math.abs(difference) < 0.01) {
                 comparisonText = "No change compared to " + prevMonthName;
                 color = "#607D8B"; // Neutral grey
             } else {
                 String action = difference > 0 ? "Increased" : "Decreased";
-                String absDifference = String.format(Locale.getDefault(), "%.2f", Math.abs(difference));
-                comparisonText = String.format("%s %s$%.2f from %s", action, sign, Math.abs(difference), prevMonthName);
+
+                // 💡 CRITICAL FIX: Invert color logic for Expenses
+                if (type.equals("Income")) {
+                    // Income: Higher is GOOD (Teal/Green), Lower is BAD (Red)
+                    color = difference > 0 ? "#00BFA5" : "#FF5252";
+                } else { // type.equals("Expense")
+                    // Expense: Lower is GOOD (Teal/Green), Higher is BAD (Red)
+                    color = difference < 0 ? "#00BFA5" : "#FF5252";
+                }
+
+                // Ensure correct formatting
+                String formattedDifference = String.format(Locale.getDefault(), "%.2f", Math.abs(difference));
+                comparisonText = String.format("%s %sRs. %s from %s", action, sign, formattedDifference, prevMonthName);
             }
 
-            // 4. Post the value to LiveData (with color hint if needed)
+            // 4. Post the value to LiveData (color|text format for view)
             comparisonLive.postValue(color + "|" + comparisonText);
+        });
+    }
+
+    private void loadCategories() {
+        executor.execute(() -> {
+            try {
+                // Assuming CategoryDAO has getAllCategories() which is synchronous
+                List<Category> categories = categoryDao.getAllCategories();
+                Map<Integer, String> categoryMap = new HashMap<>();
+                for (Category cat : categories) {
+                    categoryMap.put(cat.getId(), cat.getName());
+                }
+                categoryMapLive.postValue(categoryMap);
+            } catch (Exception e) {
+                // Log and handle error gracefully
+                System.err.println("Error loading categories: " + e.getMessage());
+            }
         });
     }
 }
