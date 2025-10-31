@@ -449,7 +449,7 @@ public class TransactionsFragment extends Fragment {
 
                 // 1. Add category (ASYNC WRITE to DB, triggers LiveData update)
                 viewModel.addCategory(newCat);
-                showCustomToast("New category added!");
+                showCustomMessage("Information", "New Category Added ");
 
                 // 2. CRITICAL FIX: Wait for LiveData confirmation and perform UI switch/text set
                 // This ensures the local lists/map are updated before setting the text.
@@ -457,7 +457,7 @@ public class TransactionsFragment extends Fragment {
                         actCategory, llAddCategory, etNewCategory);
 
             } else {
-                showCustomToast("Category cannot be empty!");
+                showCustomMessage("Error", "Category Can not Be Empty ");
                 Log.w(TAG, "Dialog: Attempted to save empty category.");
             }
         });
@@ -549,22 +549,22 @@ public class TransactionsFragment extends Fragment {
 
             // 🔴 Validation Checks
             if (amountText.isEmpty() || catName.isEmpty() || dateText.isEmpty() || desc.isEmpty()) {
-                showCustomToast("Fill all fields!");
+                showCustomMessage("Error", "Fill All Fields");
                 Log.w(TAG, "Validation Failed: Empty fields detected.");
                 return;
             }
 
             if (checkedTypeId == -1) {
-                showCustomToast("Please select transaction type (Income or Expense)!");
+                showCustomMessage("Error", "Please select transaction type (Income or Expense)!\"");
                 Log.w(TAG, "Validation Failed: No transaction type selected.");
                 return;
             }
 
             if (!categoryNameToIdMap.containsKey(catName)) {
                 if ("Add New Category".equals(catName)) {
-                    showCustomToast("Please select a valid category or complete adding a new one!");
+                    showCustomMessage("Error", "Please select a valid category or complete adding a new one! ");
                 } else {
-                    showCustomToast("Invalid category selected! Ensure it's from the list.");
+                    showCustomMessage("Error", "Invalid category selected! Ensure it's from the list.");
                 }
                 Log.w(TAG, "Validation Failed: Invalid category name: " + catName);
                 return;
@@ -602,7 +602,7 @@ public class TransactionsFragment extends Fragment {
                     transactionToEdit.setType(type);
 
                     viewModel.updateTransaction(transactionToEdit);
-                    showCustomToast("Transaction updated successfully!");
+                    showCustomMessage("Information", "Transaction updated successfully!");
                     Log.i(TAG, "Edit transaction: Update initiated for ID: " + transactionToEdit.getId());
 
                     // 🏆 CRITICAL FIX: Re-apply filter after update
@@ -619,14 +619,14 @@ public class TransactionsFragment extends Fragment {
                     // NOTE: The ViewModel's saveTransaction MUST call the onSuccess Runnable
                     // once the transaction is successfully written to the database.
                     viewModel.saveTransaction(amount, type, categoryId, dateMillis, desc, onSuccess);
-                    showCustomToast("New transaction added!");
+                    showCustomMessage("Information", "New transaction added!");
                     Log.i(TAG, "New transaction: Save initiated.");
                     return; // Return here as onSuccess will handle dialog dismissal
                 }
 
                 dialog.dismiss();
             } catch (Exception e) {
-                showCustomToast("Invalid amount or date format!");
+                showCustomMessage("Error", "Invalid amount or date format! ");
                 Log.e(TAG, "Save Failed: Parsing error (Amount/Date).", e);
             }
         });
@@ -907,4 +907,33 @@ public class TransactionsFragment extends Fragment {
         Log.d(TAG, "onDestroyView: Binding cleared.");
         binding = null;
     }
+
+    private void showCustomMessage(String title, String message) {
+        // Inflate the custom layout
+        View layout = LayoutInflater.from(requireContext()).inflate(R.layout.custom_message, null);
+
+        ImageView icon = layout.findViewById(R.id.toast_icon);
+        TextView infoLabel = layout.findViewById(R.id.info_label);
+        TextView toastMessage = layout.findViewById(R.id.toast_message);
+        ImageView closeBtn = layout.findViewById(R.id.toast_close);
+        ProgressBar progressBar = layout.findViewById(R.id.toast_progress);
+
+        infoLabel.setText(title);
+        toastMessage.setText(message);
+        progressBar.setProgress(100); // Can be animated if needed
+
+        // Optional: Close button
+        closeBtn.setOnClickListener(v -> {
+            if (layout.getParent() instanceof android.view.ViewGroup) {
+                ((ViewGroup) layout.getParent()).removeView(layout);
+            }
+        });
+
+        // Create and show toast
+        Toast toast = new Toast(requireContext());
+        toast.setDuration(Toast.LENGTH_LONG);
+        toast.setView(layout);
+        toast.show();
+    }
+
 }

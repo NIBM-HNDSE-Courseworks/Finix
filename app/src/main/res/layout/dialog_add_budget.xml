@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="@drawable/glassy_teal_popup">
+
+    <!-- Dialog Title: Changed to WHITE text for contrast on dark teal background -->
+    <TextView
+        android:id="@+id/tvDialogTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Add New Budget"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:textColor="@color/white"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="16dp"/>
+
+    <!-- Category Section -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginBottom="12dp">
+
+        <!-- Category Dropdown -->
+        <AutoCompleteTextView
+            android:id="@+id/actCategory"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Select category"
+            android:background="@drawable/edittext_bg"
+            android:padding="12dp"
+            android:textColor="@color/white"
+            android:textColorHint="@color/white"
+            android:dropDownWidth="match_parent"
+            android:dropDownSelector="@color/teal_700"
+            android:layout_marginBottom="8dp"/>
+
+        <!-- Add New Category Section -->
+        <LinearLayout
+            android:id="@+id/llAddNewCategory"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:visibility="gone"
+            android:layout_marginBottom="12dp">
+
+            <EditText
+                android:id="@+id/etNewCategory"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:hint="New category"
+                android:background="@drawable/edittext_bg"
+                android:padding="12dp"
+                android:maxLength="14"
+                android:textColor="@color/white"
+                android:textColorHint="@color/black" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnSaveCategory"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Save"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/glassy_teal_button"
+                android:textColor="@color/white" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnCancelCategory"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Back"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/glassy_gray_button"
+                android:textColor="@color/white" />
+        </LinearLayout>
+    </LinearLayout>
+
+
+    <!-- Budget Amount Input -->
+    <EditText
+        android:id="@+id/etAmount"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:hint="Budget Amount"
+        android:inputType="numberDecimal"
+        android:maxLength="6"
+        android:padding="12dp"
+        android:textColor="@color/white"
+        android:textColorHint="@color/white"
+        android:background="@drawable/edittext_bg" />
+
+    <!-- Start Date/Time Picker -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="25dp"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:id="@+id/StartDate"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:text="Select Start Date"
+            android:textColor="@color/white"
+            android:textColorHint="@color/white"
+            android:background="@drawable/edittext_bg"
+            android:padding="12dp"
+            android:layout_marginEnd="8dp"
+            android:gravity="center_vertical"/> <!-- Added gravity for alignment -->
+
+        <ImageButton
+            android:id="@+id/btnPickDate1"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_calendar_custom2"
+            app:tint="@color/white"
+            android:contentDescription="Pick Start Date"/>
+    </LinearLayout>
+
+
+    <!-- End Date/Time Picker -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="12dp"
+        android:layout_marginTop="20dp">
+
+        <TextView
+            android:id="@+id/EndDate"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:text="Select End Date"
+            android:textColor="@color/white"
+            android:textColorHint="@color/white"
+            android:background="@drawable/edittext_bg"
+            android:padding="12dp"
+            android:layout_marginEnd="8dp"
+            android:gravity="center_vertical"/> <!-- Added gravity for alignment -->
+
+        <ImageButton
+            android:id="@+id/btnPickDate2"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_calendar_custom2"
+            app:tint="@color/white"
+            android:contentDescription="Pick End Date"/>
+    </LinearLayout>
+
+    <!-- Save Button -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnSaveBudget"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Save"
+        android:textAllCaps="false"
+        android:layout_marginTop="16dp"
+        app:cornerRadius="12dp"
+        app:backgroundTint="@color/teal_700"
+        android:icon="@android:drawable/ic_input_add"
+        android:iconTint="@color/white"
+        app:iconPadding="8dp"/>
+</LinearLayout>

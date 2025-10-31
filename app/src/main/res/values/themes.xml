@@ -22,4 +22,6 @@
     <style name="Theme.Finix.AppBarOverlay" parent="ThemeOverlay.AppCompat.Dark.ActionBar" />
 
     <style name="Theme.Finix.PopupOverlay" parent="ThemeOverlay.AppCompat.Light" />
+
+
 </resources>
