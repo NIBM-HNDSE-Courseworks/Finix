@@ -3,6 +3,7 @@ package com.example.finix.ui.savings;
 import android.app.AlertDialog;
 import android.app.DatePickerDialog;
 import android.os.Bundle;
+import android.text.InputFilter;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -10,12 +11,18 @@ import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.finix.R;
 import com.example.finix.data.SavingsGoal;
@@ -23,16 +30,24 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 public class SavingsGoalsFragment extends Fragment {
 
     private SavingsGoalsViewModel viewModel;
+    private SavingsGoalsAdapter adapter;
 
+    // categoryId -> name
+    private final Map<Integer, String> categoryMap = new HashMap<>();
+
+    // ------------------------------------------------------------
+    // Lifecycle
+    // ------------------------------------------------------------
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         return inflater.inflate(R.layout.fragment_savings_goals, container, false);
@@ -42,129 +57,363 @@ public class SavingsGoalsFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // Initialize ViewModel
         viewModel = new ViewModelProvider(this).get(SavingsGoalsViewModel.class);
 
-        // Floating Action Button (top-right)
-        FloatingActionButton btnAddGoal = view.findViewById(R.id.btnAddGoal);
-        btnAddGoal.setOnClickListener(v -> showAddGoalDialog());
+        // RecyclerView
+        RecyclerView rv = view.findViewById(R.id.recyclerGoals);
+        rv.setLayoutManager(new LinearLayoutManager(requireContext()));
+        adapter = new SavingsGoalsAdapter(
+                catId -> categoryMap.getOrDefault(catId, "Unknown"),
+                new SavingsGoalsAdapter.OnGoalActionListener() {
+                    @Override public void onEdit(SavingsGoal goal) { showEditGoalDialog(goal); }
+                    @Override public void onDelete(SavingsGoal goal) { showConfirmDelete(goal); }
+                }
+        );
+        rv.setAdapter(adapter);
+
+        // Observe data
+        viewModel.getAllGoals().observe(getViewLifecycleOwner(), adapter::submitList);
+        viewModel.getCategoryMapLive().observe(getViewLifecycleOwner(), map -> {
+            categoryMap.clear();
+            if (map != null) categoryMap.putAll(map);
+            adapter.notifyDataSetChanged();
+        });
+
+        // FAB
+        FloatingActionButton btnAdd = view.findViewById(R.id.btnAddGoal);
+        btnAdd.setOnClickListener(v -> showAddGoalDialog());
     }
 
     // ------------------------------------------------------------
-    // Show Add Goal Popup Dialog
+    // ADD GOAL
     // ------------------------------------------------------------
     private void showAddGoalDialog() {
+        View popup = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_add_goal, null);
+        AlertDialog dialog = new AlertDialog.Builder(requireContext()).setView(popup).create();
 
-        // Inflate the dialog layout
-        View dialogView = LayoutInflater.from(requireContext())
-                .inflate(R.layout.dialog_add_goal, null);
+        // Category controls
+        AutoCompleteTextView actCategory = popup.findViewById(R.id.etCategory);
+        LinearLayout llAddCategory = popup.findViewById(R.id.llAddNewCategory);
+        EditText etNewCategory = popup.findViewById(R.id.etNewCategory);
+        Button btnSaveCategory = popup.findViewById(R.id.btnSaveCategory);
+        Button btnBackCategory = popup.findViewById(R.id.btnCancelCategory);
 
-        // Create dialog
-        AlertDialog dialog = new AlertDialog.Builder(requireContext())
-                .setView(dialogView)
-                .create();
+        // Goal fields
+        EditText etGoalName = popup.findViewById(R.id.etGoalName);
+        EditText etGoalDescription = popup.findViewById(R.id.etGoalDescription);
+        EditText etTargetAmount = popup.findViewById(R.id.etTargetAmount);
+        EditText etTargetDate = popup.findViewById(R.id.etTargetDate);
+        ImageButton btnPickDate = popup.findViewById(R.id.btnPickDate);
+        Button btnSave = popup.findViewById(R.id.btnSaveGoal);
 
-        // Initialize input fields
-        AutoCompleteTextView etCategory = dialogView.findViewById(R.id.etCategory);
-        EditText etGoalName = dialogView.findViewById(R.id.etGoalName);
-        EditText etGoalDescription = dialogView.findViewById(R.id.etGoalDescription);
-        EditText etTargetAmount = dialogView.findViewById(R.id.etTargetAmount);
-        EditText etTargetDate = dialogView.findViewById(R.id.etTargetDate);
-        Button btnSave = dialogView.findViewById(R.id.btnSaveGoal);
+        etNewCategory.setFilters(new InputFilter[]{new InputFilter.LengthFilter(14)});
 
-        // --------------------------------------------------------
-        // Setup Category Dropdown
-        // (Later, this can come from your Room Category table)
-        // --------------------------------------------------------
-        List<String> categoryNames = Arrays.asList(
-                "Housing",
-                "Education",
-                "Savings",
-                "Vacation",
-                "Emergency Fund"
-        );
-
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(
-                requireContext(),
-                android.R.layout.simple_dropdown_item_1line,
-                categoryNames
-        );
-        etCategory.setAdapter(adapter);
-
-        // --------------------------------------------------------
-        // Date Picker
-        // --------------------------------------------------------
-        etTargetDate.setOnClickListener(v -> {
-            Calendar c = Calendar.getInstance();
-            DatePickerDialog dp = new DatePickerDialog(requireContext(),
-                    (view, year, month, day) -> {
-                        String date = day + "/" + (month + 1) + "/" + year;
-                        etTargetDate.setText(date);
-                    },
-                    c.get(Calendar.YEAR),
-                    c.get(Calendar.MONTH),
-                    c.get(Calendar.DAY_OF_MONTH));
-            dp.show();
+        // Category dropdown setup
+        List<String> categoriesList = new ArrayList<>();
+        Map<String, Integer> nameToId = new HashMap<>();
+        categoriesList.add("Add New Category");
+        Map<Integer, String> current = viewModel.getCategoryMapLive().getValue();
+        if (current != null) {
+            for (Map.Entry<Integer, String> e : current.entrySet()) {
+                categoriesList.add(e.getValue());
+                nameToId.put(e.getValue(), e.getKey());
+            }
+        }
+        ArrayAdapter<String> ddAdapter = new ArrayAdapter<>(
+                requireContext(), android.R.layout.simple_dropdown_item_1line, categoriesList);
+        actCategory.setAdapter(ddAdapter);
+        actCategory.setThreshold(0);
+        actCategory.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus) { refreshCategories(ddAdapter, categoriesList, nameToId, actCategory); actCategory.showDropDown(); }
+        });
+        actCategory.setOnClickListener(v -> { refreshCategories(ddAdapter, categoriesList, nameToId, actCategory); actCategory.showDropDown(); });
+        actCategory.setOnItemClickListener((parent, v, pos, id) -> {
+            String selected = ddAdapter.getItem(pos);
+            if ("Add New Category".equals(selected)) {
+                llAddCategory.setVisibility(View.VISIBLE);
+                actCategory.setVisibility(View.GONE);
+            }
         });
 
-        // --------------------------------------------------------
-        // Save Button Logic
-        // --------------------------------------------------------
-        btnSave.setOnClickListener(v -> {
+        btnSaveCategory.setOnClickListener(v -> {
+            String newCat = etNewCategory.getText().toString().trim();
+            if (newCat.isEmpty()) {
+                Toast.makeText(requireContext(), "Category cannot be empty", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            viewModel.addCategory(newCat);
+            Toast.makeText(requireContext(), "New category added!", Toast.LENGTH_SHORT).show();
+            onCategoryAdded(newCat, ddAdapter, categoriesList, nameToId, actCategory, llAddCategory, etNewCategory);
+        });
+        btnBackCategory.setOnClickListener(v -> {
+            llAddCategory.setVisibility(View.GONE);
+            actCategory.setVisibility(View.VISIBLE);
+        });
 
-            String categoryName = etCategory.getText().toString().trim();
+        // Date picker
+        View.OnClickListener pickDate = v -> showDatePicker(date -> etTargetDate.setText(date));
+        etTargetDate.setOnClickListener(pickDate);
+        btnPickDate.setOnClickListener(pickDate);
+
+        // Save goal
+        btnSave.setOnClickListener(v -> {
+            String catName = actCategory.getText().toString().trim();
             String goalName = etGoalName.getText().toString().trim();
             String desc = etGoalDescription.getText().toString().trim();
-            String targetAmountStr = etTargetAmount.getText().toString().trim();
-            String targetDateStr = etTargetDate.getText().toString().trim();
+            String amountStr = etTargetAmount.getText().toString().trim();
+            String dateStr = etTargetDate.getText().toString().trim();
 
-            // Validation
-            if (categoryName.isEmpty() || goalName.isEmpty() || targetAmountStr.isEmpty() || targetDateStr.isEmpty()) {
-                Toast.makeText(requireContext(), "Please fill all required fields", Toast.LENGTH_SHORT).show();
+            if (catName.isEmpty() || goalName.isEmpty() || amountStr.isEmpty() || dateStr.isEmpty()) {
+                Toast.makeText(requireContext(), "Please fill all fields", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (!nameToId.containsKey(catName)) {
+                Toast.makeText(requireContext(), "Invalid category!", Toast.LENGTH_SHORT).show();
                 return;
             }
 
+            int categoryId = nameToId.get(catName);
             double targetAmount;
-            try {
-                targetAmount = Double.parseDouble(targetAmountStr);
-            } catch (NumberFormatException e) {
-                Toast.makeText(requireContext(), "Invalid target amount", Toast.LENGTH_SHORT).show();
-                return;
-            }
+            try { targetAmount = Double.parseDouble(amountStr); }
+            catch (NumberFormatException e) { Toast.makeText(requireContext(), "Invalid amount", Toast.LENGTH_SHORT).show(); return; }
 
-            // Convert date string ("dd/MM/yyyy") → timestamp
-            long targetDateMillis = 0;
-            try {
-                SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
-                Date parsedDate = sdf.parse(targetDateStr);
-                if (parsedDate != null) {
-                    targetDateMillis = parsedDate.getTime();
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+            long targetDateMillis = parseDateToMillis(dateStr);
+            if (targetDateMillis == -1) { Toast.makeText(requireContext(), "Invalid date", Toast.LENGTH_SHORT).show(); return; }
 
-            // --------------------------------------------------------
-            // Temporary: assign categoryId by index
-            // Later, replace with categoryDao lookup
-            // --------------------------------------------------------
-            int categoryId = categoryNames.indexOf(categoryName) + 1; // simple fake ID
-
-            // Create and insert new goal
             SavingsGoal goal = new SavingsGoal(categoryId, goalName, desc, targetAmount, targetDateMillis);
             viewModel.insert(goal);
-
-            Toast.makeText(requireContext(), "Goal saved successfully!", Toast.LENGTH_SHORT).show();
+            Toast.makeText(requireContext(), "Goal saved!", Toast.LENGTH_SHORT).show();
             dialog.dismiss();
         });
 
-        // Show dialog full width
         dialog.show();
-        if (dialog.getWindow() != null) {
-            dialog.getWindow().setLayout(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-            );
+    }
+
+    // ------------------------------------------------------------
+    // EDIT GOAL
+    // ------------------------------------------------------------
+    private void showEditGoalDialog(@NonNull SavingsGoal existing) {
+        View popup = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_add_goal, null);
+        AlertDialog dialog = new AlertDialog.Builder(requireContext()).setView(popup).create();
+
+        AutoCompleteTextView actCategory = popup.findViewById(R.id.etCategory);
+        LinearLayout llAddCategory = popup.findViewById(R.id.llAddNewCategory);
+        EditText etNewCategory = popup.findViewById(R.id.etNewCategory);
+        Button btnSaveCategory = popup.findViewById(R.id.btnSaveCategory);
+        Button btnBackCategory = popup.findViewById(R.id.btnCancelCategory);
+
+        EditText etGoalName = popup.findViewById(R.id.etGoalName);
+        EditText etGoalDescription = popup.findViewById(R.id.etGoalDescription);
+        EditText etTargetAmount = popup.findViewById(R.id.etTargetAmount);
+        EditText etTargetDate = popup.findViewById(R.id.etTargetDate);
+        ImageButton btnPickDate = popup.findViewById(R.id.btnPickDate);
+        Button btnSave = popup.findViewById(R.id.btnSaveGoal);
+
+        // Prefill
+        etGoalName.setText(existing.getGoalName());
+        etGoalDescription.setText(existing.getGoalDescription());
+        etTargetAmount.setText(String.valueOf(existing.getTargetAmount()));
+        etTargetDate.setText(new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(new Date(existing.getTargetDate())));
+
+        // Category dropdown
+        List<String> categoriesList = new ArrayList<>();
+        Map<String, Integer> nameToId = new HashMap<>();
+        categoriesList.add("Add New Category");
+        Map<Integer, String> current = viewModel.getCategoryMapLive().getValue();
+        if (current != null) {
+            for (Map.Entry<Integer, String> e : current.entrySet()) {
+                categoriesList.add(e.getValue());
+                nameToId.put(e.getValue(), e.getKey());
+            }
         }
+        ArrayAdapter<String> ddAdapter = new ArrayAdapter<>(
+                requireContext(), android.R.layout.simple_dropdown_item_1line, categoriesList);
+        actCategory.setAdapter(ddAdapter);
+        actCategory.setThreshold(0);
+
+        // set current category name
+        actCategory.setText(categoryMap.getOrDefault(existing.getCategoryId(), ""), false);
+
+        actCategory.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus) { refreshCategories(ddAdapter, categoriesList, nameToId, actCategory); actCategory.showDropDown(); }
+        });
+        actCategory.setOnClickListener(v -> { refreshCategories(ddAdapter, categoriesList, nameToId, actCategory); actCategory.showDropDown(); });
+        actCategory.setOnItemClickListener((parent, v, pos, id) -> {
+            String selected = ddAdapter.getItem(pos);
+            if ("Add New Category".equals(selected)) {
+                llAddCategory.setVisibility(View.VISIBLE);
+                actCategory.setVisibility(View.GONE);
+            }
+        });
+
+        btnSaveCategory.setOnClickListener(v -> {
+            String newCat = etNewCategory.getText().toString().trim();
+            if (newCat.isEmpty()) { Toast.makeText(requireContext(), "Category cannot be empty", Toast.LENGTH_SHORT).show(); return; }
+            viewModel.addCategory(newCat);
+            Toast.makeText(requireContext(), "New category added!", Toast.LENGTH_SHORT).show();
+            onCategoryAdded(newCat, ddAdapter, categoriesList, nameToId, actCategory, llAddCategory, etNewCategory);
+        });
+        btnBackCategory.setOnClickListener(v -> {
+            llAddCategory.setVisibility(View.GONE);
+            actCategory.setVisibility(View.VISIBLE);
+        });
+
+        // Date picker
+        View.OnClickListener pickDate = v -> showDatePicker(date -> etTargetDate.setText(date));
+        etTargetDate.setOnClickListener(pickDate);
+        btnPickDate.setOnClickListener(pickDate);
+
+        btnSave.setText("UPDATE GOAL");
+        btnSave.setOnClickListener(v -> {
+            String catName = actCategory.getText().toString().trim();
+            String goalName = etGoalName.getText().toString().trim();
+            String desc = etGoalDescription.getText().toString().trim();
+            String amountStr = etTargetAmount.getText().toString().trim();
+            String dateStr = etTargetDate.getText().toString().trim();
+
+            if (catName.isEmpty() || goalName.isEmpty() || amountStr.isEmpty() || dateStr.isEmpty()) {
+                Toast.makeText(requireContext(), "Please fill all fields", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (!nameToId.containsKey(catName)) {
+                Toast.makeText(requireContext(), "Invalid category!", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            int categoryId = nameToId.get(catName);
+            double targetAmount;
+            try { targetAmount = Double.parseDouble(amountStr); }
+            catch (NumberFormatException e) { Toast.makeText(requireContext(), "Invalid amount", Toast.LENGTH_SHORT).show(); return; }
+
+            long targetDateMillis = parseDateToMillis(dateStr);
+            if (targetDateMillis == -1) { Toast.makeText(requireContext(), "Invalid date", Toast.LENGTH_SHORT).show(); return; }
+
+            // Build updated goal with same primary key
+            SavingsGoal updated = new SavingsGoal(categoryId, goalName, desc, targetAmount, targetDateMillis);
+            updated.setId(existing.getId());
+
+            viewModel.update(updated);
+            Toast.makeText(requireContext(), "Goal updated!", Toast.LENGTH_SHORT).show();
+            dialog.dismiss();
+        });
+
+        dialog.show();
+    }
+
+    // ------------------------------------------------------------
+    // CONFIRM DELETE
+    // ------------------------------------------------------------
+    private void showConfirmDelete(SavingsGoal goal) {
+        View v = LayoutInflater.from(requireContext())
+                .inflate(R.layout.dialog_confirm_delete_goal, null, false);
+
+        TextView tvTitle = v.findViewById(R.id.tvTitle);
+        TextView tvMessage = v.findViewById(R.id.tvMessage);
+        Button btnCancel = v.findViewById(R.id.btnCancel);
+        Button btnDelete = v.findViewById(R.id.btnDelete);
+
+        String amount = String.format(Locale.getDefault(), "Rs. %,.2f", goal.getTargetAmount());
+        String goalName = goal.getGoalName() == null ? "" : goal.getGoalName();
+
+        tvTitle.setText("Confirm Delete");
+        tvMessage.setText("Are you sure you want to delete the goal of " + amount + " for '" + goalName + "'?");
+
+        AlertDialog dialog = new AlertDialog.Builder(requireContext())
+                .setView(v)
+                .setCancelable(false)
+                .create();
+
+        btnCancel.setOnClickListener(x -> dialog.dismiss());
+        btnDelete.setOnClickListener(x -> {
+            viewModel.delete(goal);
+            Toast.makeText(requireContext(), "Goal deleted", Toast.LENGTH_SHORT).show();
+            dialog.dismiss();
+        });
+
+        dialog.show();
+    }
+
+    // ------------------------------------------------------------
+    // Helpers
+    // ------------------------------------------------------------
+    private interface OnDatePicked { void onPicked(String ddMMyyyy); }
+
+    private void showDatePicker(OnDatePicked cb) {
+        Calendar c = Calendar.getInstance();
+        new DatePickerDialog(requireContext(), (view, y, m, d) -> {
+            String dateStr = String.format(Locale.getDefault(), "%02d/%02d/%04d", d, (m + 1), y);
+            cb.onPicked(dateStr);
+        }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show();
+    }
+
+    private long parseDateToMillis(String ddMMyyyy) {
+        try {
+            Date parsed = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).parse(ddMMyyyy);
+            return (parsed != null) ? parsed.getTime() : -1;
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
+    private void onCategoryAdded(String newCat,
+                                 ArrayAdapter<String> adapter,
+                                 List<String> categoriesList,
+                                 Map<String, Integer> nameToId,
+                                 AutoCompleteTextView actCategory,
+                                 LinearLayout llAddCategory,
+                                 EditText etNewCategory) {
+
+        Observer<Map<Integer, String>> oneTime = new Observer<Map<Integer, String>>() {
+            @Override
+            public void onChanged(Map<Integer, String> map) {
+                if (map != null && map.containsValue(newCat)) {
+                    categoriesList.clear();
+                    nameToId.clear();
+                    categoriesList.add("Add New Category");
+                    for (Map.Entry<Integer, String> e : map.entrySet()) {
+                        categoriesList.add(e.getValue());
+                        nameToId.put(e.getValue(), e.getKey());
+                    }
+                    adapter.notifyDataSetChanged();
+
+                    actCategory.post(() -> {
+                        actCategory.setText(newCat, false);
+                        actCategory.setVisibility(View.VISIBLE);
+                        llAddCategory.setVisibility(View.GONE);
+                        etNewCategory.setText("");
+                    });
+
+                    viewModel.getCategoryMapLive().removeObserver(this);
+                }
+            }
+        };
+        viewModel.getCategoryMapLive().observe(getViewLifecycleOwner(), oneTime);
+        viewModel.fetchLatestCategoryMap();
+    }
+
+    private void refreshCategories(ArrayAdapter<String> adapter,
+                                   List<String> categoriesList,
+                                   Map<String, Integer> nameToId,
+                                   AutoCompleteTextView actCategory) {
+
+        viewModel.fetchLatestCategoryMap();
+        Observer<Map<Integer, String>> obs = new Observer<Map<Integer, String>>() {
+            @Override
+            public void onChanged(Map<Integer, String> map) {
+                if (map != null) {
+                    categoriesList.clear();
+                    nameToId.clear();
+                    categoriesList.add("Add New Category");
+                    for (Map.Entry<Integer, String> e : map.entrySet()) {
+                        categoriesList.add(e.getValue());
+                        nameToId.put(e.getValue(), e.getKey());
+                    }
+                    adapter.notifyDataSetChanged();
+                    actCategory.post(actCategory::showDropDown);
+                }
+                viewModel.getCategoryMapLive().removeObserver(this);
+            }
+        };
+        viewModel.getCategoryMapLive().observe(getViewLifecycleOwner(), obs);
     }
 }

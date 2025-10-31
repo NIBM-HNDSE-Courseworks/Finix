@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:padding="24dp"
     android:background="@drawable/glassy_teal_popup"
+    android:padding="24dp"
     android:clipToPadding="false">
 
     <LinearLayout
@@ -25,37 +24,73 @@
             android:gravity="center"
             android:paddingBottom="16dp" />
 
-        <!-- Category Label -->
+        <!-- Category -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Category"
             android:textColor="@color/white"
-            android:textStyle="bold"
-            android:layout_marginBottom="4dp" />
+            android:textStyle="bold" />
 
-        <!-- Category Dropdown -->
         <AutoCompleteTextView
             android:id="@+id/etCategory"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Select Category"
+            android:hint="Select category"
             android:background="@drawable/edittext_bg"
             android:padding="12dp"
             android:textColor="@color/white"
             android:textColorHint="@color/white"
             android:layout_marginBottom="12dp" />
 
-        <!-- Goal Name Label -->
+        <!-- Inline Add Category -->
+        <LinearLayout
+            android:id="@+id/llAddNewCategory"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:visibility="gone"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="12dp">
+
+            <EditText
+                android:id="@+id/etNewCategory"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:hint="New category"
+                android:background="@drawable/edittext_bg"
+                android:padding="12dp"
+                android:textColor="@color/white"
+                android:textColorHint="@color/white" />
+
+            <Button
+                android:id="@+id/btnSaveCategory"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Save"
+                android:background="@drawable/glassy_teal_button"
+                android:textColor="@color/white"
+                android:layout_marginStart="8dp" />
+
+            <Button
+                android:id="@+id/btnCancelCategory"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Back"
+                android:background="@drawable/glassy_gray_button"
+                android:textColor="@color/white"
+                android:layout_marginStart="8dp" />
+        </LinearLayout>
+
+        <!-- Goal Name -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Goal Name"
             android:textColor="@color/white"
-            android:textStyle="bold"
-            android:layout_marginBottom="4dp" />
+            android:textStyle="bold" />
 
-        <!-- Goal Name Input -->
         <EditText
             android:id="@+id/etGoalName"
             android:layout_width="match_parent"
@@ -64,19 +99,16 @@
             android:background="@drawable/edittext_bg"
             android:padding="12dp"
             android:textColor="@color/white"
-            android:textColorHint="@color/white"
-            android:layout_marginBottom="12dp" />
+            android:textColorHint="@color/white" />
 
-        <!-- Description Label -->
+        <!-- Description -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Description"
             android:textColor="@color/white"
-            android:textStyle="bold"
-            android:layout_marginBottom="4dp" />
+            android:textStyle="bold" />
 
-        <!-- Description Input -->
         <EditText
             android:id="@+id/etGoalDescription"
             android:layout_width="match_parent"
@@ -85,19 +117,16 @@
             android:background="@drawable/edittext_bg"
             android:padding="12dp"
             android:textColor="@color/white"
-            android:textColorHint="@color/white"
-            android:layout_marginBottom="12dp" />
+            android:textColorHint="@color/white" />
 
-        <!-- Target Amount Label -->
+        <!-- Target Amount -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Target Amount"
             android:textColor="@color/white"
-            android:textStyle="bold"
-            android:layout_marginBottom="4dp" />
+            android:textStyle="bold" />
 
-        <!-- Target Amount Input -->
         <EditText
             android:id="@+id/etTargetAmount"
             android:layout_width="match_parent"
@@ -107,25 +136,21 @@
             android:background="@drawable/edittext_bg"
             android:padding="12dp"
             android:textColor="@color/white"
-            android:textColorHint="@color/white"
-            android:layout_marginBottom="12dp" />
+            android:textColorHint="@color/white" />
 
-        <!-- Target Date Label -->
+        <!-- Target Date -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Target Date"
             android:textColor="@color/white"
-            android:textStyle="bold"
-            android:layout_marginBottom="4dp" />
+            android:textStyle="bold" />
 
-        <!-- Target Date Picker -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="16dp">
+            android:gravity="center_vertical">
 
             <EditText
                 android:id="@+id/etTargetDate"
@@ -140,21 +165,22 @@
                 android:focusable="false"
                 android:layout_marginEnd="8dp" />
 
+            <!-- ✅ Use ImageButton -->
             <ImageButton
                 android:id="@+id/btnPickDate"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Pick date"
                 android:src="@drawable/ic_calendar_custom2"
                 app:tint="@color/white" />
         </LinearLayout>
 
-        <!-- Save Goal Button -->
-        <androidx.appcompat.widget.AppCompatButton
+        <Button
             android:id="@+id/btnSaveGoal"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="SAVE GOAL"
+            android:text="Save Goal"
             android:textStyle="bold"
             android:textColor="@color/white"
             android:background="@drawable/glassy_teal_button"

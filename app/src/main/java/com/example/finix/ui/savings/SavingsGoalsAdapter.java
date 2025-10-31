@@ -4,7 +4,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
-import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -24,12 +23,18 @@ import java.util.function.Function;
 public class SavingsGoalsAdapter
         extends ListAdapter<SavingsGoal, SavingsGoalsAdapter.VH> {
 
-    // Resolve categoryId -> categoryName (provided by Fragment)
     private final Function<Integer, String> categoryNameResolver;
+    private final OnGoalActionListener listener;
 
-    public SavingsGoalsAdapter(Function<Integer, String> categoryNameResolver) {
+    public interface OnGoalActionListener {
+        void onEdit(SavingsGoal goal);
+        void onDelete(SavingsGoal goal);
+    }
+
+    public SavingsGoalsAdapter(Function<Integer, String> categoryNameResolver, OnGoalActionListener listener) {
         super(DIFF);
         this.categoryNameResolver = categoryNameResolver;
+        this.listener = listener;
     }
 
     private static final DiffUtil.ItemCallback<SavingsGoal> DIFF =
@@ -53,7 +58,8 @@ public class SavingsGoalsAdapter
                 }
             };
 
-    @NonNull @Override
+    @NonNull
+    @Override
     public VH onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View v = LayoutInflater.from(parent.getContext())
                 .inflate(R.layout.item_goal, parent, false);
@@ -68,32 +74,43 @@ public class SavingsGoalsAdapter
         h.tvGoalName.setText(g.getGoalName());
         h.tvCategory.setText(catName);
 
-        // second row
         h.tvAmount.setText(String.format(Locale.getDefault(), "Rs. %,.2f", g.getTargetAmount()));
         String date = new SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
                 .format(new Date(g.getTargetDate()));
         h.tvDate.setText(date);
 
-        // info icon: show description
+        // Info
         h.btnInfo.setOnClickListener(v -> {
             String msg = (g.getGoalDescription() == null || g.getGoalDescription().trim().isEmpty())
                     ? "No description"
                     : g.getGoalDescription();
             Toast.makeText(v.getContext(), msg, Toast.LENGTH_LONG).show();
         });
+
+        // Edit
+        h.btnEdit.setOnClickListener(v -> {
+            if (listener != null) listener.onEdit(g);
+        });
+
+        // Delete
+        h.btnDelete.setOnClickListener(v -> {
+            if (listener != null) listener.onDelete(g);
+        });
     }
 
     static class VH extends RecyclerView.ViewHolder {
         TextView tvGoalName, tvCategory, tvAmount, tvDate;
-        ImageButton btnInfo;
+        ImageButton btnInfo, btnEdit, btnDelete;
 
         VH(@NonNull View v) {
             super(v);
             tvGoalName = v.findViewById(R.id.tvGoalName);
             tvCategory = v.findViewById(R.id.tvCategory);
-            tvAmount   = v.findViewById(R.id.tvAmount);
-            tvDate     = v.findViewById(R.id.tvDate);
-            btnInfo    = v.findViewById(R.id.btnInfo);
+            tvAmount = v.findViewById(R.id.tvAmount);
+            tvDate = v.findViewById(R.id.tvDate);
+            btnInfo = v.findViewById(R.id.btnInfo);
+            btnEdit = v.findViewById(R.id.btnEditGoal);
+            btnDelete = v.findViewById(R.id.btnDeleteGoal);
         }
     }
 }
