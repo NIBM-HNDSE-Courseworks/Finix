@@ -9,7 +9,7 @@
     app:cardUseCompatPadding="true"
     app:cardCornerRadius="16dp"
     app:cardElevation="6dp"
-    app:cardBackgroundColor="#0E2A2C">
+    app:cardBackgroundColor="#4DB6AC">   <!-- ✅ Matching color from photo -->
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
@@ -31,17 +31,20 @@
             app:layout_goneMarginEnd="8dp" />
 
         <!-- Info icon -->
+        <!-- Info icon (bigger visible PNG version) -->
         <ImageButton
             android:id="@+id/btnInfo"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="Info"
-            android:padding="4dp"
-            android:src="@drawable/ic_information"
-            app:tint="@color/white"
+            android:padding="0dp"
+            android:scaleType="centerCrop"
+            android:adjustViewBounds="true"
+            android:src="@drawable/ic_information9"
             app:layout_constraintTop_toTopOf="@id/tvGoalName"
             app:layout_constraintEnd_toEndOf="parent" />
+
 
         <!-- Category -->
         <TextView

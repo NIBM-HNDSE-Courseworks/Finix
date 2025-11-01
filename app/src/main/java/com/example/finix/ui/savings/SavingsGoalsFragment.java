@@ -80,7 +80,7 @@ public class SavingsGoalsFragment extends Fragment {
         });
 
         // FAB
-        FloatingActionButton btnAdd = view.findViewById(R.id.btnAddGoal);
+        ImageButton btnAdd = view.findViewById(R.id.btnAddGoal);
         btnAdd.setOnClickListener(v -> showAddGoalDialog());
     }
 

@@ -1,12 +1,11 @@
 package com.example.finix.ui.savings;
 
+import android.app.AlertDialog;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.TextView;
-import android.widget.Toast;
-
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.ListAdapter;
@@ -79,12 +78,18 @@ public class SavingsGoalsAdapter
                 .format(new Date(g.getTargetDate()));
         h.tvDate.setText(date);
 
-        // Info
+        // Info - small popup dialog instead of Toast
         h.btnInfo.setOnClickListener(v -> {
             String msg = (g.getGoalDescription() == null || g.getGoalDescription().trim().isEmpty())
                     ? "No description"
                     : g.getGoalDescription();
-            Toast.makeText(v.getContext(), msg, Toast.LENGTH_LONG).show();
+
+            AlertDialog.Builder builder = new AlertDialog.Builder(v.getContext());
+            builder.setTitle("Description");
+            builder.setMessage(msg);
+            builder.setPositiveButton("OK", (dialog, which) -> dialog.dismiss());
+            AlertDialog dialog = builder.create();
+            dialog.show();
         });
 
         // Edit

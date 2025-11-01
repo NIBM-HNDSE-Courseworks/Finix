@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="@drawable/glassy_teal_popup"
-    android:padding="24dp"
+    android:padding="28dp"
     android:clipToPadding="false">
 
     <LinearLayout
@@ -22,7 +22,7 @@
             android:textSize="20sp"
             android:textStyle="bold"
             android:gravity="center"
-            android:paddingBottom="16dp" />
+            android:paddingBottom="20dp" />
 
         <!-- Category -->
         <TextView
@@ -30,7 +30,8 @@
             android:layout_height="wrap_content"
             android:text="Category"
             android:textColor="@color/white"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:layout_marginBottom="4dp" />
 
         <AutoCompleteTextView
             android:id="@+id/etCategory"
@@ -41,7 +42,7 @@
             android:padding="12dp"
             android:textColor="@color/white"
             android:textColorHint="@color/white"
-            android:layout_marginBottom="12dp" />
+            android:layout_marginBottom="16dp" />
 
         <!-- Inline Add Category -->
         <LinearLayout
@@ -51,7 +52,7 @@
             android:orientation="horizontal"
             android:visibility="gone"
             android:gravity="center_vertical"
-            android:layout_marginBottom="12dp">
+            android:layout_marginBottom="16dp">
 
             <EditText
                 android:id="@+id/etNewCategory"
@@ -89,7 +90,8 @@
             android:layout_height="wrap_content"
             android:text="Goal Name"
             android:textColor="@color/white"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:layout_marginBottom="4dp" />
 
         <EditText
             android:id="@+id/etGoalName"
@@ -99,7 +101,8 @@
             android:background="@drawable/edittext_bg"
             android:padding="12dp"
             android:textColor="@color/white"
-            android:textColorHint="@color/white" />
+            android:textColorHint="@color/white"
+            android:layout_marginBottom="16dp" />
 
         <!-- Description -->
         <TextView
@@ -107,7 +110,8 @@
             android:layout_height="wrap_content"
             android:text="Description"
             android:textColor="@color/white"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:layout_marginBottom="4dp" />
 
         <EditText
             android:id="@+id/etGoalDescription"
@@ -117,7 +121,8 @@
             android:background="@drawable/edittext_bg"
             android:padding="12dp"
             android:textColor="@color/white"
-            android:textColorHint="@color/white" />
+            android:textColorHint="@color/white"
+            android:layout_marginBottom="16dp" />
 
         <!-- Target Amount -->
         <TextView
@@ -125,7 +130,8 @@
             android:layout_height="wrap_content"
             android:text="Target Amount"
             android:textColor="@color/white"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:layout_marginBottom="4dp" />
 
         <EditText
             android:id="@+id/etTargetAmount"
@@ -136,7 +142,8 @@
             android:background="@drawable/edittext_bg"
             android:padding="12dp"
             android:textColor="@color/white"
-            android:textColorHint="@color/white" />
+            android:textColorHint="@color/white"
+            android:layout_marginBottom="16dp" />
 
         <!-- Target Date -->
         <TextView
@@ -144,13 +151,15 @@
             android:layout_height="wrap_content"
             android:text="Target Date"
             android:textColor="@color/white"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:layout_marginBottom="4dp" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:gravity="center_vertical"
+            android:layout_marginBottom="20dp">
 
             <EditText
                 android:id="@+id/etTargetDate"
@@ -165,7 +174,6 @@
                 android:focusable="false"
                 android:layout_marginEnd="8dp" />
 
-            <!-- ✅ Use ImageButton -->
             <ImageButton
                 android:id="@+id/btnPickDate"
                 android:layout_width="40dp"
@@ -176,15 +184,18 @@
                 app:tint="@color/white" />
         </LinearLayout>
 
-        <Button
+        <!-- Save Button -->
+        <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/btnSaveGoal"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Save Goal"
-            android:textStyle="bold"
-            android:textColor="@color/white"
+            android:text="Save"
             android:background="@drawable/glassy_teal_button"
-            android:padding="12dp"
-            android:layout_marginTop="8dp" />
+            android:textColor="@color/white"
+            android:padding="14dp"
+            android:textStyle="bold"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="8dp"
+            android:backgroundTint="@null" />
     </LinearLayout>
 </ScrollView>
