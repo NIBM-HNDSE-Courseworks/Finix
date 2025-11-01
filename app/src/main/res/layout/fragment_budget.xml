@@ -1,14 +1,61 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".ui.budget.BudgetFragment">
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="?android:attr/colorBackground">
 
-    <!-- TODO: Update blank fragment layout -->
-    <TextView
+    <!-- Row: Spinner + Add Budget Button -->
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:text="@string/hello_blank_fragment" />
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="16dp">
 
-</FrameLayout>
+        <!-- Spinner to filter by month -->
+        <Spinner
+            android:id="@+id/spinnerMonthFilter"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:spinnerMode="dropdown"
+            android:background="@drawable/teal_color_border_button_outline"
+            android:popupBackground="?attr/colorSurface"
+            android:textSize="18sp"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"/>
+
+        <!-- Small gap between spinner and button -->
+        <Space
+            android:layout_width="8dp"
+            android:layout_height="wrap_content"/>
+
+        <!-- Add Budget Button -->
+        <ImageButton
+            android:id="@+id/btnAddBudget"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/teal_color_border_button"
+            android:padding="12dp"
+            android:contentDescription="Add Budget"
+            android:src="@android:drawable/ic_input_add"
+            app:tint="@color/white"
+            android:elevation="4dp"/>
+    </LinearLayout>
+
+    <!-- RecyclerView for budget list -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerBudgets"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingBottom="8dp"
+        android:scrollbars="vertical"
+        android:divider="?attr/colorOutline"/>
+</LinearLayout>

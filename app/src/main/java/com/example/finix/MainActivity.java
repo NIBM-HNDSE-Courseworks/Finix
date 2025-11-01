@@ -1,5 +1,7 @@
 package com.example.finix;
 
+import static androidx.core.content.ContentProviderCompat.requireContext;
+
 import android.app.AlertDialog;
 import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
@@ -26,8 +28,13 @@ import androidx.navigation.Navigation;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 
+import com.example.finix.data.Budget;
+import com.example.finix.data.Category;
+import com.example.finix.data.CategoryDAO;
+import com.example.finix.data.FinixDatabase;
 import com.example.finix.data.Transaction;
 import com.example.finix.databinding.ActivityMainBinding;
+import com.example.finix.ui.budget.BudgetViewModel;
 import com.example.finix.ui.transactions.TransactionsViewModel;
 
 import java.text.SimpleDateFormat;
@@ -38,6 +45,8 @@ public class MainActivity extends AppCompatActivity {
     private AppBarConfiguration mAppBarConfiguration;
     private ActivityMainBinding binding;
     private TransactionsViewModel viewModel; // for saving transactions globally
+    private long startDateMillis = 0;
+    private long endDateMillis = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -111,7 +120,10 @@ public class MainActivity extends AppCompatActivity {
             showAddTransactionDialog(null);
         });
 
-        popupView.findViewById(R.id.btnAddBudget).setOnClickListener(v -> popupWindow.dismiss());
+        popupView.findViewById(R.id.btnAddBudget).setOnClickListener(v -> {
+            popupWindow.dismiss();
+            showAddBudgetDialog();
+        });
         popupView.findViewById(R.id.btnAddGoal).setOnClickListener(v -> popupWindow.dismiss());
     }
 
@@ -185,7 +197,7 @@ public class MainActivity extends AppCompatActivity {
             String newCat = etNewCategory.getText().toString().trim();
             if (!newCat.isEmpty()) {
                 viewModel.addCategory(newCat);
-                showCustomToast("New category added!");
+                showCustomMessage("Information", "New Category Added ");
 
                 actCategory.postDelayed(() -> {
                     actCategory.setText(newCat);
@@ -196,7 +208,7 @@ public class MainActivity extends AppCompatActivity {
 
                 etNewCategory.setText("");
             } else {
-                showCustomToast("Category cannot be empty!");
+                showCustomMessage("Error", "Category Can not be Empty ");
             }
         });
 
@@ -224,19 +236,19 @@ public class MainActivity extends AppCompatActivity {
 
             // 1. CHECK REQUIRED FIELDS (Amount, Category Name, Date Text, Description)
             if (amountText.isEmpty() || catName.isEmpty() || dateText.isEmpty() || desc.isEmpty()) {
-                showCustomToast("Fill all fields!");
+                showCustomMessage("Error", "Fill All Fields ");
                 return;
             }
 
             // 2. CHECK TRANSACTION TYPE SELECTION
             if (checkedTypeId == -1) {
-                showCustomToast("Please select transaction type (Income or Expense)!");
+                showCustomMessage("Error", "Please select transaction type (Income or Expense)! ");
                 return;
             }
 
             // 3. CHECK VALID CATEGORY SELECTION
             if (!categoryNameToIdMap.containsKey(catName)) {
-                showCustomToast("Invalid category selected!");
+                showCustomMessage("Error", "Invalid Category Selected ");
                 return;
             }
             int categoryId = categoryNameToIdMap.get(catName);
@@ -248,13 +260,13 @@ public class MainActivity extends AppCompatActivity {
 
                 // Save new transaction
                 viewModel.saveTransaction(amount, type, categoryId, dateMillis, desc, dialog::dismiss);
-                showCustomToast("New transaction added!");
+                showCustomMessage("Information", "New Transaction Added ");
 
                 // No need to call dialog.dismiss() again here, as it's passed as a callback
                 // to viewModel.saveTransaction and should be executed upon completion/success.
 
             } catch (Exception e) {
-                showCustomToast("Invalid amount or date!");
+                showCustomMessage("Error", "Invalid Amount ot Date! ");
             }
         });
 
@@ -321,6 +333,25 @@ public class MainActivity extends AppCompatActivity {
         dp.show();
     }
 
+    private void openDatePicker(TextView tvDate, boolean isStartDate) {
+        final Calendar calendar = Calendar.getInstance();
+
+        DatePickerDialog dp = new DatePickerDialog(this,
+                (view, year, month, dayOfMonth) -> {
+                    calendar.set(year, month, dayOfMonth);
+                    tvDate.setText(new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(calendar.getTime()));
+
+                    if (isStartDate) {
+                        startDateMillis = calendar.getTimeInMillis();
+                    } else {
+                        endDateMillis = calendar.getTimeInMillis();
+                    }
+                },
+                calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)
+        );
+        dp.show();
+    }
+
     private void showCustomToast(String message) {
         LayoutInflater inflater = LayoutInflater.from(this);
         View layout = inflater.inflate(R.layout.custom_message, null);
@@ -369,5 +400,180 @@ public class MainActivity extends AppCompatActivity {
     public boolean onSupportNavigateUp() {
         NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment_content_main);
         return NavigationUI.navigateUp(navController, mAppBarConfiguration) || super.onSupportNavigateUp();
+    }
+
+    private void showCustomMessage(String title, String message) {
+        // Inflate the custom layout
+        View layout = LayoutInflater.from(this).inflate(R.layout.custom_message, null);
+
+        ImageView icon = layout.findViewById(R.id.toast_icon);
+        TextView infoLabel = layout.findViewById(R.id.info_label);
+        TextView toastMessage = layout.findViewById(R.id.toast_message);
+        ImageView closeBtn = layout.findViewById(R.id.toast_close);
+        ProgressBar progressBar = layout.findViewById(R.id.toast_progress);
+
+        infoLabel.setText(title);
+        toastMessage.setText(message);
+        progressBar.setProgress(100); // Can be animated if needed
+
+        // Optional: Close button
+        closeBtn.setOnClickListener(v -> {
+            if (layout.getParent() instanceof android.view.ViewGroup) {
+                ((ViewGroup) layout.getParent()).removeView(layout);
+            }
+        });
+
+        // Create and show toast
+        Toast toast = new Toast(this);
+        toast.setDuration(Toast.LENGTH_LONG);
+        toast.setView(layout);
+        toast.show();
+    }
+
+    public void showAddBudgetDialog() {
+        try{
+
+            View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_add_budget, null);
+
+            AutoCompleteTextView etCategory = dialogView.findViewById(R.id.actCategory);
+            EditText etAmount = dialogView.findViewById(R.id.etAmount);
+            Button btnSave = dialogView.findViewById(R.id.btnSaveBudget);
+
+            LinearLayout llAddNewCategory = dialogView.findViewById(R.id.llAddNewCategory);
+            EditText etNewCategory = dialogView.findViewById(R.id.etNewCategory);
+            Button btnSaveCategory = dialogView.findViewById(R.id.btnSaveCategory);
+            Button btnCancelCategory = dialogView.findViewById(R.id.btnCancelCategory);
+
+            TextView tvStartDate = dialogView.findViewById(R.id.StartDate);
+            TextView tvEndDate = dialogView.findViewById(R.id.EndDate);
+            ImageButton btnPickDate1 = dialogView.findViewById(R.id.btnPickDate1);
+            ImageButton btnPickDate2 = dialogView.findViewById(R.id.btnPickDate2);
+
+            AlertDialog dialog = new AlertDialog.Builder(this)
+                    .setView(dialogView)
+                    .create();
+
+            // --- Load categories ---
+            new Thread(() -> {
+                try {
+                    List<Category> categoryList = FinixDatabase.getDatabase(this).categoryDao().getAllCategories();
+                    List<String> categoryNames = new ArrayList<>();
+                    for (Category c : categoryList) categoryNames.add(c.getName());
+                    categoryNames.add("+ Add New Category");
+
+                    runOnUiThread(() -> {
+                        try {
+                            ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                                    this,
+                                    android.R.layout.simple_dropdown_item_1line,
+                                    categoryNames
+                            );
+                            etCategory.setAdapter(adapter);
+
+                            etCategory.setOnClickListener(v -> etCategory.showDropDown());
+                            etCategory.setOnItemClickListener((parent, view, position, id) -> {
+                                String selected = categoryNames.get(position);
+                                if (selected.equals("+ Add New Category")) {
+                                    etCategory.setVisibility(View.GONE);
+                                    llAddNewCategory.setVisibility(View.VISIBLE);
+                                } else {
+                                    llAddNewCategory.setVisibility(View.GONE);
+                                }
+                            });
+                        } catch (Exception e) {
+                            showCustomMessage("Error", "Failed to load categories: " + e.getMessage());
+                        }
+                    });
+                } catch (Exception e) {
+                    runOnUiThread(() -> showCustomMessage("Error", "Failed to fetch categories: " + e.getMessage()));
+                }
+            }).start();
+
+
+            // --- Date pickers ---
+            btnPickDate1.setOnClickListener(v -> openDatePicker(tvStartDate, true));
+            btnPickDate2.setOnClickListener(v -> openDatePicker(tvEndDate, false));
+
+            // --- Save new category ---
+            btnSaveCategory.setOnClickListener(v -> {
+                String newCat = etNewCategory.getText().toString().trim();
+                if (!newCat.isEmpty()) {
+                    new Thread(() -> {
+                        try {
+                            CategoryDAO dao = FinixDatabase.getDatabase(this).categoryDao();
+                            dao.insert(new Category(newCat));
+                            runOnUiThread(() -> {
+                                showCustomMessage("Info", "Category Added");
+                                llAddNewCategory.setVisibility(View.GONE);
+                                etCategory.setVisibility(View.VISIBLE);
+                                etCategory.setText(newCat);
+                            });
+                        } catch (Exception e) {
+                            runOnUiThread(() -> showCustomMessage("Error", "Failed to add category: " + e.getMessage()));
+                        }
+                    }).start();
+                } else showCustomMessage("Error", "Category cannot be empty");
+            });
+
+            btnCancelCategory.setOnClickListener(v -> {
+                llAddNewCategory.setVisibility(View.GONE);
+                etCategory.setVisibility(View.VISIBLE);
+            });
+
+            // --- Save Budget ---
+            btnSave.setOnClickListener(v -> {
+                try {
+                    String catName = etCategory.getText().toString().trim();
+                    String amountText = etAmount.getText().toString().trim();
+                    if (catName.isEmpty() || amountText.isEmpty()) {
+                        showCustomMessage("Error", "Fill all fields");
+                        return;
+                    }
+
+                    double amount;
+                    try {
+                        amount = Double.parseDouble(amountText);
+                    } catch (NumberFormatException e) {
+                        showCustomMessage("Error", "Invalid amount entered");
+                        return;
+                    }
+
+                    new Thread(() -> {
+                        try {
+                            List<Category> allCats = FinixDatabase.getDatabase(this).categoryDao().getAllCategories();
+                            int catId = -1;
+                            for (Category c : allCats) {
+                                if (c.getName().equalsIgnoreCase(catName)) {
+                                    catId = c.getId();
+                                    break;
+                                }
+                            }
+                            if (catId == -1) {
+                                runOnUiThread(() -> showCustomMessage("Error", "Selected category not found"));
+                                return;
+                            }
+
+                            Budget budget = new Budget(catId, amount, startDateMillis, endDateMillis);
+                            new BudgetViewModel(getApplication()).insert(budget);
+
+                            runOnUiThread(() -> {
+                                dialog.dismiss();
+                                showCustomMessage("Info", "Budget Added Successfully");
+                            });
+                        } catch (Exception e) {
+                            runOnUiThread(() -> showCustomMessage("Error", "Failed to save budget: " + e.getMessage()));
+                        }
+                    }).start();
+
+                } catch (Exception e) {
+                    showCustomMessage("Error", "Unexpected error: " + e.getMessage());
+                }
+            });
+
+            dialog.show();
+        } catch (Exception e) {
+            showCustomMessage("Error", "Failed to open budget dialog: " + e.getMessage());
+        }
+
     }
 }

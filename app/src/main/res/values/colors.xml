@@ -12,4 +12,7 @@
     <color name="dark_gray">#71797E</color> <!-- dark gray -->
     <color name="delete_red">#FF3B30</color> <!-- Apple-style red -->
 
+    <color name="red">#F44336</color>
+    <color name="yellow">#FFEB3B</color>
+
 </resources>
