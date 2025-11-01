@@ -9,7 +9,7 @@
     app:cardUseCompatPadding="true"
     app:cardCornerRadius="16dp"
     app:cardElevation="6dp"
-    app:cardBackgroundColor="#4DB6AC">   <!-- ✅ Matching color from photo -->
+    app:cardBackgroundColor="#4DB6AC">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
@@ -31,7 +31,6 @@
             app:layout_goneMarginEnd="8dp" />
 
         <!-- Info icon -->
-        <!-- Info icon (bigger visible PNG version) -->
         <ImageButton
             android:id="@+id/btnInfo"
             android:layout_width="52dp"
@@ -44,7 +43,6 @@
             android:src="@drawable/ic_information9"
             app:layout_constraintTop_toTopOf="@id/tvGoalName"
             app:layout_constraintEnd_toEndOf="parent" />
-
 
         <!-- Category -->
         <TextView
@@ -94,8 +92,9 @@
             android:src="@drawable/ic_edit"
             app:tint="@color/white"
             app:layout_constraintTop_toBottomOf="@id/tvAmount"
-            app:layout_constraintStart_toStartOf="parent"
-            android:layout_marginTop="10dp" />
+            app:layout_constraintEnd_toStartOf="@id/btnDeleteGoal"
+            android:layout_marginTop="10dp"
+            android:layout_marginEnd="8dp" />
 
         <!-- Delete button -->
         <ImageButton
@@ -106,7 +105,7 @@
             android:contentDescription="Delete Goal"
             android:padding="4dp"
             android:src="@drawable/ic_delete"
-            app:tint="@color/white"
+            app:tint="#000000"
             app:layout_constraintTop_toTopOf="@id/btnEditGoal"
             app:layout_constraintEnd_toEndOf="parent" />
 
