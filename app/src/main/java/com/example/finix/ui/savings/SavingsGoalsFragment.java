@@ -290,6 +290,20 @@ public class SavingsGoalsFragment extends Fragment {
             long targetDateMillis = parseDateToMillis(dateStr);
             if (targetDateMillis == -1) { Toast.makeText(requireContext(), "Invalid date", Toast.LENGTH_SHORT).show(); return; }
 
+            // ✅ Added validation for no changes
+            boolean noChange =
+                    existing.getCategoryId() == categoryId &&
+                            existing.getGoalName().equals(goalName) &&
+                            ((existing.getGoalDescription() == null && desc.isEmpty()) ||
+                                    (existing.getGoalDescription() != null && existing.getGoalDescription().equals(desc))) &&
+                            existing.getTargetAmount() == targetAmount &&
+                            existing.getTargetDate() == targetDateMillis;
+
+            if (noChange) {
+                Toast.makeText(requireContext(), "No changes detected", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
             // Build updated goal with same primary key
             SavingsGoal updated = new SavingsGoal(categoryId, goalName, desc, targetAmount, targetDateMillis);
             updated.setId(existing.getId());
@@ -298,6 +312,7 @@ public class SavingsGoalsFragment extends Fragment {
             Toast.makeText(requireContext(), "Goal updated!", Toast.LENGTH_SHORT).show();
             dialog.dismiss();
         });
+
 
         dialog.show();
     }
