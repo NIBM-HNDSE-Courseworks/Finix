@@ -65,23 +65,25 @@
                 android:textColor="@color/white"
                 android:textColorHint="@color/white" />
 
-            <Button
+            <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnSaveCategory"
+                android:backgroundTint="@null"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Save"
+                android:layout_marginStart="8dp"
                 android:background="@drawable/glassy_teal_button"
-                android:textColor="@color/white"
-                android:layout_marginStart="8dp" />
+                android:textColor="@color/white" />
 
-            <Button
+            <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnCancelCategory"
+                android:backgroundTint="@null"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Back"
+                android:layout_marginStart="8dp"
                 android:background="@drawable/glassy_gray_button"
-                android:textColor="@color/white"
-                android:layout_marginStart="8dp" />
+                android:textColor="@color/white" />
         </LinearLayout>
 
         <!-- Goal Name -->
@@ -116,12 +118,14 @@
         <EditText
             android:id="@+id/etGoalDescription"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="100dp"
             android:hint="Enter description"
             android:background="@drawable/edittext_bg"
             android:padding="12dp"
             android:textColor="@color/white"
             android:textColorHint="@color/white"
+            android:gravity="top"
+            android:inputType="textMultiLine"
             android:layout_marginBottom="16dp" />
 
         <!-- Target Amount -->

@@ -2,6 +2,8 @@ package com.example.finix.ui.savings;
 
 import android.app.AlertDialog;
 import android.app.DatePickerDialog;
+import android.content.DialogInterface;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.text.InputFilter;
 import android.view.LayoutInflater;
@@ -305,17 +307,15 @@ public class SavingsGoalsFragment extends Fragment {
     // ------------------------------------------------------------
     private void showConfirmDelete(SavingsGoal goal) {
         View v = LayoutInflater.from(requireContext())
-                .inflate(R.layout.dialog_confirm_delete_goal, null, false);
+                .inflate(R.layout.delete_confirmation_popup, null, false);
 
-        TextView tvTitle = v.findViewById(R.id.tvTitle);
-        TextView tvMessage = v.findViewById(R.id.tvMessage);
-        Button btnCancel = v.findViewById(R.id.btnCancel);
-        Button btnDelete = v.findViewById(R.id.btnDelete);
+        TextView tvMessage = v.findViewById(R.id.deleteMessage);
+        Button btnCancel = v.findViewById(R.id.cancelDeleteBtn);
+        Button btnDelete = v.findViewById(R.id.confirmDeleteBtn);
 
         String amount = String.format(Locale.getDefault(), "Rs. %,.2f", goal.getTargetAmount());
         String goalName = goal.getGoalName() == null ? "" : goal.getGoalName();
 
-        tvTitle.setText("Confirm Delete");
         tvMessage.setText("Are you sure you want to delete the goal of " + amount + " for '" + goalName + "'?");
 
         AlertDialog dialog = new AlertDialog.Builder(requireContext())
@@ -333,18 +333,52 @@ public class SavingsGoalsFragment extends Fragment {
         dialog.show();
     }
 
+
     // ------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------
     private interface OnDatePicked { void onPicked(String ddMMyyyy); }
 
     private void showDatePicker(OnDatePicked cb) {
-        Calendar c = Calendar.getInstance();
-        new DatePickerDialog(requireContext(), (view, y, m, d) -> {
-            String dateStr = String.format(Locale.getDefault(), "%02d/%02d/%04d", d, (m + 1), y);
-            cb.onPicked(dateStr);
-        }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show();
+        final Calendar calendar = Calendar.getInstance();
+        SimpleDateFormat format = new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault());
+
+        DatePickerDialog dp = new DatePickerDialog(
+                requireContext(),
+                (view, y, m, d) -> {
+                    calendar.set(y, m, d);
+                    // 🕒 Add TimePicker after selecting date
+                    android.app.TimePickerDialog tp = new android.app.TimePickerDialog(
+                            requireContext(),
+                            (timeView, h, min) -> {
+                                calendar.set(Calendar.HOUR_OF_DAY, h);
+                                calendar.set(Calendar.MINUTE, min);
+                                String selectedDateTime = format.format(calendar.getTime());
+                                cb.onPicked(selectedDateTime);
+                            },
+                            calendar.get(Calendar.HOUR_OF_DAY),
+                            calendar.get(Calendar.MINUTE),
+                            true
+                    );
+                    tp.show();
+                    tp.getButton(DialogInterface.BUTTON_POSITIVE)
+                            .setTextColor(Color.parseColor("#00BFA5")); // teal OK
+                    tp.getButton(DialogInterface.BUTTON_NEGATIVE)
+                            .setTextColor(Color.parseColor("#FF5252")); // red CANCEL
+                },
+                calendar.get(Calendar.YEAR),
+                calendar.get(Calendar.MONTH),
+                calendar.get(Calendar.DAY_OF_MONTH)
+        );
+
+        dp.show();
+        dp.getButton(DialogInterface.BUTTON_POSITIVE)
+                .setTextColor(Color.parseColor("#00BFA5")); // teal OK
+        dp.getButton(DialogInterface.BUTTON_NEGATIVE)
+                .setTextColor(Color.parseColor("#FF5252")); // red CANCEL
     }
+
+
 
     private long parseDateToMillis(String ddMMyyyy) {
         try {
