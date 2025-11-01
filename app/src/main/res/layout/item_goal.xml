@@ -1,112 +1,103 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="8dp"
-    android:layout_marginStart="8dp"
-    android:layout_marginEnd="8dp"
-    app:cardUseCompatPadding="true"
-    app:cardCornerRadius="12dp"
-    app:cardElevation="4dp"
-    app:cardBackgroundColor="#4DB6AC">
+    android:padding="8dp"
+    android:background="@drawable/transaction_item_bg">
 
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:layout_width="match_parent"
+    <!-- Goal Name -->
+    <TextView
+        android:id="@+id/tvGoalName"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:padding="10dp">
+        android:text="Goal name"
+        android:textStyle="bold"
+        android:textSize="14sp"
+        android:textColor="@android:color/white"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
-        <!-- Goal Name -->
-        <TextView
-            android:id="@+id/tvGoalName"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:text="Goal name"
-            android:textStyle="bold"
-            android:textSize="15sp"
-            android:textColor="@android:color/white"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toStartOf="@+id/btnInfo"
-            app:layout_constraintTop_toTopOf="parent" />
+    <!-- Info icon -->
+    <ImageButton
+        android:id="@+id/btnInfo"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="Info"
+        android:padding="1dp"
+        android:scaleType="centerCrop"
+        android:src="@drawable/ic_information9"
+        app:tint="@color/white"
+        app:layout_constraintTop_toTopOf="@id/tvGoalName"
+        app:layout_constraintEnd_toEndOf="parent" />
 
-        <!-- Info icon (smaller version) -->
-        <ImageButton
-            android:id="@+id/btnInfo"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Info"
-            android:padding="2dp"
-            android:scaleType="centerCrop"
-            android:src="@drawable/ic_information9"
-            app:tint="@color/white"
-            app:layout_constraintTop_toTopOf="@id/tvGoalName"
-            app:layout_constraintEnd_toEndOf="parent" />
+    <!-- Amount (moved to top-right) -->
 
-        <!-- Category -->
-        <TextView
-            android:id="@+id/tvCategory"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:text="Category name"
-            android:textSize="12sp"
-            android:textColor="#B3FFFFFF"
-            app:layout_constraintStart_toStartOf="@id/tvGoalName"
-            app:layout_constraintTop_toBottomOf="@id/tvGoalName"
-            app:layout_constraintEnd_toStartOf="@id/btnInfo" />
+    <!-- Category -->
+    <TextView
+        android:id="@+id/tvAmount"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="70dp"
+        android:text="Rs. 0.00"
+        android:textColor="@android:color/white"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toStartOf="@id/btnInfo"
+        app:layout_constraintTop_toTopOf="parent" />
 
-        <!-- Amount -->
-        <TextView
-            android:id="@+id/tvAmount"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:text="Rs. 0.00"
-            android:textStyle="bold"
-            android:textSize="13sp"
-            android:textColor="@android:color/white"
-            android:layout_marginTop="6dp"
-            app:layout_constraintStart_toStartOf="@id/tvGoalName"
-            app:layout_constraintTop_toBottomOf="@id/tvCategory"
-            app:layout_constraintEnd_toStartOf="@id/tvDate" />
 
-        <!-- Date -->
-        <TextView
-            android:id="@+id/tvDate"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="01 Jan 2026"
-            android:textSize="12sp"
-            android:textColor="#B3FFFFFF"
-            app:layout_constraintBaseline_toBaselineOf="@id/tvAmount"
-            app:layout_constraintEnd_toEndOf="parent" />
+    <TextView
+        android:id="@+id/tvCategory"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Category name"
+        android:textSize="11sp"
+        android:textColor="#B3FFFFFF"
+        app:layout_constraintStart_toStartOf="@id/tvGoalName"
+        app:layout_constraintTop_toBottomOf="@id/tvGoalName"
+        app:layout_constraintEnd_toStartOf="@id/btnInfo" />
 
-        <!-- Edit button (smaller) -->
-        <ImageButton
-            android:id="@+id/btnEditGoal"
-            android:layout_width="26dp"
-            android:layout_height="26dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Edit Goal"
-            android:padding="2dp"
-            android:src="@drawable/ic_edit"
-            app:tint="@color/white"
-            app:layout_constraintTop_toBottomOf="@id/tvAmount"
-            app:layout_constraintEnd_toStartOf="@id/btnDeleteGoal"
-            android:layout_marginTop="6dp"
-            android:layout_marginEnd="6dp" />
+    <!-- Date -->
+    <TextView
+        android:id="@+id/tvDate"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="01 Jan 2026"
+        android:textSize="11sp"
+        android:textColor="#B3FFFFFF"
+        android:layout_marginTop="2dp"
+        app:layout_constraintStart_toStartOf="@id/tvCategory"
+        app:layout_constraintTop_toBottomOf="@id/tvCategory" />
 
-        <!-- Delete button -->
-        <ImageButton
-            android:id="@+id/btnDeleteGoal"
-            android:layout_width="26dp"
-            android:layout_height="26dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Delete Goal"
-            android:padding="2dp"
-            android:src="@drawable/ic_delete"
-            app:tint="#000000"
-            app:layout_constraintTop_toTopOf="@id/btnEditGoal"
-            app:layout_constraintEnd_toEndOf="parent" />
+    <!-- Edit button -->
+    <ImageButton
+        android:id="@+id/btnEditGoal"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:background="@drawable/button_border_ash"
+        android:contentDescription="Edit Goal"
+        android:padding="6dp"
+        android:src="@drawable/ic_edit"
+        app:tint="@color/white"
+        app:layout_constraintTop_toBottomOf="@id/tvDate"
+        app:layout_constraintEnd_toStartOf="@id/btnDeleteGoal"
+        android:layout_marginTop="4dp"
+        android:layout_marginEnd="4dp" />
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
-</androidx.cardview.widget.CardView>
+    <!-- Delete button -->
+    <ImageButton
+        android:id="@+id/btnDeleteGoal"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:background="@drawable/button_border_black"
+        android:contentDescription="Delete Goal"
+        android:padding="6dp"
+        android:src="@drawable/ic_delete"
+        app:tint="#000000"
+        app:layout_constraintTop_toTopOf="@id/btnEditGoal"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
