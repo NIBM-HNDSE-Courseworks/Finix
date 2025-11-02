@@ -3,6 +3,7 @@ package com.example.finix.ui.transactions;
 import android.app.AlertDialog;
 import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.graphics.Color;
 import android.graphics.Rect;
@@ -16,6 +17,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.*;
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
@@ -396,7 +398,7 @@ public class TransactionsFragment extends Fragment {
         Map<String, Integer> categoryNameToIdMap = new HashMap<>();
 
         // 1. ✅ FIXED: Ensure "+ Add New Category" (with space) is the first entry
-        categoriesList.add("+ Add New Category");
+        categoriesList.add("Add New Category");
 
         // Initial pre-population of categories from ViewModel's current state
         Map<Integer, String> currentCategories = viewModel.getCategoryMap();
@@ -439,12 +441,21 @@ public class TransactionsFragment extends Fragment {
             String selected = adapter.getItem(position);
             Log.d(TAG, "Dialog: Category selected: " + selected);
             // 2. ✅ FIXED: Match the new string format (with space)
-            if ("+ Add New Category".equals(selected)) {
+            if ("Add New Category".equals(selected)) {
                 llAddCategory.setVisibility(View.VISIBLE);
                 actCategory.setVisibility(View.GONE);
-                etNewCategory.requestFocus();
-                Log.d(TAG, "Dialog: '+ Add New Category' selected. Showing input field.");
+
+                etNewCategory.post(() -> {
+                    etNewCategory.requestFocus();
+
+                    InputMethodManager imm = (InputMethodManager) requireContext()
+                            .getSystemService(Context.INPUT_METHOD_SERVICE);
+                    imm.showSoftInput(etNewCategory, InputMethodManager.SHOW_IMPLICIT);
+                });
+
+                Log.d(TAG, "Dialog: '+ Add New Category' selected. Showing input field and keyboard.");
             }
+
         });
 
         // ✅ Add new category - CRITICAL FIX APPLIED HERE
@@ -572,7 +583,7 @@ public class TransactionsFragment extends Fragment {
 
             if (!categoryNameToIdMap.containsKey(catName)) {
                 // 3. ✅ FIXED: Match the new string format (with space)
-                if ("+ Add New Category".equals(catName)) {
+                if ("Add New Category".equals(catName)) {
                     // ⚠️ UPDATED: Removed "Error: " prefix
                     showCustomToast("Please select a valid category or complete adding a new one! ");
                 } else {
