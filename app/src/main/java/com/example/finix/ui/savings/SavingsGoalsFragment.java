@@ -250,7 +250,10 @@ public class SavingsGoalsFragment extends Fragment {
 
         btnSaveCategory.setOnClickListener(v -> {
             String newCat = etNewCategory.getText().toString().trim();
-            if (newCat.isEmpty()) { Toast.makeText(requireContext(), "Category cannot be empty", Toast.LENGTH_SHORT).show(); return; }
+            if (newCat.isEmpty()) {
+                Toast.makeText(requireContext(), "Category cannot be empty", Toast.LENGTH_SHORT).show();
+                return;
+            }
             viewModel.addCategory(newCat);
             Toast.makeText(requireContext(), "New category added!", Toast.LENGTH_SHORT).show();
             onCategoryAdded(newCat, ddAdapter, categoriesList, nameToId, actCategory, llAddCategory, etNewCategory);
