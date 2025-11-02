@@ -12,7 +12,7 @@ import com.example.finix.data.Category;
 import com.example.finix.data.CategoryDAO;
 import com.example.finix.data.FinixDatabase;
 import com.example.finix.data.Transaction;
-import com.example.finix.data.TransactionDao;
+import com.example.finix.data.TransactionDAO;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -27,7 +27,7 @@ import java.util.concurrent.Executors;
 
 public class DashboardViewModel extends AndroidViewModel {
 
-    private final TransactionDao transactionDao;
+    private final TransactionDAO transactionDao;
     private final CategoryDAO categoryDao;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final SimpleDateFormat monthYearFormatter = new SimpleDateFormat("MMMM yyyy", Locale.getDefault());
