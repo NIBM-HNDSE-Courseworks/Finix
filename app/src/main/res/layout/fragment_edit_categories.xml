@@ -1,13 +1,126 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:padding="16dp"
     tools:context=".ui.settings.EditCategoriesFragment">
 
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:text="Hello" />
+    <ImageButton
+        android:id="@+id/buttonAddCategories"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="@drawable/rounded_add_button_background"
+        android:padding="12dp"
+        android:contentDescription="Add Category"
+        android:src="@android:drawable/ic_input_add"
+        app:tint="@color/white"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:elevation="4dp" />
 
-</FrameLayout>
+    <ImageButton
+        android:id="@+id/button_search"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginEnd="8dp"
+        android:background="@drawable/rounded_search_button_background"
+        android:contentDescription="Search"
+        android:src="@drawable/ic_search"
+        app:tint="#909090"
+        app:layout_constraintEnd_toStartOf="@id/buttonAddCategories"
+        app:layout_constraintTop_toTopOf="@id/buttonAddCategories" />
+
+    <ImageButton
+        android:id="@+id/button_refresh"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="8dp"
+        android:background="@drawable/rounded_refresh_button_background"
+        android:contentDescription="Back"
+        android:src="@drawable/ic_refresh_back"
+        app:tint="#FFFFFF"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="@id/button_search"
+        app:layout_constraintBottom_toBottomOf="@id/button_search" />
+
+    <EditText
+        android:id="@+id/search_bar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="60dp"
+        android:layout_marginEnd="8dp"
+        android:background="@drawable/search_bar_background"
+        android:hint="Search..."
+        android:textColorHint="@android:color/black"
+        android:textColor="@android:color/black"
+        android:inputType="text"
+        android:maxLines="1"
+        android:padding="12dp"
+        app:layout_constraintBottom_toBottomOf="@id/button_search"
+        app:layout_constraintEnd_toStartOf="@id/button_search"
+        app:layout_constraintStart_toStartOf="@id/button_refresh"
+        app:layout_constraintTop_toTopOf="@id/button_search" />
+
+
+
+    <ImageView
+        android:id="@+id/imageNoCategories"
+        android:layout_width="200dp"
+        android:layout_height="200dp"
+        android:src="@drawable/ic_no_categories"
+        android:contentDescription="No Categories"
+        android:visibility="gone"
+        app:tint="#BBBBBB"
+        app:layout_constraintTop_toBottomOf="@id/buttonAddCategories"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintVertical_bias="0.4" />
+
+    <TextView
+        android:id="@+id/textNoCategories"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="No Categories"
+        android:textColor="#BBBBBB"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/imageNoCategories"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="8dp"/>
+
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/scrollViewTransactions"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:fillViewport="true"
+        app:layout_constraintTop_toBottomOf="@id/buttonAddCategories"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:layout_marginTop="8dp">
+
+        <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerIncome"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:clipToPadding="false"
+            android:nestedScrollingEnabled="false"
+            tools:listitem="@layout/item_categories" />
+
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
