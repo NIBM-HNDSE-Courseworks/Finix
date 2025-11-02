@@ -153,6 +153,8 @@ public class EditCategoriesFragment extends Fragment implements CategoryAdapter.
                 Snackbar.LENGTH_LONG
         );
 
+        snackbar.setDuration(5000);
+
         // Set the "UNDO" action
         snackbar.setAction("UNDO", v -> {
             // Tell the ViewModel to undo the delete
