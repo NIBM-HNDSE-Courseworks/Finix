@@ -22,6 +22,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.finix.R;
 import com.example.finix.data.Category;
+import com.google.android.material.snackbar.Snackbar;
 
 import java.util.ArrayList;
 import java.util.function.Consumer;
@@ -133,8 +134,48 @@ public class EditCategoriesFragment extends Fragment implements CategoryAdapter.
                 toggleEmptyView(true, "No Categories");
             }
         });
+
+        viewModel.getShowUndoDeleteEvent().observe(getViewLifecycleOwner(), event -> {
+            // This code runs when the ViewModel sends the Undo event
+            EditCategoriesViewModel.UndoPayload payload = event.getContentIfNotHandled();
+            if (payload != null) {
+                // Show the Snackbar
+                showUndoSnackbar(payload);
+            }
+        });
     }
 
+    private void showUndoSnackbar(EditCategoriesViewModel.UndoPayload payload) {
+        // We use requireView() to anchor the Snackbar to the fragment's layout
+        Snackbar snackbar = Snackbar.make(
+                requireView(),
+                "Deleted for category '" + payload.category.getName() + "'",
+                Snackbar.LENGTH_LONG
+        );
+
+        // Set the "UNDO" action
+        snackbar.setAction("UNDO", v -> {
+            // Tell the ViewModel to undo the delete
+            viewModel.undoDelete(payload);
+        });
+
+        // Add a callback to know when the Snackbar is dismissed
+        snackbar.addCallback(new Snackbar.Callback() {
+            @Override
+            public void onDismissed(Snackbar transientBottomBar, int dismissEvent) {
+                super.onDismissed(transientBottomBar, dismissEvent);
+
+                // Check if it was dismissed for any reason *other* than clicking "UNDO"
+                // (e.g., it timed out, or was swiped away)
+                if (dismissEvent != DISMISS_EVENT_ACTION) {
+                    // The user did NOT click undo. Finalize the delete.
+                    viewModel.finalizeDelete(payload.category);
+                }
+            }
+        });
+
+        snackbar.show();
+    }
     /**
      * Shows the popup for adding or editing a category.
      * @param category The category to edit, or null to add a new one.

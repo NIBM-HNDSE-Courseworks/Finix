@@ -13,6 +13,7 @@ import com.example.finix.data.Category;
 import com.example.finix.data.CategoryDAO;
 import com.example.finix.data.FinixDatabase;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -24,6 +25,8 @@ public class EditCategoriesViewModel extends AndroidViewModel {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final Handler handler = new Handler(Looper.getMainLooper());
 
+    private List<Category> fullCategoryList = new ArrayList<>();
+
     // LiveData to hold the list of categories for the fragment to observe
     private final MutableLiveData<List<Category>> categoriesLive = new MutableLiveData<>();
 
@@ -31,11 +34,23 @@ public class EditCategoriesViewModel extends AndroidViewModel {
     // We use a "Event" wrapper to make sure messages are only shown once.
     private final MutableLiveData<Event<String>> messageEvent = new MutableLiveData<>();
 
+    private final MutableLiveData<Event<UndoPayload>> showUndoDeleteEvent = new MutableLiveData<>();
+
     public EditCategoriesViewModel(@NonNull Application application) {
         super(application);
         // Get the database DAO instance
         FinixDatabase db = FinixDatabase.getDatabase(application);
         categoryDAO = db.categoryDao();
+    }
+
+    public static class UndoPayload {
+        public final Category category;
+        public final int index;
+
+        public UndoPayload(Category category, int index) {
+            this.category = category;
+            this.index = index;
+        }
     }
 
     // Public getters for the Fragment to observe
@@ -47,6 +62,10 @@ public class EditCategoriesViewModel extends AndroidViewModel {
         return messageEvent;
     }
 
+    public LiveData<Event<UndoPayload>> getShowUndoDeleteEvent() {
+        return showUndoDeleteEvent;
+    }
+
 
     /**
      * Loads all categories from the database and posts them to the LiveData.
@@ -54,6 +73,10 @@ public class EditCategoriesViewModel extends AndroidViewModel {
     public void loadCategories() {
         executor.execute(() -> {
             List<Category> categories = categoryDAO.getAllCategories();
+            // Store in our local "true" list
+            fullCategoryList = new ArrayList<>(categories);
+            // Post a *copy* to the LiveData
+            categoriesLive.postValue(new ArrayList<>(fullCategoryList));
             categoriesLive.postValue(categories);
         });
     }
@@ -112,7 +135,7 @@ public class EditCategoriesViewModel extends AndroidViewModel {
                 categoryDAO.insert(newCategory);
 
                 // --- 4. Report Success and Refresh ---
-                messageEvent.postValue(new Event<>("SUCCESS:'" + trimmedName + "' added successfully"));
+                messageEvent.postValue(new Event<>("SUCCESS: This category added successfully"));
                 loadCategories(); // Refresh the list
 
                 // Run the success callback (e.g., dismiss dialog) on the main thread
@@ -154,7 +177,7 @@ public class EditCategoriesViewModel extends AndroidViewModel {
                 categoryDAO.update(categoryToUpdate);
 
                 // --- 4. Report Success and Refresh ---
-                messageEvent.postValue(new Event<>("SUCCESS:'" + trimmedName + "' updated successfully"));
+                messageEvent.postValue(new Event<>("SUCCESS: This category updated successfully"));
                 loadCategories(); // Refresh the list
 
                 // Run the success callback on the main thread
@@ -167,12 +190,46 @@ public class EditCategoriesViewModel extends AndroidViewModel {
      * Deletes a category from the database.
      */
     public void deleteCategory(Category category) {
+        // Find the category's current position
+        int index = fullCategoryList.indexOf(category);
+        if (index == -1) {
+            // Not found, maybe already deleted
+            return;
+        }
+
+        // 1. Remove from the local list
+        fullCategoryList.remove(index);
+
+        // 2. Post the updated (smaller) list to the UI
+        categoriesLive.postValue(new ArrayList<>(fullCategoryList));
+
+        // 3. Post an event to the Fragment to show the Undo Snackbar
+        showUndoDeleteEvent.postValue(new Event<>(new UndoPayload(category, index)));
+    }
+
+    public void undoDelete(UndoPayload payload) {
+        if (payload == null) return;
+
+        // Add the category back to our "true" list at its original position
+        if (payload.index >= 0 && payload.index <= fullCategoryList.size()) {
+            fullCategoryList.add(payload.index, payload.category);
+        } else {
+            // Fallback, just add to the end
+            fullCategoryList.add(payload.category);
+        }
+
+        // Post the restored list to the UI
+        categoriesLive.postValue(new ArrayList<>(fullCategoryList));
+    }
+
+    public void finalizeDelete(Category category) {
         executor.execute(() -> {
+            // Now we permanently delete from the database
             categoryDAO.delete(category);
 
-            // Report success and refresh list
-            messageEvent.postValue(new Event<>("SUCCESS:'" + category.getName() + "' deleted successfully"));
-            loadCategories(); // Refresh the list
+            // Report success
+            messageEvent.postValue(new Event<>("SUCCESS:This category deleted successfully"));
+            // We don't need to call loadCategories() because the UI list is already correct.
         });
     }
 
