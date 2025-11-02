@@ -2,6 +2,7 @@ package com.example.finix.data;
 
 import androidx.room.ColumnInfo;
 import androidx.room.Entity;
+import androidx.room.Ignore;
 import androidx.room.PrimaryKey;
 
 @Entity(tableName = "categories")
@@ -14,6 +15,12 @@ public class Category {
     @ColumnInfo(name = "name")
     private String name;
 
+    // 1. Explicit no-arg constructor for Room to use when reading from the database (Fix)
+    public Category() {
+        // Required empty public constructor
+    }
+
+    @Ignore
     public Category(String name) {
         this.name = name;
     }

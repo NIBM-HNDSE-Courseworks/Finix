@@ -3,13 +3,16 @@ package com.example.finix.data;
 import androidx.room.ColumnInfo;
 import androidx.room.Entity;
 import androidx.room.ForeignKey;
+import androidx.room.Ignore;
+import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
 // Setting the entity for the budgets table, now with a Foreign Key to Category
 @Entity(tableName = "budgets",
+        indices = {@Index(value = {"category_id"})}, // Fix applied here
         foreignKeys = @ForeignKey(entity = Category.class,
-                parentColumns = "id", // PK of Category table
-                childColumns = "category_id", // FK in Budget table
+                parentColumns = "id",
+                childColumns = "category_id",
                 onDelete = ForeignKey.RESTRICT))
 public class Budget {
 
@@ -31,6 +34,8 @@ public class Budget {
     @ColumnInfo(name = "end_date")
     private long endDate;
 
+    public Budget(){};
+    @Ignore
     // Constructor updated
     public Budget(int categoryId, double budgetedAmount, long startDate, long endDate) {
         this.categoryId = categoryId;

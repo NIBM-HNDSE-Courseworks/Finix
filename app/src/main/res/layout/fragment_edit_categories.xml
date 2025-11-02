@@ -8,11 +8,61 @@
     android:padding="16dp"
     tools:context=".ui.settings.EditCategoriesFragment">
 
+    <!-- Refresh Button -->
+    <ImageButton
+        android:id="@+id/button_refresh"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="8dp"
+        android:background="@drawable/rounded_refresh_button_background"
+        android:contentDescription="Refresh"
+        android:src="@drawable/ic_refresh_back2"
+        app:tint="#FFFFFF"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        android:elevation="4dp" />
+
+    <!-- Search Bar (Styled like Spinner) -->
+    <EditText
+        android:id="@+id/search_bar"
+        android:layout_width="0dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp"
+        android:background="@drawable/teal_color_border_button"
+        android:hint="Search..."
+        android:textColorHint="@android:color/white"
+        android:textColor="@android:color/white"
+        android:inputType="text"
+        android:maxLines="1"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:gravity="center_vertical"
+        app:layout_constraintStart_toEndOf="@id/button_refresh"
+        app:layout_constraintEnd_toStartOf="@id/button_search"
+        app:layout_constraintTop_toTopOf="@id/button_refresh"
+        app:layout_constraintBottom_toBottomOf="@id/button_refresh" />
+
+    <!-- Search Button -->
+    <ImageButton
+        android:id="@+id/button_search"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginEnd="8dp"
+        android:background="@drawable/rounded_search_button_background"
+        android:contentDescription="Search"
+        android:src="@drawable/ic_search2"
+        app:tint="#909090"
+        app:layout_constraintEnd_toStartOf="@id/buttonAddCategories"
+        app:layout_constraintTop_toTopOf="@id/button_refresh"
+        android:elevation="4dp" />
+
+    <!-- Add Button -->
     <ImageButton
         android:id="@+id/buttonAddCategories"
         android:layout_width="48dp"
         android:layout_height="48dp"
-        android:background="@drawable/rounded_add_button_background"
+        android:background="@drawable/teal_color_border_button"
         android:padding="12dp"
         android:contentDescription="Add Category"
         android:src="@android:drawable/ic_input_add"
@@ -21,56 +71,12 @@
         app:layout_constraintEnd_toEndOf="parent"
         android:elevation="4dp" />
 
-    <ImageButton
-        android:id="@+id/button_search"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_marginEnd="8dp"
-        android:background="@drawable/rounded_search_button_background"
-        android:contentDescription="Search"
-        android:src="@drawable/ic_search"
-        app:tint="#909090"
-        app:layout_constraintEnd_toStartOf="@id/buttonAddCategories"
-        app:layout_constraintTop_toTopOf="@id/buttonAddCategories" />
-
-    <ImageButton
-        android:id="@+id/button_refresh"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_marginStart="8dp"
-        android:background="@drawable/rounded_refresh_button_background"
-        android:contentDescription="Back"
-        android:src="@drawable/ic_refresh_back"
-        app:tint="#FFFFFF"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="@id/button_search"
-        app:layout_constraintBottom_toBottomOf="@id/button_search" />
-
-    <EditText
-        android:id="@+id/search_bar"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="60dp"
-        android:layout_marginEnd="8dp"
-        android:background="@drawable/search_bar_background"
-        android:hint="Search..."
-        android:textColorHint="@android:color/black"
-        android:textColor="@android:color/black"
-        android:inputType="text"
-        android:maxLines="1"
-        android:padding="12dp"
-        app:layout_constraintBottom_toBottomOf="@id/button_search"
-        app:layout_constraintEnd_toStartOf="@id/button_search"
-        app:layout_constraintStart_toStartOf="@id/button_refresh"
-        app:layout_constraintTop_toTopOf="@id/button_search" />
-
-
-
+    <!-- No Categories Image -->
     <ImageView
         android:id="@+id/imageNoCategories"
         android:layout_width="200dp"
         android:layout_height="200dp"
-        android:src="@drawable/ic_no_categories"
+        android:src="@drawable/ic_no_categories2"
         android:contentDescription="No Categories"
         android:visibility="gone"
         app:tint="#BBBBBB"
@@ -80,6 +86,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintVertical_bias="0.4" />
 
+    <!-- No Categories Text -->
     <TextView
         android:id="@+id/textNoCategories"
         android:layout_width="wrap_content"
@@ -92,8 +99,9 @@
         app:layout_constraintTop_toBottomOf="@id/imageNoCategories"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="8dp"/>
+        android:layout_marginTop="8dp" />
 
+    <!-- RecyclerView in ScrollView -->
     <androidx.core.widget.NestedScrollView
         android:id="@+id/scrollViewTransactions"
         android:layout_width="0dp"
@@ -106,20 +114,18 @@
         android:layout_marginTop="8dp">
 
         <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recyclerIncome"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:clipToPadding="false"
-            android:nestedScrollingEnabled="false"
-            tools:listitem="@layout/item_categories" />
+            android:orientation="vertical">
 
-
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recyclerIncome"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:clipToPadding="false"
+                android:nestedScrollingEnabled="false"
+                tools:listitem="@layout/item_categories" />
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 

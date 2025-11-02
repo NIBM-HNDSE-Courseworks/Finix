@@ -1,26 +1,25 @@
 package com.example.finix.ui.savings;
 
 import android.app.AlertDialog;
+import android.content.res.ColorStateList;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.ListAdapter;
 import androidx.recyclerview.widget.RecyclerView;
-
 import com.example.finix.R;
 import com.example.finix.data.SavingsGoal;
-
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 import java.util.function.Function;
 
-public class SavingsGoalsAdapter
-        extends ListAdapter<SavingsGoal, SavingsGoalsAdapter.VH> {
+public class SavingsGoalsAdapter extends ListAdapter<SavingsGoal, SavingsGoalsAdapter.VH> {
 
     private final Function<Integer, String> categoryNameResolver;
     private final OnGoalActionListener listener;
@@ -62,6 +61,12 @@ public class SavingsGoalsAdapter
     public VH onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View v = LayoutInflater.from(parent.getContext())
                 .inflate(R.layout.item_goal, parent, false);
+
+        // 🧩 Add spacing between cards (16dp)
+        ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) v.getLayoutParams();
+        params.setMargins(0, 0, 0, (int) (9 * parent.getContext().getResources().getDisplayMetrics().density));
+        v.setLayoutParams(params);
+
         return new VH(v);
     }
 
@@ -72,13 +77,13 @@ public class SavingsGoalsAdapter
         String catName = categoryNameResolver.apply(g.getCategoryId());
         h.tvGoalName.setText(g.getGoalName());
         h.tvCategory.setText(catName);
+        h.tvAmount.setText(String.format(Locale.getDefault(), "Rs. %,.0f", g.getTargetAmount()));
 
-        h.tvAmount.setText(String.format(Locale.getDefault(), "Rs. %,.2f", g.getTargetAmount()));
         String date = new SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
                 .format(new Date(g.getTargetDate()));
         h.tvDate.setText(date);
 
-        // Info - small popup dialog instead of Toast
+        // 💬 Info Dialog (OK button teal_200)
         h.btnInfo.setOnClickListener(v -> {
             String msg = (g.getGoalDescription() == null || g.getGoalDescription().trim().isEmpty())
                     ? "No description"
@@ -90,14 +95,18 @@ public class SavingsGoalsAdapter
             builder.setPositiveButton("OK", (dialog, which) -> dialog.dismiss());
             AlertDialog dialog = builder.create();
             dialog.show();
+
+            // 💚 Set OK button color to teal_200
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                    .setTextColor(ContextCompat.getColor(v.getContext(), R.color.teal_200));
         });
 
-        // Edit
+        // ✏️ Edit
         h.btnEdit.setOnClickListener(v -> {
             if (listener != null) listener.onEdit(g);
         });
 
-        // Delete
+        // ❌ Delete
         h.btnDelete.setOnClickListener(v -> {
             if (listener != null) listener.onDelete(g);
         });

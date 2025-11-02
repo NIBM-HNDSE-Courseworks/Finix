@@ -13,6 +13,8 @@
     <color name="delete_red">#FF3B30</color> <!-- Apple-style red -->
 
     <color name="red">#F44336</color>
-    <color name="yellow">#FFEB3B</color>
+    <color name="yellow">#FFC107</color>
+
+    <color name="red_orange">#FF5722</color>
 
 </resources>

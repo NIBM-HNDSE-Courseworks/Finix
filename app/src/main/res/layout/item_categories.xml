@@ -1,53 +1,61 @@
-<?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
+<com.google.android.material.card.MaterialCardView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:padding="12dp"
-    android:background="@drawable/transaction_item_bg"
     android:layout_marginStart="12dp"
     android:layout_marginEnd="12dp"
-    android:layout_marginBottom="8dp">
+    android:layout_marginBottom="8dp"
+    app:cardCornerRadius="20dp"
+    app:cardElevation="10dp"
+    app:strokeColor="@color/gray"
+    app:strokeWidth="1dp">
 
-    <!-- Category Text -->
-    <TextView
-        android:id="@+id/tvCategory"
-        android:layout_width="wrap_content"
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Food"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        android:textColor="@color/white"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        android:layout_marginEnd="15dp"/>
+        android:padding="12dp"
+        android:background="@drawable/glassy_teal_popup">
 
-    <!-- Edit Button -->
-    <ImageButton
-        android:id="@+id/btnEdit"
-        android:layout_width="36dp"
-        android:layout_height="36dp"
-        android:layout_marginEnd="4dp"
-        android:background="@drawable/button_border_ash"
-        android:contentDescription="Edit Transaction"
-        android:padding="8dp"
-        android:src="@drawable/ic_edit"
-        app:tint="#DDDDDD"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintEnd_toStartOf="@id/btnDelete" />
+        <!-- Category Text -->
+        <TextView
+            android:id="@+id/tvCategory"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Food"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="@color/white"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            android:layout_marginEnd="15dp"/>
 
-    <!-- Delete Button -->
-    <ImageButton
-        android:id="@+id/btnDelete"
-        android:layout_width="36dp"
-        android:layout_height="36dp"
-        android:background="@drawable/button_border_black"
-        android:contentDescription="Delete Transaction"
-        android:padding="8dp"
-        android:src="@drawable/ic_delete"
-        app:tint="#000000"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        <!-- Edit Button -->
+        <ImageButton
+            android:id="@+id/btnEdit"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginEnd="4dp"
+            android:background="@drawable/button_border_ash"
+            android:contentDescription="Edit"
+            android:padding="8dp"
+            android:src="@drawable/ic_edit"
+            app:tint="#DDDDDD"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/btnDelete" />
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+        <!-- Delete Button -->
+        <ImageButton
+            android:id="@+id/btnDelete"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="@drawable/button_border_black"
+            android:contentDescription="Delete"
+            android:padding="8dp"
+            android:src="@drawable/ic_delete"
+            app:tint="#000000"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</com.google.android.material.card.MaterialCardView>

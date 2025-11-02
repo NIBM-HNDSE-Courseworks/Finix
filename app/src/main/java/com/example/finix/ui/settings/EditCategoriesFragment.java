@@ -1,10 +1,13 @@
 package com.example.finix.ui.settings;
 
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
@@ -153,6 +156,8 @@ public class EditCategoriesFragment extends Fragment implements CategoryAdapter.
                 Snackbar.LENGTH_LONG
         );
 
+        snackbar.setDuration(5000);
+
         // Set the "UNDO" action
         snackbar.setAction("UNDO", v -> {
             // Tell the ViewModel to undo the delete
@@ -186,9 +191,25 @@ public class EditCategoriesFragment extends Fragment implements CategoryAdapter.
         LayoutInflater inflater = requireActivity().getLayoutInflater();
         View dialogView = inflater.inflate(R.layout.add_edit_categories_popup, null);
 
-        AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+        // Use dialogView in AlertDialog.Builder
+        AlertDialog.Builder builder = new AlertDialog.Builder(requireContext()); // Use requireContext() for safety in a Fragment
         builder.setView(dialogView);
         final AlertDialog dialog = builder.create();
+
+        // =========================================================================
+        // 💥 APPLYING THE REMEMBERED METHOD FOR FULL-SCREEN/KEYBOARD FIXES 💥
+        // =========================================================================
+        if (dialog.getWindow() != null) {
+            // CRITICAL FIX 1: Force Full Width and Full Height
+            dialog.getWindow().setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT);
+
+            // CRITICAL FIX 2: Ensure dialog resizes when keyboard appears
+            dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+
+            // CRITICAL FIX 3: Remove default AlertDialog padding/insets for true full screen
+            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        }
+        // =========================================================================
 
         // Get views from the popup layout
         TextView popupTitle = dialogView.findViewById(R.id.popupTitle);
@@ -196,9 +217,7 @@ public class EditCategoriesFragment extends Fragment implements CategoryAdapter.
         Button btnSave = dialogView.findViewById(R.id.btnSaveCategory);
         Button btnCancel = dialogView.findViewById(R.id.btnCancel);
 
-        // --- FIX: Ensure inputType is correct for text ---
-        // (You mentioned this in your code, so I'm assuming you fixed the XML)
-        // etCategoryName.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+        // ... (Your existing logic for setting text and listeners) ...
 
         if (isEditMode) {
             popupTitle.setText("Edit Category");
@@ -218,6 +237,7 @@ public class EditCategoriesFragment extends Fragment implements CategoryAdapter.
             // This will be run by the ViewModel on the main thread ONLY if validation passes
             Runnable onSuccess = () -> dialog.dismiss();
 
+            // Use requireContext() to get the String resource if needed
             Consumer<String> onFailure = (errorMessage) -> {
                 etCategoryName.setError(errorMessage);
             };
