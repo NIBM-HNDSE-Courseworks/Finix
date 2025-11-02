@@ -7,7 +7,7 @@ import androidx.room.Query;
 import java.util.List;
 
 @Dao
-public interface SynchronizationLogDao {
+public interface SynchronizationLogDAO {
 
     @Insert
     void insert(SynchronizationLog log);

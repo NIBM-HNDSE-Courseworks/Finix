@@ -7,16 +7,17 @@ import androidx.room.RoomDatabase;
 
 @Database(
         entities = {Category.class, SavingsGoal.class, Transaction.class, Budget.class, SynchronizationLog.class},
-        version = 2, //
+        version = 1, //
         exportSchema = false
 )
 public abstract class FinixDatabase extends RoomDatabase {
 
     public abstract CategoryDAO categoryDao();
-    public abstract SavingsGoalDao savingsGoalDao();
-    public abstract TransactionDao transactionDao();
-    public abstract BudgetDao budgetDao();
-    public abstract SynchronizationLogDao synchronizationLogDao();
+    public abstract SavingsGoalDAO savingsGoalDao();
+    public abstract TransactionDAO transactionDao();
+    public abstract BudgetDAO budgetDao();
+    public abstract SynchronizationLogDAO synchronizationLogDao();
+    public abstract UserDAO userDao();
 
     private static volatile FinixDatabase INSTANCE;
     private static final String DATABASE_NAME = "finix_database";

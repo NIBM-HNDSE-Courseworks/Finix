@@ -9,7 +9,7 @@
     import java.util.List;
 
     @Dao
-    public interface BudgetDao {
+    public interface BudgetDAO {
 
         @Insert
         void insert(Budget budget);

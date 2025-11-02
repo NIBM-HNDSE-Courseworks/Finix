@@ -9,7 +9,7 @@ import androidx.room.Delete;
 import java.util.List;
 
 @Dao
-public interface TransactionDao {
+public interface TransactionDAO {
 
     // ➕ Insert a new transaction
     @Insert
