@@ -10,7 +10,7 @@ import androidx.lifecycle.MutableLiveData;
 import com.example.finix.data.Category;
 import com.example.finix.data.FinixDatabase;
 import com.example.finix.data.SavingsGoal;
-import com.example.finix.data.TransactionDao;
+import com.example.finix.data.TransactionDAO;
 
 import java.util.HashMap;
 import java.util.List;
@@ -86,7 +86,8 @@ public class SavingsGoalsViewModel extends AndroidViewModel {
     // 💰 TRANSACTION-BASED PROGRESS CALCULATION
     // ------------------------------------------------------------
     public double getCurrentSavings() {
-        TransactionDao tDao = db.transactionDao();
+        TransactionDAO tDao = db.transactionDao();
+
 
         Double income = tDao.getTotalIncome();
         Double expense = tDao.getTotalExpense();
@@ -102,7 +103,8 @@ public class SavingsGoalsViewModel extends AndroidViewModel {
      * Optionally, if you later want to calculate progress for a specific category:
      */
     public double getSavingsByCategory(int categoryId) {
-        TransactionDao tDao = db.transactionDao();
+        TransactionDAO tDao = db.transactionDao();
+
 
         Double income = tDao.getTotalIncome();  // you can modify this to filter by category if needed
         Double expense = tDao.getTotalExpense();

@@ -20,7 +20,7 @@ import com.example.finix.R;
 import com.example.finix.data.FinixDatabase;
 import com.example.finix.data.SavingsGoal;
 import com.example.finix.data.Transaction;
-import com.example.finix.data.TransactionDao;
+import com.example.finix.data.TransactionDAO;
 import com.google.android.material.progressindicator.LinearProgressIndicator;
 
 import java.text.SimpleDateFormat;
@@ -124,7 +124,8 @@ public class SavingsGoalsAdapter extends ListAdapter<SavingsGoal, SavingsGoalsAd
 
         // --- Progress calculation (safe background thread) ---
         executor.execute(() -> {
-            TransactionDao dao = FinixDatabase.getDatabase(context).transactionDao();
+            TransactionDAO dao = FinixDatabase.getDatabase(context).transactionDao();
+
 
             // Get all incomes and expenses
             List<Transaction> incomes = dao.getTransactionsByType("income");
