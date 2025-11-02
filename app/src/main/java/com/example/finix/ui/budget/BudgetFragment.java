@@ -2,25 +2,34 @@ package com.example.finix.ui.budget;
 
 import android.app.AlertDialog;
 import android.app.DatePickerDialog;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
+import android.os.CountDownTimer;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
-import android.widget.ImageView;
+import android.widget.ImageView; // <-- Ensure this is imported
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
-import android.widget.TextView;
+import android.widget.TextView; // <-- Ensure this is imported
 import android.widget.Toast;
 
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView; // <-- Need to access RecyclerView outside of binding
 
 import com.example.finix.R;
 import com.example.finix.data.Budget;
@@ -45,6 +54,12 @@ public class BudgetFragment extends Fragment {
     private BudgetViewModel budgetViewModel;
     private BudgetAdapter adapter;
 
+    // 💡 NEW: Placeholder views for empty state
+    private ImageView imageNoBudgets;
+    private TextView textNoBudgets;
+    private RecyclerView recyclerBudgets;
+    // ------------------------------------
+
     private long startDateMillis = 0;
     private long endDateMillis = 0;
 
@@ -58,6 +73,13 @@ public class BudgetFragment extends Fragment {
 
         binding = FragmentBudgetBinding.inflate(inflater, container, false);
         budgetViewModel = new ViewModelProvider(this).get(BudgetViewModel.class);
+
+        // 💡 NEW: Initialize RecyclerView and Placeholder views
+        recyclerBudgets = binding.recyclerBudgets;
+        imageNoBudgets = binding.getRoot().findViewById(R.id.imageNoBudgets);
+        textNoBudgets = binding.getRoot().findViewById(R.id.textNoBudgets);
+        // ------------------------------------
+
         // --- Adapter initialized with listener for edit/delete ---
         adapter = new BudgetAdapter(requireContext(), new BudgetAdapter.OnBudgetActionListener() {
             @Override
@@ -71,8 +93,8 @@ public class BudgetFragment extends Fragment {
             }
         });
 
-        binding.recyclerBudgets.setLayoutManager(new LinearLayoutManager(getContext()));
-        binding.recyclerBudgets.setAdapter(adapter);
+        recyclerBudgets.setLayoutManager(new LinearLayoutManager(getContext()));
+        recyclerBudgets.setAdapter(adapter);
 
         loadBudgets();
 
@@ -88,15 +110,53 @@ public class BudgetFragment extends Fragment {
             List<Category> categories = FinixDatabase.getDatabase(requireContext()).categoryDao().getAllCategories();
 
             requireActivity().runOnUiThread(() -> {
-                adapter.setData(budgets, transactions, categories);
-                loadMonthFilter(budgets);
+                // Check if any budgets were loaded
+                boolean hasBudgets = budgets != null && !budgets.isEmpty();
+
+                // Get a reference to the Spinner
+                View spinner = binding.spinnerMonthFilter;
+
+                if (hasBudgets) {
+                    // 1. Show the budget list and the filter
+                    recyclerBudgets.setVisibility(View.VISIBLE);
+                    spinner.setVisibility(View.VISIBLE); // SHOW the filter
+
+                    // 2. Hide the empty state indicators
+                    imageNoBudgets.setVisibility(View.GONE);
+                    textNoBudgets.setVisibility(View.GONE);
+
+                    // 3. Load data into the adapter and populate the filter options
+                    adapter.setData(budgets, transactions, categories);
+                    loadMonthFilter(budgets);
+                } else {
+                    // 1. Hide the budget list, but make the filter INVISIBLE (keeps its space)
+                    recyclerBudgets.setVisibility(View.GONE);
+                    spinner.setVisibility(View.INVISIBLE); // 💡 FIX: Use INVISIBLE to prevent the button from moving left
+
+                    // 2. Show the empty state indicators
+                    imageNoBudgets.setVisibility(View.VISIBLE);
+                    textNoBudgets.setVisibility(View.VISIBLE);
+                }
             });
         }).start();
     }
 
     private void showAddBudgetDialog(Budget budgetToEdit) {
-        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_add_budget, null);
+        View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_add_budget, null);
+        AlertDialog dialog = new AlertDialog.Builder(requireContext()).setView(dialogView).create();
 
+        if (dialog.getWindow() != null) {
+            // CRITICAL FIX 1: Force Full Width and Full Height
+            dialog.getWindow().setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT);
+
+            // CRITICAL FIX 2: Ensure dialog resizes when keyboard appears
+            dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+
+            // CRITICAL FIX 3: Remove default AlertDialog padding/insets for true full screen
+            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        }
+
+        TextView tvDialogTitle = dialogView.findViewById(R.id.tvDialogTitle); // Added for title change
         AutoCompleteTextView etCategory = dialogView.findViewById(R.id.actCategory);
         EditText etAmount = dialogView.findViewById(R.id.etAmount);
         Button btnSave = dialogView.findViewById(R.id.btnSaveBudget);
@@ -111,19 +171,38 @@ public class BudgetFragment extends Fragment {
         ImageButton btnPickDate1 = dialogView.findViewById(R.id.btnPickDate1);
         ImageButton btnPickDate2 = dialogView.findViewById(R.id.btnPickDate2);
 
-        AlertDialog dialog = new AlertDialog.Builder(getContext())
-                .setView(dialogView)
-                .create();
+        // --- Variables to store original values for edit check ---
+        final boolean isEditing = (budgetToEdit != null);
+        final long originalStartDate = isEditing ? budgetToEdit.getStartDate() : 0;
+        final long originalEndDate = isEditing ? budgetToEdit.getEndDate() : 0;
+        final double originalAmount = isEditing ? budgetToEdit.getBudgetedAmount() : 0.0;
+        // Category ID requires an async lookup, so we use a holder
+        final int[] originalCategoryId = {isEditing ? budgetToEdit.getCategoryId() : 0};
+        final int originalBudgetId = isEditing ? budgetToEdit.getId() : 0; // Needed for exclusion check in Edit Mode
+
+        // --- UI Setup for Edit Mode ---
+        if (isEditing) {
+            tvDialogTitle.setText("Edit Budget");
+            btnSave.setText("Update Budget");
+        } else {
+            tvDialogTitle.setText("Add New Budget");
+            btnSave.setText("Save");
+        }
 
 
         // Load categories for AutoComplete
         new Thread(() -> {
             CategoryDAO categoryDao = FinixDatabase.getDatabase(requireContext()).categoryDao();
             List<Category> categoryList = categoryDao.getAllCategories();
-            List<String> categoryNames = new ArrayList<>();
 
-            for (Category c : categoryList) categoryNames.add(c.getName());
+            // 1. Initialize the list with the special option first (Fix for category order)
+            List<String> categoryNames = new ArrayList<>();
             categoryNames.add("+ Add New Category");
+
+            // 2. Add all fetched category names after the special option
+            for (Category c : categoryList) {
+                categoryNames.add(c.getName());
+            }
 
             requireActivity().runOnUiThread(() -> {
                 ArrayAdapter<String> adapter = new ArrayAdapter<>(
@@ -142,6 +221,11 @@ public class BudgetFragment extends Fragment {
                     if (selected.equals("+ Add New Category")) {
                         etCategory.setVisibility(View.GONE);
                         llAddNewCategory.setVisibility(View.VISIBLE);
+
+                        // ✅ Auto-focus & show keyboard
+                        etNewCategory.requestFocus();
+                        InputMethodManager imm = (InputMethodManager) requireContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+                        if (imm != null) imm.showSoftInput(etNewCategory, InputMethodManager.SHOW_IMPLICIT);
                     } else {
                         llAddNewCategory.setVisibility(View.GONE);
                     }
@@ -154,10 +238,10 @@ public class BudgetFragment extends Fragment {
         btnPickDate2.setOnClickListener(v -> showDatePicker(tvEndDate, false));
 
         // --- Prefill if editing ---
-        if (budgetToEdit != null) { // <-- New block for edit
+        if (isEditing) { // <-- Use isEditing flag
             etAmount.setText(String.valueOf(budgetToEdit.getBudgetedAmount()));
-            startDateMillis = budgetToEdit.getStartDate();
-            endDateMillis = budgetToEdit.getEndDate();
+            startDateMillis = originalStartDate; // Set initial state
+            endDateMillis = originalEndDate;      // Set initial state
             SimpleDateFormat sdf = new SimpleDateFormat("dd MMM yyyy", Locale.getDefault());
             tvStartDate.setText(sdf.format(startDateMillis));
             tvEndDate.setText(sdf.format(endDateMillis));
@@ -168,6 +252,8 @@ public class BudgetFragment extends Fragment {
                     if (c.getId() == budgetToEdit.getCategoryId()) {
                         String catName = c.getName();
                         requireActivity().runOnUiThread(() -> etCategory.setText(catName));
+                        // originalCategoryId[0] is already set, but confirm it's correct
+                        originalCategoryId[0] = c.getId();
                         break;
                     }
                 }
@@ -187,17 +273,28 @@ public class BudgetFragment extends Fragment {
                     CategoryDAO categoryDao = FinixDatabase.getDatabase(requireContext()).categoryDao();
 
                     // Insert the new category
-                    categoryDao.insert(new Category(newCategoryName));
+                    Category newCategory = new Category(newCategoryName);
+                    long newRowId = categoryDao.insert(newCategory); // Get the ID of the new category
 
                     // Fetch updated categories
                     List<Category> updated = categoryDao.getAllCategories();
                     List<String> updatedNames = new ArrayList<>();
-                    for (Category c : updated) updatedNames.add(c.getName());
+
+                    // Fix: Ensure "+ Add New Category" is first when reloading the list
                     updatedNames.add("+ Add New Category");
+                    for (Category c : updated) updatedNames.add(c.getName());
+
+                    // After saving a new category during an edit, update the originalCategoryId holder
+                    if (isEditing) {
+                        Category savedCat = categoryDao.getCategoryById((int)newRowId);
+                        if (savedCat != null) {
+                            originalCategoryId[0] = savedCat.getId();
+                        }
+                    }
 
                     // Update UI on main thread
                     requireActivity().runOnUiThread(() -> {
-                        showCustomMessage("Information", "Category Added ");
+                        showCustomToast("Category Added");
 
                         // Reset visibility
                         llAddNewCategory.setVisibility(View.GONE);
@@ -216,13 +313,12 @@ public class BudgetFragment extends Fragment {
                 } catch (Exception e) {
                     // Catch any DB or runtime exception
                     requireActivity().runOnUiThread(() ->
-                            showCustomMessage("Error", "Error adding category: " + e.getMessage())
+                            showCustomToast("Error adding category: " + e.getMessage())
                     );
                     e.printStackTrace();
                 }
             }).start();
         });
-
 
 
         // Cancel adding category
@@ -232,13 +328,13 @@ public class BudgetFragment extends Fragment {
         });
 
 
-        // Save Budget
+        // Save/Update Budget
         btnSave.setOnClickListener(v -> {
             String categoryName = etCategory.getText().toString().trim();
             String amountText = etAmount.getText().toString().trim();
 
             if (categoryName.isEmpty() || amountText.isEmpty() || startDateMillis == 0 || endDateMillis == 0) {
-                showCustomMessage("Error", "Fill all Feilds ");
+                showCustomToast("Fill all Fields");
                 return;
             }
 
@@ -246,14 +342,14 @@ public class BudgetFragment extends Fragment {
             try {
                 amount = Double.parseDouble(amountText);
             } catch (NumberFormatException e) {
-                showCustomMessage("Error", "Invalid Amount : " + e.getMessage());
+                showCustomToast("Invalid Amount: " + e.getMessage());
                 return;
             }
 
             //Limit the budget amount to 999,999
             if (amount > 999999) {
                 requireActivity().runOnUiThread(() ->
-                        showCustomMessage("Error", "Amount cannot exceed Rs 999,999"));
+                        showCustomToast("Amount cannot exceed Rs 999,999"));
                 return;
             }
 
@@ -274,6 +370,7 @@ public class BudgetFragment extends Fragment {
 
                     int categoryId;
                     if (matchingCategory == null) {
+                        // If category is brand new and not saved via the inline form, save it now.
                         Category newCat = new Category(categoryName);
                         categoryDao.insert(newCat);
 
@@ -284,26 +381,82 @@ public class BudgetFragment extends Fragment {
                         categoryId = matchingCategory.getId();
                     }
 
-                    if (budgetToEdit != null) { // <-- Edit mode
+                    // --- NEW VALIDATION: Check for existing budget in the same month/category ---
+
+                    // Set up a SimpleDateFormat to compare only Month and Year
+                    SimpleDateFormat monthYearFormat = new SimpleDateFormat("MMMM yyyy", Locale.getDefault());
+                    String newBudgetDateString = monthYearFormat.format(new Date(startDateMillis));
+
+                    List<Budget> existingBudgets = budgetViewModel.getAllBudgets();
+
+                    for (Budget existingBudget : existingBudgets) {
+                        // Skip the current budget being edited to allow changes to itself
+                        if (isEditing && existingBudget.getId() == originalBudgetId) {
+                            continue;
+                        }
+
+                        // 1. Check if the categories match
+                        if (existingBudget.getCategoryId() == categoryId) {
+
+                            String existingBudgetDateString = monthYearFormat.format(new Date(existingBudget.getStartDate()));
+
+                            // 2. Check if the month and year match
+                            if (newBudgetDateString.equals(existingBudgetDateString)) {
+
+                                // DUPLICATE BUDGET FOUND! Prevent insertion/update.
+                                requireActivity().runOnUiThread(() -> {
+                                    showCustomToast("A budget for '" + categoryName + "' already exists in " + newBudgetDateString);
+                                });
+                                return; // STOP execution of the thread
+                            }
+                        }
+                    }
+                    // ------------------ END NEW VALIDATION -------------------
+
+                    // --- VALIDATION: Check for no changes during Edit mode ---
+                    if (isEditing) {
+                        boolean categoryChanged = (categoryId != originalCategoryId[0]);
+                        boolean amountChanged = (Math.abs(amount - originalAmount) > 0.001); // Use delta for double comparison
+                        boolean startDateChanged = (startDateMillis != originalStartDate);
+                        boolean endDateChanged = (endDateMillis != originalEndDate);
+
+                        if (!categoryChanged && !amountChanged && !startDateChanged && !endDateChanged) {
+                            requireActivity().runOnUiThread(() -> {
+                                // Do NOT dismiss dialog
+                                showCustomToast("No changes detected.");
+                            });
+                            return; // Stop execution, keep dialog open
+                        }
+                    }
+
+                    // --- Proceed with Save/Update ---
+                    String successMessage;
+
+                    if (isEditing) { // <-- Edit mode
                         budgetToEdit.setCategoryId(categoryId);
                         budgetToEdit.setBudgetedAmount(amount);
                         budgetToEdit.setStartDate(startDateMillis);
                         budgetToEdit.setEndDate(endDateMillis);
-                        budgetViewModel.update(budgetToEdit); // <-- ensure ViewModel has update()
-                    } else { // Add mode
+                        budgetViewModel.update(budgetToEdit);
+                        successMessage = "Budget Updated Successfully";
+                    } else {
+                        successMessage = "Budget Added Successfully"; // Add mode
                         Budget newBudget = new Budget(categoryId, amount, startDateMillis, endDateMillis);
                         budgetViewModel.insert(newBudget);
                     }
 
+                    // *** REFRESH LOGIC: This ensures loadBudgets() is called only AFTER the DB operation is complete. ***
                     requireActivity().runOnUiThread(() -> {
+                        // loadBudgets() will start a new background thread to fetch the updated list
                         loadBudgets();
                         dialog.dismiss();
-                        showCustomMessage("Information", "Budged Added Sucessfully ");
+                        showCustomToast(successMessage);
                     });
+                    // *** END REFRESH LOGIC ***
 
                 } catch (Exception e) {
                     requireActivity().runOnUiThread(() ->
-                            showCustomMessage("Error", "Error Saving Budget: " + e.getMessage())
+                            showCustomToast("Error Saving Budget: " + e.getMessage())
                     );
                     e.printStackTrace();
                 }
@@ -314,12 +467,16 @@ public class BudgetFragment extends Fragment {
     }
 
 
+
     private void showDatePicker(TextView targetView, boolean isStart) {
         Calendar calendar = Calendar.getInstance();
         DatePickerDialog datePickerDialog = new DatePickerDialog(
                 requireContext(),
                 (view, year, month, dayOfMonth) -> {
-                    calendar.set(year, month, dayOfMonth, 0, 0);
+                    // Ensure time is set to midnight (00:00:00) for accurate date comparisons
+                    calendar.set(year, month, dayOfMonth, 0, 0, 0);
+                    calendar.set(Calendar.MILLISECOND, 0);
+
                     long selectedDate = calendar.getTimeInMillis();
                     SimpleDateFormat sdf = new SimpleDateFormat("dd MMM yyyy", Locale.getDefault());
                     targetView.setText(sdf.format(calendar.getTime()));
@@ -331,63 +488,143 @@ public class BudgetFragment extends Fragment {
                 calendar.get(Calendar.MONTH),
                 calendar.get(Calendar.DAY_OF_MONTH)
         );
+
         datePickerDialog.show();
+
+        // --- ADDED: Color customization for buttons ---
+        datePickerDialog.getButton(DialogInterface.BUTTON_POSITIVE)
+                .setTextColor(Color.parseColor("#00BFA5")); // Teal color for OK button
+        datePickerDialog.getButton(DialogInterface.BUTTON_NEGATIVE)
+                .setTextColor(Color.parseColor("#FF5252")); // Red color for CANCEL button
+        // ---------------------------------------------
     }
 
-    private void showCustomMessage(String title, String message) {
-        // Inflate the custom layout
-        View layout = LayoutInflater.from(requireContext()).inflate(R.layout.custom_message, null);
+    /**
+     * Replaces showCustomMessage with a custom toast-like AlertDialog at the bottom.
+     * @param message The message to display.
+     */
+    private void showCustomToast(String message) {
+        LayoutInflater inflater = getLayoutInflater();
+        View layout = inflater.inflate(R.layout.custom_message, null);
 
-        ImageView icon = layout.findViewById(R.id.toast_icon);
-        TextView infoLabel = layout.findViewById(R.id.info_label);
-        TextView toastMessage = layout.findViewById(R.id.toast_message);
-        ImageView closeBtn = layout.findViewById(R.id.toast_close);
+        TextView text = layout.findViewById(R.id.toast_message);
+        ImageView close = layout.findViewById(R.id.toast_close);
         ProgressBar progressBar = layout.findViewById(R.id.toast_progress);
 
-        infoLabel.setText(title);
-        toastMessage.setText(message);
-        progressBar.setProgress(100); // Can be animated if needed
+        text.setText(message);
+        progressBar.setProgress(100);
 
-        // Optional: Close button
-        closeBtn.setOnClickListener(v -> {
-            if (layout.getParent() instanceof android.view.ViewGroup) {
-                ((ViewGroup) layout.getParent()).removeView(layout);
-            }
-        });
-
-        // Create and show toast
-        Toast toast = new Toast(requireContext());
-        toast.setDuration(Toast.LENGTH_LONG);
-        toast.setView(layout);
-        toast.show();
-    }
-
-    // --- NEW: Delete Confirmation Dialog ---
-    private void showDeleteConfirmationDialog(Budget budgetToDelete) {
-        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.delete_confirmation_popup, null);
-
-        Button btnCancel = dialogView.findViewById(R.id.cancelDeleteBtn);
-        Button btnConfirm = dialogView.findViewById(R.id.confirmDeleteBtn);
-
-        AlertDialog dialog = new AlertDialog.Builder(getContext())
-                .setView(dialogView)
+        androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setView(layout)
                 .create();
 
-        btnCancel.setOnClickListener(v -> dialog.dismiss());
+        close.setOnClickListener(v -> dialog.dismiss());
 
-        btnConfirm.setOnClickListener(v -> {
-            new Thread(() -> {
-                budgetViewModel.delete(budgetToDelete); // <-- Delete action
-                requireActivity().runOnUiThread(() -> {
-                    loadBudgets();
-                    dialog.dismiss();
-                    showCustomMessage("Information", "Budget Deleted Successfully");
-                });
-            }).start();
-        });
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            dialog.getWindow().setDimAmount(0f);
+
+            WindowManager.LayoutParams params = dialog.getWindow().getAttributes();
+            params.width = WindowManager.LayoutParams.MATCH_PARENT;
+            params.height = WindowManager.LayoutParams.WRAP_CONTENT;
+
+            // Set gravity to BOTTOM
+            params.gravity = android.view.Gravity.BOTTOM;
+
+            // Set offset from bottom in pixels
+            params.y = 50;
+
+            dialog.getWindow().setAttributes(params);
+        }
 
         dialog.show();
+
+        new CountDownTimer(3000, 50) {
+            public void onTick(long millisUntilFinished) {
+                int progress = (int) ((millisUntilFinished / 3000.0) * 100);
+                progressBar.setProgress(progress);
+            }
+            public void onFinish() {
+                if (dialog.isShowing()) dialog.dismiss();
+            }
+        }.start();
     }
+
+    // Inside BudgetFragment.java
+    private void showDeleteConfirmationDialog(Budget budgetToDelete) {
+        // ... (All the dialog setup before fetching the category name)
+
+        // *** FIX: Perform synchronous database access on a background thread ***
+        new Thread(() -> {
+            // Synchronously fetch the category name in the background
+            String categoryName = getCategoryName(budgetToDelete.getCategoryId());
+
+            // Once the name is fetched, switch back to the main thread to update the UI (the dialog message)
+            requireActivity().runOnUiThread(() -> {
+                View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.delete_confirmation_popup, null);
+
+                TextView tvMessage = dialogView.findViewById(R.id.deleteMessage);
+                Button btnCancel = dialogView.findViewById(R.id.cancelDeleteBtn);
+                Button btnConfirm = dialogView.findViewById(R.id.confirmDeleteBtn);
+
+                // 1. Set Custom Message
+                String message = "Are you sure you want to delete the budget for '" + categoryName + "'?";
+                tvMessage.setText(message);
+                // -----------------------------
+
+                AlertDialog dialog = new AlertDialog.Builder(getContext())
+                        .setView(dialogView)
+                        .setCancelable(true)
+                        .create();
+
+                // The dialog MUST be shown before setting window properties
+                dialog.show();
+
+                // ... (Rest of dialog customization and button listeners)
+
+                // --- 2. Window Customization (Moved to after show() and using 70% width) ---
+                Window window = dialog.getWindow();
+                if (window != null) {
+                    // Set transparent background
+                    window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+
+                    // Set width to 70% of screen (CHANGED from 0.8)
+                    int dialogWidth = (int)(requireActivity().getResources().getDisplayMetrics().widthPixels * 0.7);
+                    window.setLayout(dialogWidth, WindowManager.LayoutParams.WRAP_CONTENT);
+                }
+                // --------------------------------------------------------
+
+                btnCancel.setOnClickListener(v -> dialog.dismiss());
+
+                btnConfirm.setOnClickListener(v -> {
+                    // The actual delete operation is already on a background thread later on
+                    new Thread(() -> {
+                        budgetViewModel.delete(budgetToDelete); // <-- Delete action
+                        requireActivity().runOnUiThread(() -> {
+                            loadBudgets();
+                            dialog.dismiss();
+                            showCustomToast("Budget Deleted Successfully");
+                        });
+                    }).start();
+                });
+            });
+        }).start();
+    }
+
+    /**
+     * Synchronously fetches the category name. Only call from a background thread or a helper method.
+     */
+    private String getCategoryName(int categoryId) {
+        CategoryDAO categoryDao = FinixDatabase.getDatabase(requireContext()).categoryDao();
+        List<Category> categories = categoryDao.getAllCategories();
+        for (Category c : categories) {
+            if (c.getId() == categoryId) {
+                return c.getName();
+            }
+        }
+        return "Unknown Category";
+    }
+
 
     private void loadMonthFilter(List<Budget> budgets) {
         List<String> months = new ArrayList<>();
@@ -437,6 +674,4 @@ public class BudgetFragment extends Fragment {
             requireActivity().runOnUiThread(() -> adapter.setData(finalBudgets, transactions, categories));
         }).start();
     }
-
-
 }

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Color State List for the Switch's Track (the bar).
+  - When checked (ON), it will be a lighter/faded version of your color.
+  - When unchecked (OFF), it will be a light gray.
+-->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!--
+      Using a 50% alpha (80 in hex) of your color for the "on" track.
+      #805F9EA0
+    -->
+    <item android:color="#805F9EA0" android:state_checked="true" />
+    <item android:color="#BDBDBD" />
+</selector>

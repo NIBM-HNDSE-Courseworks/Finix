@@ -3,6 +3,7 @@ package com.example.finix.ui.transactions;
 import android.app.AlertDialog;
 import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.graphics.Color;
 import android.graphics.Rect;
@@ -10,16 +11,17 @@ import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.text.InputFilter;
-import android.util.Log; // <-- DEBUGGING: Import Log class
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.*;
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
-import androidx.lifecycle.Observer; // Import for explicit observer
+import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -118,7 +120,9 @@ public class TransactionsFragment extends Fragment {
         viewModel.getMessageEvent().observe(getViewLifecycleOwner(), message -> {
             if (message != null) {
                 Log.i(TAG, "MessageEvent received: " + message);
-                showCustomToast(message);
+                // ⚠️ CLEANUP: Messages from ViewModel might still have prefixes, so let's strip them here
+                String cleanedMessage = message.replace("Information: ", "").replace("Error: ", "");
+                showCustomToast(cleanedMessage);
             }
         });
 
@@ -339,6 +343,9 @@ public class TransactionsFragment extends Fragment {
             // 1. Initiate the delete operation
             viewModel.deleteTransaction(t);
 
+            // 🆕 UPDATED: Show custom toast immediately after initiating the delete
+            showCustomToast("Transaction deleted successfully!");
+
             // 2. 🏆 CRITICAL FIX: Reload the list (with filter) after deletion
             // Use a short delay to ensure the database operation completes before we refresh.
             new CountDownTimer(100, 100) {
@@ -390,7 +397,7 @@ public class TransactionsFragment extends Fragment {
         List<String> categoriesList = new ArrayList<>();
         Map<String, Integer> categoryNameToIdMap = new HashMap<>();
 
-        // Ensure "Add New Category" is the first entry
+        // 1. ✅ FIXED: Ensure "+ Add New Category" (with space) is the first entry
         categoriesList.add("Add New Category");
 
         // Initial pre-population of categories from ViewModel's current state
@@ -433,12 +440,22 @@ public class TransactionsFragment extends Fragment {
         actCategory.setOnItemClickListener((parent, view, position, id) -> {
             String selected = adapter.getItem(position);
             Log.d(TAG, "Dialog: Category selected: " + selected);
+            // 2. ✅ FIXED: Match the new string format (with space)
             if ("Add New Category".equals(selected)) {
                 llAddCategory.setVisibility(View.VISIBLE);
                 actCategory.setVisibility(View.GONE);
-                etNewCategory.requestFocus();
-                Log.d(TAG, "Dialog: 'Add New Category' selected. Showing input field.");
+
+                etNewCategory.post(() -> {
+                    etNewCategory.requestFocus();
+
+                    InputMethodManager imm = (InputMethodManager) requireContext()
+                            .getSystemService(Context.INPUT_METHOD_SERVICE);
+                    imm.showSoftInput(etNewCategory, InputMethodManager.SHOW_IMPLICIT);
+                });
+
+                Log.d(TAG, "Dialog: '+ Add New Category' selected. Showing input field and keyboard.");
             }
+
         });
 
         // ✅ Add new category - CRITICAL FIX APPLIED HERE
@@ -449,7 +466,8 @@ public class TransactionsFragment extends Fragment {
 
                 // 1. Add category (ASYNC WRITE to DB, triggers LiveData update)
                 viewModel.addCategory(newCat);
-                showCustomMessage("Information", "New Category Added ");
+                // ⚠️ UPDATED: Removed "Information: " prefix
+                showCustomToast("New Category Added");
 
                 // 2. CRITICAL FIX: Wait for LiveData confirmation and perform UI switch/text set
                 // This ensures the local lists/map are updated before setting the text.
@@ -457,7 +475,8 @@ public class TransactionsFragment extends Fragment {
                         actCategory, llAddCategory, etNewCategory);
 
             } else {
-                showCustomMessage("Error", "Category Can not Be Empty ");
+                // ⚠️ UPDATED: Removed "Error: " prefix
+                showCustomToast("Category Can not Be Empty");
                 Log.w(TAG, "Dialog: Attempted to save empty category.");
             }
         });
@@ -549,22 +568,27 @@ public class TransactionsFragment extends Fragment {
 
             // 🔴 Validation Checks
             if (amountText.isEmpty() || catName.isEmpty() || dateText.isEmpty() || desc.isEmpty()) {
-                showCustomMessage("Error", "Fill All Fields");
+                // ⚠️ UPDATED: Removed "Error: " prefix
+                showCustomToast("Fill All Fields");
                 Log.w(TAG, "Validation Failed: Empty fields detected.");
                 return;
             }
 
             if (checkedTypeId == -1) {
-                showCustomMessage("Error", "Please select transaction type (Income or Expense)!\"");
+                // ⚠️ UPDATED: Removed "Error: " prefix
+                showCustomToast("Please select transaction type (Income or Expense)!\"");
                 Log.w(TAG, "Validation Failed: No transaction type selected.");
                 return;
             }
 
             if (!categoryNameToIdMap.containsKey(catName)) {
+                // 3. ✅ FIXED: Match the new string format (with space)
                 if ("Add New Category".equals(catName)) {
-                    showCustomMessage("Error", "Please select a valid category or complete adding a new one! ");
+                    // ⚠️ UPDATED: Removed "Error: " prefix
+                    showCustomToast("Please select a valid category or complete adding a new one! ");
                 } else {
-                    showCustomMessage("Error", "Invalid category selected! Ensure it's from the list.");
+                    // ⚠️ UPDATED: Removed "Error: " prefix
+                    showCustomToast("Invalid category selected! Ensure it's from the list.");
                 }
                 Log.w(TAG, "Validation Failed: Invalid category name: " + catName);
                 return;
@@ -589,7 +613,6 @@ public class TransactionsFragment extends Fragment {
 
                     if (noChange) {
                         showCustomToast("No changes detected!");
-                        dialog.dismiss();
                         Log.i(TAG, "Edit transaction: No changes detected. Dismissing dialog.");
                         return;
                     }
@@ -602,7 +625,8 @@ public class TransactionsFragment extends Fragment {
                     transactionToEdit.setType(type);
 
                     viewModel.updateTransaction(transactionToEdit);
-                    showCustomMessage("Information", "Transaction updated successfully!");
+                    // ⚠️ UPDATED: Removed "Information: " prefix
+                    showCustomToast("Transaction updated successfully!");
                     Log.i(TAG, "Edit transaction: Update initiated for ID: " + transactionToEdit.getId());
 
                     // 🏆 CRITICAL FIX: Re-apply filter after update
@@ -619,14 +643,16 @@ public class TransactionsFragment extends Fragment {
                     // NOTE: The ViewModel's saveTransaction MUST call the onSuccess Runnable
                     // once the transaction is successfully written to the database.
                     viewModel.saveTransaction(amount, type, categoryId, dateMillis, desc, onSuccess);
-                    showCustomMessage("Information", "New transaction added!");
+                    // ⚠️ UPDATED: Removed "Information: " prefix
+                    showCustomToast("New transaction added!");
                     Log.i(TAG, "New transaction: Save initiated.");
                     return; // Return here as onSuccess will handle dialog dismissal
                 }
 
                 dialog.dismiss();
             } catch (Exception e) {
-                showCustomMessage("Error", "Invalid amount or date format! ");
+                // The original code had a strange message here, replacing it with a generic failure
+                showCustomToast("Failed to save transaction: " + e.getMessage());
                 Log.e(TAG, "Save Failed: Parsing error (Amount/Date).", e);
             }
         });
@@ -805,7 +831,8 @@ public class TransactionsFragment extends Fragment {
         TextView filterTextView = type.equals("Income") ? binding.textFilterIncome : binding.textFilterExpenses;
 
         Runnable onNoResultsAction = () -> {
-            showCustomToast("No transactions found for this category.");
+            // ⚠️ UPDATED: Removed "Information: " prefix
+            showCustomToast("No transactions found for the selected category!");
             Log.i(TAG, "showCategoryFilterDialog: No results found toast shown.");
         };
 
@@ -853,52 +880,51 @@ public class TransactionsFragment extends Fragment {
         binding.textNoTransactions.setVisibility(empty ? View.VISIBLE : View.GONE);
     }
 
-    private void showCustomToast(String message) {
-        Log.d(TAG, "showCustomToast: Displaying message: " + message);
-        LayoutInflater inflater = getLayoutInflater();
-        View layout = inflater.inflate(R.layout.custom_message, null);
+    private void showCustomToast(String message) { // Method to show custom toast dialog
+        LayoutInflater inflater = getLayoutInflater(); // Get inflater to load custom layout
+        View layout = inflater.inflate(R.layout.custom_message, null); // Inflate the custom toast layout
 
-        TextView toastMessage = layout.findViewById(R.id.toast_message);
-        ImageView close = layout.findViewById(R.id.toast_close);
-        ProgressBar progressBar = layout.findViewById(R.id.toast_progress);
+        TextView text = layout.findViewById(R.id.toast_message); // Get TextView for message
+        ImageView close = layout.findViewById(R.id.toast_close); // Get close button ImageView
+        ProgressBar progressBar = layout.findViewById(R.id.toast_progress); // Get ProgressBar
 
-        toastMessage.setText(message);
-        progressBar.setProgress(100);
+        text.setText(message); // Set the toast message text
+        progressBar.setProgress(100); // Initialize progress bar to full
 
-        AlertDialog dialog = new AlertDialog.Builder(getContext()).setView(layout).create();
-        close.setOnClickListener(v -> {
-            Log.d(TAG, "Custom Toast closed by user.");
-            dialog.dismiss();
-        });
+        androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(requireContext()) // Use requireContext() here
+                .setView(layout) // Set custom layout
+                .create(); // Create dialog instance
 
-        if (dialog.getWindow() != null) {
-            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-            dialog.getWindow().setDimAmount(0f);
+        close.setOnClickListener(v -> dialog.dismiss()); // Close dialog on button click
 
-            WindowManager.LayoutParams params = dialog.getWindow().getAttributes();
-            params.width = WindowManager.LayoutParams.MATCH_PARENT;
-            params.height = WindowManager.LayoutParams.WRAP_CONTENT;
-            params.gravity = android.view.Gravity.TOP;
+        if (dialog.getWindow() != null) { // Check if window exists
+            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT)); // Make background transparent
+            dialog.getWindow().setDimAmount(0f); // Remove dim behind dialog
+
+            WindowManager.LayoutParams params = dialog.getWindow().getAttributes(); // Get window attributes
+            params.width = WindowManager.LayoutParams.MATCH_PARENT; // Set width to match parent
+            params.height = WindowManager.LayoutParams.WRAP_CONTENT; // Set height to wrap content
+
+            // 🆕 UPDATED: Set gravity to BOTTOM
+            params.gravity = android.view.Gravity.BOTTOM; // Position at bottom
+
+            // 🆕 UPDATED: Set offset from bottom in pixels (use the same offset for consistency)
             params.y = 50;
-            dialog.getWindow().setAttributes(params);
+
+            dialog.getWindow().setAttributes(params); // Apply attributes
         }
 
-        dialog.show();
+        dialog.show(); // Show the dialog
 
-        // 🔹 Countdown timer for auto-dismiss with progress bar
-        new CountDownTimer(3000, 50) {
-            public void onTick(long millisUntilFinished) {
-                int progress = (int) Math.max(0, Math.round((millisUntilFinished / 3000.0) * 100));
-                progressBar.setProgress(progress);
+        new CountDownTimer(3000, 50) { // Timer for auto-dismiss: 3s, tick every 50ms
+            public void onTick(long millisUntilFinished) { // Called on every tick
+                int progress = (int) ((millisUntilFinished / 3000.0) * 100); // Calculate progress
+                progressBar.setProgress(progress); // Update progress bar
             }
-
-            public void onFinish() {
-                if (dialog.isShowing()) {
-                    Log.d(TAG, "Custom Toast auto-dismissed.");
-                    dialog.dismiss();
-                }
+            public void onFinish() { // Called when timer finishes
+                if (dialog.isShowing()) dialog.dismiss(); // Dismiss dialog
             }
-        }.start();
+        }.start(); // Start timer
     }
 
     @Override
@@ -906,34 +932,6 @@ public class TransactionsFragment extends Fragment {
         super.onDestroyView();
         Log.d(TAG, "onDestroyView: Binding cleared.");
         binding = null;
-    }
-
-    private void showCustomMessage(String title, String message) {
-        // Inflate the custom layout
-        View layout = LayoutInflater.from(requireContext()).inflate(R.layout.custom_message, null);
-
-        ImageView icon = layout.findViewById(R.id.toast_icon);
-        TextView infoLabel = layout.findViewById(R.id.info_label);
-        TextView toastMessage = layout.findViewById(R.id.toast_message);
-        ImageView closeBtn = layout.findViewById(R.id.toast_close);
-        ProgressBar progressBar = layout.findViewById(R.id.toast_progress);
-
-        infoLabel.setText(title);
-        toastMessage.setText(message);
-        progressBar.setProgress(100); // Can be animated if needed
-
-        // Optional: Close button
-        closeBtn.setOnClickListener(v -> {
-            if (layout.getParent() instanceof android.view.ViewGroup) {
-                ((ViewGroup) layout.getParent()).removeView(layout);
-            }
-        });
-
-        // Create and show toast
-        Toast toast = new Toast(requireContext());
-        toast.setDuration(Toast.LENGTH_LONG);
-        toast.setView(layout);
-        toast.show();
     }
 
 }

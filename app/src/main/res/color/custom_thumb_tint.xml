@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Color State List for the Switch's Thumb (the circle).
+  - When checked (ON), it will be your color #5F9EA0.
+  - When unchecked (OFF), it will be a standard gray.
+-->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:color="#5F9EA0" android:state_checked="true" />
+    <item android:color="#757575" />
+</selector>
