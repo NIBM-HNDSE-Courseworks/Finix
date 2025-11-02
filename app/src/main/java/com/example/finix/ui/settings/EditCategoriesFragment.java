@@ -7,6 +7,7 @@ import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
@@ -283,6 +284,22 @@ public class EditCategoriesFragment extends Fragment implements CategoryAdapter.
         });
 
         dialog.show();
+
+        // 🌟 ADDED CODE TO SET DIALOG SIZE AND BACKGROUND 🌟
+        Window window = dialog.getWindow();
+        if(window != null){
+            // Set width to 80% of the screen width
+            int dialogWidth = (int)(requireActivity().getResources().getDisplayMetrics().widthPixels * 0.8);
+
+            // Apply the size: 80% width, height wraps content
+            window.setLayout(dialogWidth, WindowManager.LayoutParams.WRAP_CONTENT);
+
+            // Apply a transparent background (optional, but often used with custom layouts)
+            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+
+            // Note: You can add a Log.d here for debugging like in the previous example
+        }
+        // 🌟 END OF ADDED CODE 🌟
     }
 
     /**

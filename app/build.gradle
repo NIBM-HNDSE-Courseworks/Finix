@@ -1,6 +1,5 @@
 plugins {
     id 'com.android.application'
-    id 'org.jetbrains.kotlin.android'
 }
 
 android {
@@ -27,9 +26,6 @@ android {
     buildFeatures {
         viewBinding true
     }
-    kotlinOptions {
-        jvmTarget = '11'
-    }
 }
 
 dependencies {
@@ -41,7 +37,6 @@ dependencies {
     implementation 'androidx.navigation:navigation-fragment:2.7.1'
     implementation 'androidx.navigation:navigation-ui:2.7.1'
     implementation libs.legacy.support.v4
-    implementation libs.core.ktx
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
@@ -52,14 +47,4 @@ dependencies {
     annotationProcessor "androidx.room:room-compiler:$room_version"
 
     implementation 'com.github.PhilJay:MPAndroidChart:v3.1.0'
-
-
-    //evann dep
-    implementation 'androidx.appcompat:appcompat:1.6.1'  // Already there, but ensure
-    implementation 'com.google.android.material:material:1.11.0'  // For Chips and Toolbar
-    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'  // If needed
-    implementation 'com.github.Gruzer:simple-gauge-android:0.3.1'  // Gauge library
-
-    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.22"
-
 }

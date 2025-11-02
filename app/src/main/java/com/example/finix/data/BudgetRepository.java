@@ -8,7 +8,7 @@ import java.util.concurrent.Executors;
 
 public class BudgetRepository {
 
-    private final BudgetDao budgetDao;
+    private final BudgetDAO budgetDao;
     private final ExecutorService executorService;
 
     public BudgetRepository(Application application) {
