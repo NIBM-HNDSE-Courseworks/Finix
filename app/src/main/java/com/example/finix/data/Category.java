@@ -8,20 +8,31 @@ import androidx.room.PrimaryKey;
 @Entity(tableName = "categories")
 public class Category {
 
-    @PrimaryKey(autoGenerate = true)
+    @PrimaryKey(autoGenerate = false)
     @ColumnInfo(name = "id")
     private int id;
 
     @ColumnInfo(name = "name")
     private String name;
 
-    // 1. Explicit no-arg constructor for Room to use when reading from the database (Fix)
+    // 1. Explicit no-arg constructor for Room
     public Category() {
         // Required empty public constructor
     }
 
+    // 2. Constructor for creating a *new* Category (ID is manually set to a unique negative value)
     @Ignore
     public Category(String name) {
+        // --- CRITICAL FIX: Manually assign a unique negative ID ---
+        // Using System.currentTimeMillis() * -1 ensures uniqueness and avoids conflict
+        // with positive ORDS-assigned IDs (if ORDS IDs are positive).
+        this.id = (int) (System.currentTimeMillis() * -1);
+        this.name = name;
+    }
+
+    // 3. Constructor for existing data or mapping remote data (ID is known)
+    public Category(int id, String name) {
+        this.id = id;
         this.name = name;
     }
 

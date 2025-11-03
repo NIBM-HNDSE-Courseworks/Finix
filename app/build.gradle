@@ -48,4 +48,12 @@ dependencies {
     annotationProcessor "androidx.room:room-compiler:$room_version"
 
     implementation 'com.github.PhilJay:MPAndroidChart:v3.1.0'
+
+    // --- Networking Dependencies (Retrofit & Gson) ---
+    // Retrofit: A type-safe HTTP client for Android and Java
+    implementation 'com.squareup.retrofit2:retrofit:2.9.0'
+    // Gson Converter: Used to convert JSON responses from ORDS into Java objects
+    implementation 'com.squareup.retrofit2:converter-gson:2.9.0'
+    // GSON: Google's Java library for serializing/deserializing Java objects to/from JSON
+    implementation 'com.google.code.gson:gson:2.10.1'
 }
