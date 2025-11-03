@@ -10,6 +10,7 @@ import androidx.lifecycle.MutableLiveData;
 import com.example.finix.data.Category;
 import com.example.finix.data.FinixDatabase;
 import com.example.finix.data.SavingsGoal;
+import com.example.finix.data.TransactionDAO;
 
 import java.util.HashMap;
 import java.util.List;
@@ -31,6 +32,8 @@ public class SavingsGoalsViewModel extends AndroidViewModel {
         loadCategories();
     }
 
+    // --- GETTERS ---
+
     public LiveData<List<SavingsGoal>> getAllGoals() {
         return goals;
     }
@@ -39,8 +42,9 @@ public class SavingsGoalsViewModel extends AndroidViewModel {
         return categoryMapLive;
     }
 
-    // --- Categories ---
-
+    // ------------------------------------------------------------
+    // CATEGORY OPERATIONS
+    // ------------------------------------------------------------
     private void loadCategories() {
         executor.execute(() -> {
             Map<Integer, String> map = new HashMap<>();
@@ -59,12 +63,13 @@ public class SavingsGoalsViewModel extends AndroidViewModel {
     public void addCategory(String name) {
         executor.execute(() -> {
             db.categoryDao().insert(new Category(name));
-            loadCategories();
+            loadCategories(); // refresh list
         });
     }
 
-    // --- SavingsGoals CRUD ---
-
+    // ------------------------------------------------------------
+    // SAVINGS GOAL CRUD
+    // ------------------------------------------------------------
     public void insert(SavingsGoal goal) {
         executor.execute(() -> db.savingsGoalDao().insert(goal));
     }
@@ -75,5 +80,38 @@ public class SavingsGoalsViewModel extends AndroidViewModel {
 
     public void delete(SavingsGoal goal) {
         executor.execute(() -> db.savingsGoalDao().delete(goal));
+    }
+
+    // ------------------------------------------------------------
+    // 💰 TRANSACTION-BASED PROGRESS CALCULATION
+    // ------------------------------------------------------------
+    public double getCurrentSavings() {
+        TransactionDAO tDao = db.transactionDao();
+
+
+        Double income = tDao.getTotalIncome();
+        Double expense = tDao.getTotalExpense();
+
+        if (income == null) income = 0.0;
+        if (expense == null) expense = 0.0;
+
+        // returns (total income - total expense)
+        return income - expense;
+    }
+
+    /**
+     * Optionally, if you later want to calculate progress for a specific category:
+     */
+    public double getSavingsByCategory(int categoryId) {
+        TransactionDAO tDao = db.transactionDao();
+
+
+        Double income = tDao.getTotalIncome();  // you can modify this to filter by category if needed
+        Double expense = tDao.getTotalExpense();
+
+        if (income == null) income = 0.0;
+        if (expense == null) expense = 0.0;
+
+        return income - expense;
     }
 }
