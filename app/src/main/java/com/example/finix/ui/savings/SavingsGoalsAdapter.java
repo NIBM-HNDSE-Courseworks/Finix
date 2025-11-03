@@ -41,6 +41,8 @@ public class SavingsGoalsAdapter extends ListAdapter<SavingsGoal, SavingsGoalsAd
     public interface OnGoalActionListener {
         void onEdit(SavingsGoal goal);
         void onDelete(SavingsGoal goal);
+
+        void onGoalCompleted();
     }
 
     public SavingsGoalsAdapter(Function<Integer, String> categoryNameResolver, OnGoalActionListener listener) {
@@ -191,6 +193,9 @@ public class SavingsGoalsAdapter extends ListAdapter<SavingsGoal, SavingsGoalsAd
 
                     ((Activity) context).runOnUiThread(() -> {
                         showCustomToast(context, "Goal completed and added as expense!");
+                        if (listener != null) {
+                            listener.onGoalCompleted();
+                        }
                     });
 
                 } catch (Exception e) {
