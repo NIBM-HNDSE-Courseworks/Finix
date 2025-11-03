@@ -2,11 +2,11 @@ package com.example.finix.ui.savings;
 
 import android.animation.ObjectAnimator;
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.TextView;
 
@@ -19,6 +19,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.finix.R;
 import com.example.finix.data.FinixDatabase;
 import com.example.finix.data.SavingsGoal;
+import com.example.finix.data.SavingsGoalDAO;
 import com.example.finix.data.Transaction;
 import com.example.finix.data.TransactionDAO;
 import com.google.android.material.progressindicator.LinearProgressIndicator;
@@ -75,7 +76,6 @@ public class SavingsGoalsAdapter extends ListAdapter<SavingsGoal, SavingsGoalsAd
         View v = LayoutInflater.from(parent.getContext())
                 .inflate(R.layout.item_goal, parent, false);
 
-        // add some vertical spacing between cards
         ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) v.getLayoutParams();
         params.setMargins(0, 0, 0, (int) (9 * parent.getContext().getResources().getDisplayMetrics().density));
         v.setLayoutParams(params);
@@ -97,18 +97,18 @@ public class SavingsGoalsAdapter extends ListAdapter<SavingsGoal, SavingsGoalsAd
                 .format(new Date(g.getTargetDate()));
         h.tvDate.setText(date);
 
-        // --- Info dialog ---
+        // --- Info Button ---
         h.btnInfo.setOnClickListener(v -> {
             String msg = (g.getGoalDescription() == null || g.getGoalDescription().trim().isEmpty())
                     ? "No description"
                     : g.getGoalDescription();
-            AlertDialog dialog = new AlertDialog.Builder(v.getContext())
+            androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(v.getContext())
                     .setTitle("Description")
                     .setMessage(msg)
                     .setPositiveButton("OK", (d, which) -> d.dismiss())
                     .create();
             dialog.show();
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)
                     .setTextColor(ContextCompat.getColor(v.getContext(), R.color.teal_200));
         });
 
@@ -122,12 +122,10 @@ public class SavingsGoalsAdapter extends ListAdapter<SavingsGoal, SavingsGoalsAd
             if (listener != null) listener.onDelete(g);
         });
 
-        // --- Progress calculation (safe background thread) ---
+        // --- Progress Calculation ---
         executor.execute(() -> {
             TransactionDAO dao = FinixDatabase.getDatabase(context).transactionDao();
 
-
-            // Get all incomes and expenses
             List<Transaction> incomes = dao.getTransactionsByType("income");
             List<Transaction> expenses = dao.getTransactionsByType("expense");
 
@@ -138,6 +136,7 @@ public class SavingsGoalsAdapter extends ListAdapter<SavingsGoal, SavingsGoalsAd
             for (Transaction t : expenses) totalExpense += t.getAmount();
 
             double saved = totalIncome - totalExpense;
+            if (saved < 0) saved = 0;
             double target = g.getTargetAmount();
             double progressPercentage = (target > 0) ? ((saved / target) * 100) : 0;
             if (progressPercentage > 100) progressPercentage = 100;
@@ -151,13 +150,101 @@ public class SavingsGoalsAdapter extends ListAdapter<SavingsGoal, SavingsGoalsAd
                 ObjectAnimator anim = ObjectAnimator.ofInt(h.progressGoal, "progress", 0, (int) finalProgress);
                 anim.setDuration(1000);
                 anim.start();
+
+                // --- Dynamic color ---
+                if (finalProgress >= 100) {
+                    h.progressGoal.setIndicatorColor(ContextCompat.getColor(context, R.color.red));
+                    h.btnAddTransaction.setVisibility(View.VISIBLE);
+                } else if (finalProgress >= 75) {
+                    h.progressGoal.setIndicatorColor(ContextCompat.getColor(context, R.color.red_orange));
+                    h.btnAddTransaction.setVisibility(View.GONE);
+                } else if (finalProgress >= 50) {
+                    h.progressGoal.setIndicatorColor(ContextCompat.getColor(context, R.color.yellow));
+                    h.btnAddTransaction.setVisibility(View.GONE);
+                } else {
+                    h.progressGoal.setIndicatorColor(ContextCompat.getColor(context, R.color.teal_700));
+                    h.btnAddTransaction.setVisibility(View.GONE);
+                }
             });
         });
+
+        // --- 💰 Add Transaction Button ---
+        h.btnAddTransaction.setOnClickListener(v -> {
+            executor.execute(() -> {
+                try {
+                    TransactionDAO tDao = FinixDatabase.getDatabase(context).transactionDao();
+                    SavingsGoalDAO gDao = FinixDatabase.getDatabase(context).savingsGoalDao();
+
+
+                    // Add expense record
+                    Transaction transaction = new Transaction(
+                            g.getTargetAmount(),
+                            "Expense",
+                            g.getCategoryId(),
+                            System.currentTimeMillis(),
+                            "Goal Completed: " + g.getGoalName()
+                    );
+                    tDao.insert(transaction);
+
+                    // Remove the completed goal
+                    gDao.delete(g);
+
+                    ((Activity) context).runOnUiThread(() -> {
+                        showCustomToast(context, "Goal completed and added as expense!");
+                    });
+
+                } catch (Exception e) {
+                    ((Activity) context).runOnUiThread(() ->
+                            showCustomToast(context, "Error: " + e.getMessage()));
+                }
+            });
+        });
+    }
+
+    // --- Custom teal popup (same as in MainActivity) ---
+    private void showCustomToast(Context context, String message) {
+        View layout = LayoutInflater.from(context).inflate(R.layout.custom_message, null);
+        TextView text = layout.findViewById(R.id.toast_message);
+        text.setText(message);
+        android.widget.ProgressBar bar = layout.findViewById(R.id.toast_progress);
+        bar.setProgress(100);
+
+        androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(context)
+                .setView(layout)
+                .create();
+
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawable(
+                    new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
+            );
+            dialog.getWindow().setDimAmount(0f);
+            android.view.WindowManager.LayoutParams params = dialog.getWindow().getAttributes();
+            params.width = android.view.WindowManager.LayoutParams.MATCH_PARENT;
+            params.height = android.view.WindowManager.LayoutParams.WRAP_CONTENT;
+            params.gravity = android.view.Gravity.BOTTOM;
+            params.y = 50;
+            dialog.getWindow().setAttributes(params);
+        }
+
+        layout.findViewById(R.id.toast_close).setOnClickListener(v -> dialog.dismiss());
+        dialog.show();
+
+        new android.os.CountDownTimer(2500, 50) {
+            public void onTick(long ms) {
+                int progress = (int) ((ms / 2500.0) * 100);
+                bar.setProgress(progress);
+            }
+
+            public void onFinish() {
+                if (dialog.isShowing()) dialog.dismiss();
+            }
+        }.start();
     }
 
     static class VH extends RecyclerView.ViewHolder {
         TextView tvGoalName, tvCategory, tvAmount, tvDate, tvProgressPercentage;
         ImageButton btnInfo, btnEdit, btnDelete;
+        Button btnAddTransaction;
         LinearProgressIndicator progressGoal;
 
         VH(@NonNull View v) {
@@ -171,6 +258,7 @@ public class SavingsGoalsAdapter extends ListAdapter<SavingsGoal, SavingsGoalsAd
             btnDelete = v.findViewById(R.id.btnDeleteGoal);
             progressGoal = v.findViewById(R.id.progressGoal);
             tvProgressPercentage = v.findViewById(R.id.tvProgressPercentage);
+            btnAddTransaction = v.findViewById(R.id.btnAddTransaction);
         }
     }
 }

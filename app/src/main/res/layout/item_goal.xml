@@ -122,7 +122,7 @@
             app:trackColor="@color/gray"
             app:trackCornerRadius="8dp" />
 
-        <!-- Progress Percentage Text -->
+        <!-- Progress Percentage -->
         <TextView
             android:id="@+id/tvProgressPercentage"
             android:layout_width="wrap_content"
@@ -133,6 +133,22 @@
             android:layout_marginStart="6dp"
             app:layout_constraintBaseline_toBaselineOf="@id/progressGoal"
             app:layout_constraintEnd_toEndOf="parent" />
+
+        <!-- 💰 NEW: Add Transaction Button (Initially Hidden) -->
+        <Button
+            android:id="@+id/btnAddTransaction"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Add Transaction"
+            android:textStyle="bold"
+            android:textColor="@android:color/white"
+            android:backgroundTint="@color/teal_700"
+            android:layout_marginTop="10dp"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@id/progressGoal"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:cornerRadius="16dp" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
