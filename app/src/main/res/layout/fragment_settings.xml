@@ -5,6 +5,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="#121212"
     tools:context=".ui.settings.SettingsFragment">
 
     <com.google.android.material.appbar.AppBarLayout
@@ -22,8 +23,9 @@
         android:layout_marginStart="16dp"
         android:layout_marginTop="16dp"
         android:layout_marginEnd="16dp"
-        android:text="Sync this Project"
+        android:text="Auto Sync"
         android:textSize="18sp"
+        android:textColor="#FFFFFF"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/appBarLayout"
@@ -38,6 +40,7 @@
         android:layout_marginTop="24dp"
         android:text="Sync Frequency"
         android:textSize="16sp"
+        android:textColor="#FFFFFF"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/switch_sync_project"
         android:visibility="gone" tools:visibility="visible" />
@@ -59,35 +62,136 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Daily"
+            android:textColor="#FFFFFF"
             android:checked="true" />
 
         <RadioButton
             android:id="@+id/radio_weekly"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Weekly" />
+            android:text="Weekly"
+            android:textColor="#FFFFFF" />
 
         <RadioButton
             android:id="@+id/radio_monthly"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Monthly" />
+            android:text="Monthly"
+            android:textColor="#FFFFFF" />
 
     </RadioGroup>
 
     <com.google.android.material.button.MaterialButton
-        android:id="@+id/button_edit_category"
+        android:id="@+id/button_sync_now"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
         android:layout_marginEnd="16dp"
         android:layout_marginTop="24dp"
-        android:text="Manage Category"
+        android:text="Sync Now"
         app:backgroundTint="#5F9EA0"
         android:textColor="#FFFFFF"
         app:layout_constraintTop_toBottomOf="@id/radio_group_sync"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"/>
+        app:layout_constraintStart_toStartOf="parent"
+        android:visibility="gone" />
 
+    <ProgressBar
+        android:id="@+id/progress_sync"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="16dp"
+        android:max="100"
+        android:progress="0"
+        android:progressTint="#5F9EA0"
+        app:layout_constraintEnd_toStartOf="@+id/text_sync_percentage"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/button_sync_now"
+        android:visibility="gone"
+        tools:visibility="visible"
+        android:layout_marginEnd="16dp"/>
+
+    <TextView
+        android:id="@+id/text_sync_percentage"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="16dp"
+        android:text="0%"
+        android:textColor="#FFFFFF"
+        android:textSize="14sp"
+        app:layout_constraintBottom_toBottomOf="@+id/progress_sync"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/progress_sync"
+        android:visibility="gone"
+        tools:visibility="visible" />
+
+    <TextView
+        android:id="@+id/text_sync_status"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginEnd="16dp"
+        android:text="Status: Initializing sync..."
+        android:textColor="#AAAAAA"
+        android:textSize="14sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/progress_sync"
+        android:visibility="gone"
+        tools:visibility="visible" />
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/card_manage_category"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="0dp"
+        app:cardBackgroundColor="#1F3238"
+        app:layout_constraintTop_toBottomOf="@id/text_sync_status"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/layout_manage_category"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/listPreferredItemHeight"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true">
+
+            <ImageView
+                android:id="@+id/icon_category"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@android:drawable/ic_menu_manage"
+                app:tint="#5F9EA0"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                android:contentDescription="Category Icon"/>
+
+            <TextView
+                android:id="@+id/text_category_title"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="24dp"
+                android:text="Manage Category"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                app:layout_constraintStart_toEndOf="@id/icon_category"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent" />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+    </com.google.android.material.card.MaterialCardView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

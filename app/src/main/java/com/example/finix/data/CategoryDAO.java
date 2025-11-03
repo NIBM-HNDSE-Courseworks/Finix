@@ -1,5 +1,6 @@
 package com.example.finix.data;
 
+import androidx.lifecycle.LiveData;
 import androidx.room.Dao;
 import androidx.room.Insert;
 import androidx.room.Query;
@@ -27,7 +28,13 @@ public interface CategoryDAO {
     @Query("SELECT * FROM categories ORDER BY name ASC")
     List<Category> getAllCategories();
 
-    // Version 1 method: Get category by ID
+    /**
+     * NEW METHOD: Returns LiveData, which is observable (used by the Repository for the UI).
+     */
+    @Query("SELECT * FROM categories ORDER BY name ASC")
+    LiveData<List<Category>> getAllCategoriesLiveData();
+
+    // Version 1 method: Get category by ID - CRITICAL FOR SYNC FIX
     @Query("SELECT * FROM categories WHERE id = :categoryId")
     Category getCategoryById(int categoryId);
 

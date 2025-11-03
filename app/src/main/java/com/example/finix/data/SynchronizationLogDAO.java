@@ -4,6 +4,7 @@ import androidx.room.Dao;
 import androidx.room.Insert;
 import androidx.room.Delete;
 import androidx.room.Query;
+import androidx.room.Update; // <-- NEW IMPORT
 import java.util.List;
 
 @Dao
@@ -11,6 +12,9 @@ public interface SynchronizationLogDAO {
 
     @Insert
     void insert(SynchronizationLog log);
+
+    @Update // <-- NEW METHOD
+    void update(SynchronizationLog log);
 
     @Delete
     void delete(SynchronizationLog log);
