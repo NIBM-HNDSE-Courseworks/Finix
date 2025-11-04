@@ -1,0 +1,529 @@
+Index: app/src/main/java/com/example/finix/ui/savings/SavingsGoalsViewModel.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.example.finix.ui.savings;\r\n\r\nimport android.app.Application;\r\n\r\nimport androidx.annotation.NonNull;\r\nimport androidx.lifecycle.AndroidViewModel;\r\nimport androidx.lifecycle.LiveData;\r\nimport androidx.lifecycle.MutableLiveData;\r\n\r\nimport com.example.finix.data.Category;\r\nimport com.example.finix.data.FinixDatabase;\r\nimport com.example.finix.data.SavingsGoal;\r\nimport com.example.finix.data.TransactionDAO;\r\n\r\nimport java.util.HashMap;\r\nimport java.util.List;\r\nimport java.util.Map;\r\nimport java.util.concurrent.ExecutorService;\r\nimport java.util.concurrent.Executors;\r\n\r\npublic class SavingsGoalsViewModel extends AndroidViewModel {\r\n\r\n    private final FinixDatabase db;\r\n    private final LiveData<List<SavingsGoal>> goals;\r\n    private final MutableLiveData<Map<Integer, String>> categoryMapLive = new MutableLiveData<>(new HashMap<>());\r\n    private final ExecutorService executor = Executors.newSingleThreadExecutor();\r\n\r\n    public SavingsGoalsViewModel(@NonNull Application app) {\r\n        super(app);\r\n        db = FinixDatabase.getDatabase(app);\r\n        goals = db.savingsGoalDao().getAllGoalsLive();\r\n        loadCategories();\r\n    }\r\n\r\n    // --- GETTERS ---\r\n\r\n    public LiveData<List<SavingsGoal>> getAllGoals() {\r\n        return goals;\r\n    }\r\n\r\n    public LiveData<Map<Integer, String>> getCategoryMapLive() {\r\n        return categoryMapLive;\r\n    }\r\n\r\n    // ------------------------------------------------------------\r\n    // CATEGORY OPERATIONS\r\n    // ------------------------------------------------------------\r\n    private void loadCategories() {\r\n        executor.execute(() -> {\r\n            Map<Integer, String> map = new HashMap<>();\r\n            List<Category> all = db.categoryDao().getAllCategories();\r\n            for (Category c : all) {\r\n                map.put(c.getId(), c.getName());\r\n            }\r\n            categoryMapLive.postValue(map);\r\n        });\r\n    }\r\n\r\n    public void fetchLatestCategoryMap() {\r\n        loadCategories();\r\n    }\r\n\r\n    public void addCategory(String name) {\r\n        executor.execute(() -> {\r\n            db.categoryDao().insert(new Category(name));\r\n            loadCategories(); // refresh list\r\n        });\r\n    }\r\n\r\n    // ------------------------------------------------------------\r\n    // SAVINGS GOAL CRUD\r\n    // ------------------------------------------------------------\r\n    public void insert(SavingsGoal goal) {\r\n        executor.execute(() -> db.savingsGoalDao().insert(goal));\r\n    }\r\n\r\n    public void update(SavingsGoal goal) {\r\n        executor.execute(() -> db.savingsGoalDao().update(goal));\r\n    }\r\n\r\n    public void delete(SavingsGoal goal) {\r\n        executor.execute(() -> db.savingsGoalDao().delete(goal));\r\n    }\r\n\r\n    // ------------------------------------------------------------\r\n    // \uD83D\uDCB0 TRANSACTION-BASED PROGRESS CALCULATION\r\n    // ------------------------------------------------------------\r\n    public double getCurrentSavings() {\r\n        TransactionDAO tDao = db.transactionDao();\r\n\r\n\r\n        Double income = tDao.getTotalIncome();\r\n        Double expense = tDao.getTotalExpense();\r\n\r\n        if (income == null) income = 0.0;\r\n        if (expense == null) expense = 0.0;\r\n\r\n        // returns (total income - total expense)\r\n        return income - expense;\r\n    }\r\n\r\n    /**\r\n     * Optionally, if you later want to calculate progress for a specific category:\r\n     */\r\n    public double getSavingsByCategory(int categoryId) {\r\n        TransactionDAO tDao = db.transactionDao();\r\n\r\n\r\n        Double income = tDao.getTotalIncome();  // you can modify this to filter by category if needed\r\n        Double expense = tDao.getTotalExpense();\r\n\r\n        if (income == null) income = 0.0;\r\n        if (expense == null) expense = 0.0;\r\n\r\n        return income - expense;\r\n    }\r\n}\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/example/finix/ui/savings/SavingsGoalsViewModel.java b/app/src/main/java/com/example/finix/ui/savings/SavingsGoalsViewModel.java
+--- a/app/src/main/java/com/example/finix/ui/savings/SavingsGoalsViewModel.java	(revision 9d17739f93a48d3a52ff11c5965c6552353caf73)
++++ b/app/src/main/java/com/example/finix/ui/savings/SavingsGoalsViewModel.java	(date 1762236202497)
+@@ -10,7 +10,6 @@
+ import com.example.finix.data.Category;
+ import com.example.finix.data.FinixDatabase;
+ import com.example.finix.data.SavingsGoal;
+-import com.example.finix.data.TransactionDAO;
+ 
+ import java.util.HashMap;
+ import java.util.List;
+@@ -32,8 +31,6 @@
+         loadCategories();
+     }
+ 
+-    // --- GETTERS ---
+-
+     public LiveData<List<SavingsGoal>> getAllGoals() {
+         return goals;
+     }
+@@ -42,9 +39,8 @@
+         return categoryMapLive;
+     }
+ 
+-    // ------------------------------------------------------------
+-    // CATEGORY OPERATIONS
+-    // ------------------------------------------------------------
++    // --- Categories ---
++
+     private void loadCategories() {
+         executor.execute(() -> {
+             Map<Integer, String> map = new HashMap<>();
+@@ -63,13 +59,12 @@
+     public void addCategory(String name) {
+         executor.execute(() -> {
+             db.categoryDao().insert(new Category(name));
+-            loadCategories(); // refresh list
++            loadCategories();
+         });
+     }
+ 
+-    // ------------------------------------------------------------
+-    // SAVINGS GOAL CRUD
+-    // ------------------------------------------------------------
++    // --- SavingsGoals CRUD ---
++
+     public void insert(SavingsGoal goal) {
+         executor.execute(() -> db.savingsGoalDao().insert(goal));
+     }
+@@ -81,37 +76,4 @@
+     public void delete(SavingsGoal goal) {
+         executor.execute(() -> db.savingsGoalDao().delete(goal));
+     }
+-
+-    // ------------------------------------------------------------
+-    // 💰 TRANSACTION-BASED PROGRESS CALCULATION
+-    // ------------------------------------------------------------
+-    public double getCurrentSavings() {
+-        TransactionDAO tDao = db.transactionDao();
+-
+-
+-        Double income = tDao.getTotalIncome();
+-        Double expense = tDao.getTotalExpense();
+-
+-        if (income == null) income = 0.0;
+-        if (expense == null) expense = 0.0;
+-
+-        // returns (total income - total expense)
+-        return income - expense;
+-    }
+-
+-    /**
+-     * Optionally, if you later want to calculate progress for a specific category:
+-     */
+-    public double getSavingsByCategory(int categoryId) {
+-        TransactionDAO tDao = db.transactionDao();
+-
+-
+-        Double income = tDao.getTotalIncome();  // you can modify this to filter by category if needed
+-        Double expense = tDao.getTotalExpense();
+-
+-        if (income == null) income = 0.0;
+-        if (expense == null) expense = 0.0;
+-
+-        return income - expense;
+-    }
+-}
++}
+\ No newline at end of file
+Index: app/src/main/java/com/example/finix/ui/savings/SavingsGoalsAdapter.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.example.finix.ui.savings;\r\n\r\nimport android.animation.ObjectAnimator;\r\nimport android.app.Activity;\r\nimport android.content.Context;\r\nimport android.view.LayoutInflater;\r\nimport android.view.View;\r\nimport android.view.ViewGroup;\r\nimport android.widget.Button;\r\nimport android.widget.ImageButton;\r\nimport android.widget.TextView;\r\n\r\nimport androidx.annotation.NonNull;\r\nimport androidx.core.content.ContextCompat;\r\nimport androidx.recyclerview.widget.DiffUtil;\r\nimport androidx.recyclerview.widget.ListAdapter;\r\nimport androidx.recyclerview.widget.RecyclerView;\r\n\r\nimport com.example.finix.R;\r\nimport com.example.finix.data.FinixDatabase;\r\nimport com.example.finix.data.SavingsGoal;\r\nimport com.example.finix.data.SavingsGoalDAO;\r\nimport com.example.finix.data.Transaction;\r\nimport com.example.finix.data.TransactionDAO;\r\nimport com.google.android.material.progressindicator.LinearProgressIndicator;\r\n\r\nimport java.text.SimpleDateFormat;\r\nimport java.util.Date;\r\nimport java.util.List;\r\nimport java.util.Locale;\r\nimport java.util.concurrent.ExecutorService;\r\nimport java.util.concurrent.Executors;\r\nimport java.util.function.Function;\r\n\r\npublic class SavingsGoalsAdapter extends ListAdapter<SavingsGoal, SavingsGoalsAdapter.VH> {\r\n\r\n    private final Function<Integer, String> categoryNameResolver;\r\n    private final OnGoalActionListener listener;\r\n    private final ExecutorService executor = Executors.newSingleThreadExecutor();\r\n\r\n    public interface OnGoalActionListener {\r\n        void onEdit(SavingsGoal goal);\r\n        void onDelete(SavingsGoal goal);\r\n    }\r\n\r\n    public SavingsGoalsAdapter(Function<Integer, String> categoryNameResolver, OnGoalActionListener listener) {\r\n        super(DIFF);\r\n        this.categoryNameResolver = categoryNameResolver;\r\n        this.listener = listener;\r\n    }\r\n\r\n    private static final DiffUtil.ItemCallback<SavingsGoal> DIFF =\r\n            new DiffUtil.ItemCallback<SavingsGoal>() {\r\n                @Override\r\n                public boolean areItemsTheSame(@NonNull SavingsGoal a, @NonNull SavingsGoal b) {\r\n                    return a.getId() == b.getId();\r\n                }\r\n\r\n                @Override\r\n                public boolean areContentsTheSame(@NonNull SavingsGoal a, @NonNull SavingsGoal b) {\r\n                    return a.getCategoryId() == b.getCategoryId()\r\n                            && eq(a.getGoalName(), b.getGoalName())\r\n                            && eq(a.getGoalDescription(), b.getGoalDescription())\r\n                            && a.getTargetAmount() == b.getTargetAmount()\r\n                            && a.getTargetDate() == b.getTargetDate();\r\n                }\r\n\r\n                private boolean eq(String x, String y) {\r\n                    return x == null ? y == null : x.equals(y);\r\n                }\r\n            };\r\n\r\n    @NonNull\r\n    @Override\r\n    public VH onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {\r\n        View v = LayoutInflater.from(parent.getContext())\r\n                .inflate(R.layout.item_goal, parent, false);\r\n\r\n        ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) v.getLayoutParams();\r\n        params.setMargins(0, 0, 0, (int) (9 * parent.getContext().getResources().getDisplayMetrics().density));\r\n        v.setLayoutParams(params);\r\n\r\n        return new VH(v);\r\n    }\r\n\r\n    @Override\r\n    public void onBindViewHolder(@NonNull VH h, int position) {\r\n        SavingsGoal g = getItem(position);\r\n        Context context = h.itemView.getContext();\r\n\r\n        String catName = categoryNameResolver.apply(g.getCategoryId());\r\n        h.tvGoalName.setText(g.getGoalName());\r\n        h.tvCategory.setText(catName);\r\n        h.tvAmount.setText(String.format(Locale.getDefault(), \"Rs. %,.0f\", g.getTargetAmount()));\r\n\r\n        String date = new SimpleDateFormat(\"dd MMM yyyy\", Locale.getDefault())\r\n                .format(new Date(g.getTargetDate()));\r\n        h.tvDate.setText(date);\r\n\r\n        // --- Info Button ---\r\n        h.btnInfo.setOnClickListener(v -> {\r\n            String msg = (g.getGoalDescription() == null || g.getGoalDescription().trim().isEmpty())\r\n                    ? \"No description\"\r\n                    : g.getGoalDescription();\r\n            androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(v.getContext())\r\n                    .setTitle(\"Description\")\r\n                    .setMessage(msg)\r\n                    .setPositiveButton(\"OK\", (d, which) -> d.dismiss())\r\n                    .create();\r\n            dialog.show();\r\n            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)\r\n                    .setTextColor(ContextCompat.getColor(v.getContext(), R.color.teal_200));\r\n        });\r\n\r\n        // --- Edit ---\r\n        h.btnEdit.setOnClickListener(v -> {\r\n            if (listener != null) listener.onEdit(g);\r\n        });\r\n\r\n        // --- Delete ---\r\n        h.btnDelete.setOnClickListener(v -> {\r\n            if (listener != null) listener.onDelete(g);\r\n        });\r\n\r\n        // --- Progress Calculation ---\r\n        executor.execute(() -> {\r\n            TransactionDAO dao = FinixDatabase.getDatabase(context).transactionDao();\r\n\r\n            List<Transaction> incomes = dao.getTransactionsByType(\"income\");\r\n            List<Transaction> expenses = dao.getTransactionsByType(\"expense\");\r\n\r\n            double totalIncome = 0;\r\n            double totalExpense = 0;\r\n\r\n            for (Transaction t : incomes) totalIncome += t.getAmount();\r\n            for (Transaction t : expenses) totalExpense += t.getAmount();\r\n\r\n            double saved = totalIncome - totalExpense;\r\n            if (saved < 0) saved = 0;\r\n            double target = g.getTargetAmount();\r\n            double progressPercentage = (target > 0) ? ((saved / target) * 100) : 0;\r\n            if (progressPercentage > 100) progressPercentage = 100;\r\n\r\n            double finalProgress = progressPercentage;\r\n            ((Activity) context).runOnUiThread(() -> {\r\n                h.tvProgressPercentage.setText(\r\n                        String.format(Locale.getDefault(), \"%.0f%%\", finalProgress)\r\n                );\r\n\r\n                ObjectAnimator anim = ObjectAnimator.ofInt(h.progressGoal, \"progress\", 0, (int) finalProgress);\r\n                anim.setDuration(1000);\r\n                anim.start();\r\n\r\n                // --- Dynamic color ---\r\n                if (finalProgress >= 100) {\r\n                    h.progressGoal.setIndicatorColor(ContextCompat.getColor(context, R.color.red));\r\n                    h.btnAddTransaction.setVisibility(View.VISIBLE);\r\n                } else if (finalProgress >= 75) {\r\n                    h.progressGoal.setIndicatorColor(ContextCompat.getColor(context, R.color.red_orange));\r\n                    h.btnAddTransaction.setVisibility(View.GONE);\r\n                } else if (finalProgress >= 50) {\r\n                    h.progressGoal.setIndicatorColor(ContextCompat.getColor(context, R.color.yellow));\r\n                    h.btnAddTransaction.setVisibility(View.GONE);\r\n                } else {\r\n                    h.progressGoal.setIndicatorColor(ContextCompat.getColor(context, R.color.teal_700));\r\n                    h.btnAddTransaction.setVisibility(View.GONE);\r\n                }\r\n            });\r\n        });\r\n\r\n        // --- \uD83D\uDCB0 Add Transaction Button ---\r\n        h.btnAddTransaction.setOnClickListener(v -> {\r\n            executor.execute(() -> {\r\n                try {\r\n                    TransactionDAO tDao = FinixDatabase.getDatabase(context).transactionDao();\r\n                    SavingsGoalDAO gDao = FinixDatabase.getDatabase(context).savingsGoalDao();\r\n\r\n\r\n                    // Add expense record\r\n                    Transaction transaction = new Transaction(\r\n                            g.getTargetAmount(),\r\n                            \"Expense\",\r\n                            g.getCategoryId(),\r\n                            System.currentTimeMillis(),\r\n                            \"Goal Completed: \" + g.getGoalName()\r\n                    );\r\n                    tDao.insert(transaction);\r\n\r\n                    // Remove the completed goal\r\n                    gDao.delete(g);\r\n\r\n                    ((Activity) context).runOnUiThread(() -> {\r\n                        showCustomToast(context, \"Goal completed and added as expense!\");\r\n                    });\r\n\r\n                } catch (Exception e) {\r\n                    ((Activity) context).runOnUiThread(() ->\r\n                            showCustomToast(context, \"Error: \" + e.getMessage()));\r\n                }\r\n            });\r\n        });\r\n    }\r\n\r\n    // --- Custom teal popup (same as in MainActivity) ---\r\n    private void showCustomToast(Context context, String message) {\r\n        View layout = LayoutInflater.from(context).inflate(R.layout.custom_message, null);\r\n        TextView text = layout.findViewById(R.id.toast_message);\r\n        text.setText(message);\r\n        android.widget.ProgressBar bar = layout.findViewById(R.id.toast_progress);\r\n        bar.setProgress(100);\r\n\r\n        androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(context)\r\n                .setView(layout)\r\n                .create();\r\n\r\n        if (dialog.getWindow() != null) {\r\n            dialog.getWindow().setBackgroundDrawable(\r\n                    new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)\r\n            );\r\n            dialog.getWindow().setDimAmount(0f);\r\n            android.view.WindowManager.LayoutParams params = dialog.getWindow().getAttributes();\r\n            params.width = android.view.WindowManager.LayoutParams.MATCH_PARENT;\r\n            params.height = android.view.WindowManager.LayoutParams.WRAP_CONTENT;\r\n            params.gravity = android.view.Gravity.BOTTOM;\r\n            params.y = 50;\r\n            dialog.getWindow().setAttributes(params);\r\n        }\r\n\r\n        layout.findViewById(R.id.toast_close).setOnClickListener(v -> dialog.dismiss());\r\n        dialog.show();\r\n\r\n        new android.os.CountDownTimer(2500, 50) {\r\n            public void onTick(long ms) {\r\n                int progress = (int) ((ms / 2500.0) * 100);\r\n                bar.setProgress(progress);\r\n            }\r\n\r\n            public void onFinish() {\r\n                if (dialog.isShowing()) dialog.dismiss();\r\n            }\r\n        }.start();\r\n    }\r\n\r\n    static class VH extends RecyclerView.ViewHolder {\r\n        TextView tvGoalName, tvCategory, tvAmount, tvDate, tvProgressPercentage;\r\n        ImageButton btnInfo, btnEdit, btnDelete;\r\n        Button btnAddTransaction;\r\n        LinearProgressIndicator progressGoal;\r\n\r\n        VH(@NonNull View v) {\r\n            super(v);\r\n            tvGoalName = v.findViewById(R.id.tvGoalName);\r\n            tvCategory = v.findViewById(R.id.tvCategory);\r\n            tvAmount = v.findViewById(R.id.tvAmount);\r\n            tvDate = v.findViewById(R.id.tvDate);\r\n            btnInfo = v.findViewById(R.id.btnInfo);\r\n            btnEdit = v.findViewById(R.id.btnEditGoal);\r\n            btnDelete = v.findViewById(R.id.btnDeleteGoal);\r\n            progressGoal = v.findViewById(R.id.progressGoal);\r\n            tvProgressPercentage = v.findViewById(R.id.tvProgressPercentage);\r\n            btnAddTransaction = v.findViewById(R.id.btnAddTransaction);\r\n        }\r\n    }\r\n}\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/example/finix/ui/savings/SavingsGoalsAdapter.java b/app/src/main/java/com/example/finix/ui/savings/SavingsGoalsAdapter.java
+--- a/app/src/main/java/com/example/finix/ui/savings/SavingsGoalsAdapter.java	(revision 9d17739f93a48d3a52ff11c5965c6552353caf73)
++++ b/app/src/main/java/com/example/finix/ui/savings/SavingsGoalsAdapter.java	(date 1762236202522)
+@@ -1,42 +1,28 @@
+ package com.example.finix.ui.savings;
+ 
+-import android.animation.ObjectAnimator;
+-import android.app.Activity;
+-import android.content.Context;
++import android.app.AlertDialog;
++import android.content.res.ColorStateList;
+ import android.view.LayoutInflater;
+ import android.view.View;
+ import android.view.ViewGroup;
+-import android.widget.Button;
+ import android.widget.ImageButton;
+ import android.widget.TextView;
+-
+ import androidx.annotation.NonNull;
+ import androidx.core.content.ContextCompat;
+ import androidx.recyclerview.widget.DiffUtil;
+ import androidx.recyclerview.widget.ListAdapter;
+ import androidx.recyclerview.widget.RecyclerView;
+-
+ import com.example.finix.R;
+-import com.example.finix.data.FinixDatabase;
+ import com.example.finix.data.SavingsGoal;
+-import com.example.finix.data.SavingsGoalDAO;
+-import com.example.finix.data.Transaction;
+-import com.example.finix.data.TransactionDAO;
+-import com.google.android.material.progressindicator.LinearProgressIndicator;
+-
+ import java.text.SimpleDateFormat;
+ import java.util.Date;
+-import java.util.List;
+ import java.util.Locale;
+-import java.util.concurrent.ExecutorService;
+-import java.util.concurrent.Executors;
+ import java.util.function.Function;
+ 
+ public class SavingsGoalsAdapter extends ListAdapter<SavingsGoal, SavingsGoalsAdapter.VH> {
+ 
+     private final Function<Integer, String> categoryNameResolver;
+     private final OnGoalActionListener listener;
+-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+ 
+     public interface OnGoalActionListener {
+         void onEdit(SavingsGoal goal);
+@@ -76,6 +62,7 @@
+         View v = LayoutInflater.from(parent.getContext())
+                 .inflate(R.layout.item_goal, parent, false);
+ 
++        // 🧩 Add spacing between cards (16dp)
+         ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) v.getLayoutParams();
+         params.setMargins(0, 0, 0, (int) (9 * parent.getContext().getResources().getDisplayMetrics().density));
+         v.setLayoutParams(params);
+@@ -86,7 +73,6 @@
+     @Override
+     public void onBindViewHolder(@NonNull VH h, int position) {
+         SavingsGoal g = getItem(position);
+-        Context context = h.itemView.getContext();
+ 
+         String catName = categoryNameResolver.apply(g.getCategoryId());
+         h.tvGoalName.setText(g.getGoalName());
+@@ -97,155 +83,38 @@
+                 .format(new Date(g.getTargetDate()));
+         h.tvDate.setText(date);
+ 
+-        // --- Info Button ---
++        // 💬 Info Dialog (OK button teal_200)
+         h.btnInfo.setOnClickListener(v -> {
+             String msg = (g.getGoalDescription() == null || g.getGoalDescription().trim().isEmpty())
+                     ? "No description"
+                     : g.getGoalDescription();
+-            androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(v.getContext())
+-                    .setTitle("Description")
+-                    .setMessage(msg)
+-                    .setPositiveButton("OK", (d, which) -> d.dismiss())
+-                    .create();
++
++            AlertDialog.Builder builder = new AlertDialog.Builder(v.getContext());
++            builder.setTitle("Description");
++            builder.setMessage(msg);
++            builder.setPositiveButton("OK", (dialog, which) -> dialog.dismiss());
++            AlertDialog dialog = builder.create();
+             dialog.show();
+-            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)
++
++            // 💚 Set OK button color to teal_200
++            dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                     .setTextColor(ContextCompat.getColor(v.getContext(), R.color.teal_200));
+         });
+ 
+-        // --- Edit ---
++        // ✏️ Edit
+         h.btnEdit.setOnClickListener(v -> {
+             if (listener != null) listener.onEdit(g);
+         });
+ 
+-        // --- Delete ---
++        // ❌ Delete
+         h.btnDelete.setOnClickListener(v -> {
+             if (listener != null) listener.onDelete(g);
+         });
+-
+-        // --- Progress Calculation ---
+-        executor.execute(() -> {
+-            TransactionDAO dao = FinixDatabase.getDatabase(context).transactionDao();
+-
+-            List<Transaction> incomes = dao.getTransactionsByType("income");
+-            List<Transaction> expenses = dao.getTransactionsByType("expense");
+-
+-            double totalIncome = 0;
+-            double totalExpense = 0;
+-
+-            for (Transaction t : incomes) totalIncome += t.getAmount();
+-            for (Transaction t : expenses) totalExpense += t.getAmount();
+-
+-            double saved = totalIncome - totalExpense;
+-            if (saved < 0) saved = 0;
+-            double target = g.getTargetAmount();
+-            double progressPercentage = (target > 0) ? ((saved / target) * 100) : 0;
+-            if (progressPercentage > 100) progressPercentage = 100;
+-
+-            double finalProgress = progressPercentage;
+-            ((Activity) context).runOnUiThread(() -> {
+-                h.tvProgressPercentage.setText(
+-                        String.format(Locale.getDefault(), "%.0f%%", finalProgress)
+-                );
+-
+-                ObjectAnimator anim = ObjectAnimator.ofInt(h.progressGoal, "progress", 0, (int) finalProgress);
+-                anim.setDuration(1000);
+-                anim.start();
+-
+-                // --- Dynamic color ---
+-                if (finalProgress >= 100) {
+-                    h.progressGoal.setIndicatorColor(ContextCompat.getColor(context, R.color.red));
+-                    h.btnAddTransaction.setVisibility(View.VISIBLE);
+-                } else if (finalProgress >= 75) {
+-                    h.progressGoal.setIndicatorColor(ContextCompat.getColor(context, R.color.red_orange));
+-                    h.btnAddTransaction.setVisibility(View.GONE);
+-                } else if (finalProgress >= 50) {
+-                    h.progressGoal.setIndicatorColor(ContextCompat.getColor(context, R.color.yellow));
+-                    h.btnAddTransaction.setVisibility(View.GONE);
+-                } else {
+-                    h.progressGoal.setIndicatorColor(ContextCompat.getColor(context, R.color.teal_700));
+-                    h.btnAddTransaction.setVisibility(View.GONE);
+-                }
+-            });
+-        });
+-
+-        // --- 💰 Add Transaction Button ---
+-        h.btnAddTransaction.setOnClickListener(v -> {
+-            executor.execute(() -> {
+-                try {
+-                    TransactionDAO tDao = FinixDatabase.getDatabase(context).transactionDao();
+-                    SavingsGoalDAO gDao = FinixDatabase.getDatabase(context).savingsGoalDao();
+-
+-
+-                    // Add expense record
+-                    Transaction transaction = new Transaction(
+-                            g.getTargetAmount(),
+-                            "Expense",
+-                            g.getCategoryId(),
+-                            System.currentTimeMillis(),
+-                            "Goal Completed: " + g.getGoalName()
+-                    );
+-                    tDao.insert(transaction);
+-
+-                    // Remove the completed goal
+-                    gDao.delete(g);
+-
+-                    ((Activity) context).runOnUiThread(() -> {
+-                        showCustomToast(context, "Goal completed and added as expense!");
+-                    });
+-
+-                } catch (Exception e) {
+-                    ((Activity) context).runOnUiThread(() ->
+-                            showCustomToast(context, "Error: " + e.getMessage()));
+-                }
+-            });
+-        });
+-    }
+-
+-    // --- Custom teal popup (same as in MainActivity) ---
+-    private void showCustomToast(Context context, String message) {
+-        View layout = LayoutInflater.from(context).inflate(R.layout.custom_message, null);
+-        TextView text = layout.findViewById(R.id.toast_message);
+-        text.setText(message);
+-        android.widget.ProgressBar bar = layout.findViewById(R.id.toast_progress);
+-        bar.setProgress(100);
+-
+-        androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(context)
+-                .setView(layout)
+-                .create();
+-
+-        if (dialog.getWindow() != null) {
+-            dialog.getWindow().setBackgroundDrawable(
+-                    new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
+-            );
+-            dialog.getWindow().setDimAmount(0f);
+-            android.view.WindowManager.LayoutParams params = dialog.getWindow().getAttributes();
+-            params.width = android.view.WindowManager.LayoutParams.MATCH_PARENT;
+-            params.height = android.view.WindowManager.LayoutParams.WRAP_CONTENT;
+-            params.gravity = android.view.Gravity.BOTTOM;
+-            params.y = 50;
+-            dialog.getWindow().setAttributes(params);
+-        }
+-
+-        layout.findViewById(R.id.toast_close).setOnClickListener(v -> dialog.dismiss());
+-        dialog.show();
+-
+-        new android.os.CountDownTimer(2500, 50) {
+-            public void onTick(long ms) {
+-                int progress = (int) ((ms / 2500.0) * 100);
+-                bar.setProgress(progress);
+-            }
+-
+-            public void onFinish() {
+-                if (dialog.isShowing()) dialog.dismiss();
+-            }
+-        }.start();
+     }
+ 
+     static class VH extends RecyclerView.ViewHolder {
+-        TextView tvGoalName, tvCategory, tvAmount, tvDate, tvProgressPercentage;
++        TextView tvGoalName, tvCategory, tvAmount, tvDate;
+         ImageButton btnInfo, btnEdit, btnDelete;
+-        Button btnAddTransaction;
+-        LinearProgressIndicator progressGoal;
+ 
+         VH(@NonNull View v) {
+             super(v);
+@@ -256,9 +125,6 @@
+             btnInfo = v.findViewById(R.id.btnInfo);
+             btnEdit = v.findViewById(R.id.btnEditGoal);
+             btnDelete = v.findViewById(R.id.btnDeleteGoal);
+-            progressGoal = v.findViewById(R.id.progressGoal);
+-            tvProgressPercentage = v.findViewById(R.id.tvProgressPercentage);
+-            btnAddTransaction = v.findViewById(R.id.btnAddTransaction);
+         }
+     }
+ }
+Index: app/src/main/java/com/example/finix/data/TransactionDAO.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.example.finix.data;\r\n\r\nimport androidx.lifecycle.LiveData;\r\nimport androidx.room.Dao;\r\nimport androidx.room.Insert;\r\nimport androidx.room.Query;\r\nimport androidx.room.Update;\r\nimport androidx.room.Delete;\r\n\r\nimport java.util.List;\r\n\r\n@Dao\r\npublic interface TransactionDAO {\r\n\r\n    // ➕ Insert a new transaction\r\n    @Insert\r\n    void insert(Transaction transaction);\r\n\r\n    // \uD83D\uDD01 Update an existing transaction\r\n    @Update\r\n    void update(Transaction transaction);\r\n\r\n    // ❌ Delete a specific transaction\r\n    @Delete\r\n    void delete(Transaction transaction);\r\n\r\n    // \uD83D\uDCCB Get all transactions (newest first)\r\n    @Query(\"SELECT * FROM transactions ORDER BY date_time DESC\")\r\n    List<Transaction> getAllTransactions();\r\n\r\n    // \uD83D\uDCB0 Get all transactions by type (Income/Expense) — now case-insensitive\r\n    @Query(\"SELECT * FROM transactions WHERE LOWER(type) = LOWER(:type) ORDER BY date_time DESC\")\r\n    List<Transaction> getTransactionsByType(String type);\r\n\r\n    // \uD83D\uDD0D Get transactions by category_id and type — now case-insensitive\r\n    @Query(\"SELECT * FROM transactions WHERE LOWER(type) = LOWER(:type) AND category_id = :categoryId ORDER BY date_time DESC\")\r\n    List<Transaction> getTransactionsByTypeAndCategory(String type, int categoryId);\r\n\r\n    // \uD83C\uDD95 NEW: Get all distinct month/year timestamps\r\n    @Query(\"SELECT DISTINCT date_time FROM transactions ORDER BY date_time DESC\")\r\n    List<Long> getDistinctMonthYear();\r\n\r\n    // \uD83D\uDCB0 FIX: Synchronous query for previous month total (case-insensitive)\r\n    @Query(\"SELECT SUM(amount) FROM transactions WHERE LOWER(type) = LOWER(:type) AND date_time BETWEEN :startTime AND :endTime\")\r\n    Double getPreviousMonthTotalSync(String type, long startTime, long endTime);\r\n\r\n    // \uD83D\uDCC8 NEW: Get all transactions of a type within a date range (case-insensitive)\r\n    @Query(\"SELECT * FROM transactions WHERE LOWER(type) = LOWER(:type) AND date_time BETWEEN :startTime AND :endTime ORDER BY date_time DESC\")\r\n    LiveData<List<Transaction>> getTransactionsByTypeAndDateRange(String type, long startTime, long endTime);\r\n\r\n    // \uD83D\uDCB5 Get total income (case-insensitive)\r\n    @Query(\"SELECT SUM(amount) FROM transactions WHERE LOWER(type) = 'income'\")\r\n    Double getTotalIncome();\r\n\r\n    // \uD83D\uDCB8 Get total expense (case-insensitive)\r\n    @Query(\"SELECT SUM(amount) FROM transactions WHERE LOWER(type) = 'expense'\")\r\n    Double getTotalExpense();\r\n}\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/example/finix/data/TransactionDAO.java b/app/src/main/java/com/example/finix/data/TransactionDAO.java
+--- a/app/src/main/java/com/example/finix/data/TransactionDAO.java	(revision 9d17739f93a48d3a52ff11c5965c6552353caf73)
++++ b/app/src/main/java/com/example/finix/data/TransactionDAO.java	(date 1762236202316)
+@@ -6,7 +6,6 @@
+ import androidx.room.Query;
+ import androidx.room.Update;
+ import androidx.room.Delete;
+-
+ import java.util.List;
+ 
+ @Dao
+@@ -28,31 +27,24 @@
+     @Query("SELECT * FROM transactions ORDER BY date_time DESC")
+     List<Transaction> getAllTransactions();
+ 
+-    // 💰 Get all transactions by type (Income/Expense) — now case-insensitive
+-    @Query("SELECT * FROM transactions WHERE LOWER(type) = LOWER(:type) ORDER BY date_time DESC")
++    // 💰 Get all transactions by type (Income/Expense)
++    @Query("SELECT * FROM transactions WHERE type = :type ORDER BY date_time DESC")
+     List<Transaction> getTransactionsByType(String type);
+ 
+-    // 🔍 Get transactions by category_id and type — now case-insensitive
+-    @Query("SELECT * FROM transactions WHERE LOWER(type) = LOWER(:type) AND category_id = :categoryId ORDER BY date_time DESC")
++    // 🔍 Get transactions by category_id and type
++    @Query("SELECT * FROM transactions WHERE type = :type AND category_id = :categoryId ORDER BY date_time DESC")
+     List<Transaction> getTransactionsByTypeAndCategory(String type, int categoryId);
+ 
+     // 🆕 NEW: Get all distinct month/year timestamps
++    // We get the raw long, then format in the ViewModel
+     @Query("SELECT DISTINCT date_time FROM transactions ORDER BY date_time DESC")
+     List<Long> getDistinctMonthYear();
+ 
+-    // 💰 FIX: Synchronous query for previous month total (case-insensitive)
+-    @Query("SELECT SUM(amount) FROM transactions WHERE LOWER(type) = LOWER(:type) AND date_time BETWEEN :startTime AND :endTime")
+-    Double getPreviousMonthTotalSync(String type, long startTime, long endTime);
++    // 💰 FIX: Synchronous query for the comparison calculation
++    @Query("SELECT SUM(amount) FROM transactions WHERE type = :type AND date_time BETWEEN :startTime AND :endTime")
++    Double getPreviousMonthTotalSync(String type, long startTime, long endTime); // NOTE: Returns Double, not LiveData!
+ 
+-    // 📈 NEW: Get all transactions of a type within a date range (case-insensitive)
+-    @Query("SELECT * FROM transactions WHERE LOWER(type) = LOWER(:type) AND date_time BETWEEN :startTime AND :endTime ORDER BY date_time DESC")
++    // 📈 NEW: Get all transactions of a type within a date range (for chart data)
++    @Query("SELECT * FROM transactions WHERE type = :type AND date_time BETWEEN :startTime AND :endTime ORDER BY date_time DESC")
+     LiveData<List<Transaction>> getTransactionsByTypeAndDateRange(String type, long startTime, long endTime);
+-
+-    // 💵 Get total income (case-insensitive)
+-    @Query("SELECT SUM(amount) FROM transactions WHERE LOWER(type) = 'income'")
+-    Double getTotalIncome();
+-
+-    // 💸 Get total expense (case-insensitive)
+-    @Query("SELECT SUM(amount) FROM transactions WHERE LOWER(type) = 'expense'")
+-    Double getTotalExpense();
+-}
++}
+\ No newline at end of file
+Index: app/src/main/res/layout/item_goal.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<com.google.android.material.card.MaterialCardView\r\n    xmlns:android=\"http://schemas.android.com/apk/res/android\"\r\n    xmlns:app=\"http://schemas.android.com/apk/res-auto\"\r\n    android:layout_width=\"match_parent\"\r\n    android:layout_height=\"wrap_content\"\r\n    android:layout_marginVertical=\"10dp\"\r\n    android:layout_marginHorizontal=\"8dp\"\r\n    app:cardCornerRadius=\"16dp\"\r\n    app:cardElevation=\"10dp\"\r\n    app:strokeColor=\"@color/gray\"\r\n    app:strokeWidth=\"1dp\">\r\n\r\n    <androidx.constraintlayout.widget.ConstraintLayout\r\n        android:layout_width=\"match_parent\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:padding=\"14dp\"\r\n        android:background=\"@drawable/glassy_teal_popup\">\r\n\r\n        <!-- Goal Name -->\r\n        <TextView\r\n            android:id=\"@+id/tvGoalName\"\r\n            android:layout_width=\"wrap_content\"\r\n            android:layout_height=\"wrap_content\"\r\n            android:text=\"Goal name\"\r\n            android:textStyle=\"bold\"\r\n            android:textSize=\"16sp\"\r\n            android:textColor=\"@android:color/white\"\r\n            app:layout_constraintStart_toStartOf=\"parent\"\r\n            app:layout_constraintTop_toTopOf=\"parent\" />\r\n\r\n        <!-- Info Button -->\r\n        <ImageButton\r\n            android:id=\"@+id/btnInfo\"\r\n            android:layout_width=\"40dp\"\r\n            android:layout_height=\"40dp\"\r\n            android:background=\"?attr/selectableItemBackgroundBorderless\"\r\n            android:contentDescription=\"Info\"\r\n            android:padding=\"1dp\"\r\n            android:scaleType=\"centerCrop\"\r\n            android:src=\"@drawable/ic_information9\"\r\n            app:tint=\"@color/white\"\r\n            app:layout_constraintTop_toTopOf=\"@id/tvGoalName\"\r\n            app:layout_constraintEnd_toEndOf=\"parent\" />\r\n\r\n        <!-- Target Amount -->\r\n        <TextView\r\n            android:id=\"@+id/tvAmount\"\r\n            android:layout_width=\"wrap_content\"\r\n            android:layout_height=\"wrap_content\"\r\n            android:layout_marginEnd=\"15dp\"\r\n            android:text=\"Rs. 0.00\"\r\n            android:textColor=\"@android:color/white\"\r\n            android:textSize=\"16sp\"\r\n            android:textStyle=\"bold\"\r\n            app:layout_constraintEnd_toStartOf=\"@id/btnInfo\"\r\n            app:layout_constraintTop_toTopOf=\"parent\" />\r\n\r\n        <!-- Category Name -->\r\n        <TextView\r\n            android:id=\"@+id/tvCategory\"\r\n            android:layout_width=\"0dp\"\r\n            android:layout_height=\"wrap_content\"\r\n            android:text=\"Category name\"\r\n            android:textSize=\"14sp\"\r\n            android:textColor=\"#B3FFFFFF\"\r\n            app:layout_constraintStart_toStartOf=\"@id/tvGoalName\"\r\n            app:layout_constraintTop_toBottomOf=\"@id/tvGoalName\"\r\n            app:layout_constraintEnd_toStartOf=\"@id/btnInfo\" />\r\n\r\n        <!-- Target Date -->\r\n        <TextView\r\n            android:id=\"@+id/tvDate\"\r\n            android:layout_width=\"wrap_content\"\r\n            android:layout_height=\"wrap_content\"\r\n            android:text=\"01 Jan 2026\"\r\n            android:textSize=\"14sp\"\r\n            android:textColor=\"#B3FFFFFF\"\r\n            android:layout_marginTop=\"2dp\"\r\n            app:layout_constraintStart_toStartOf=\"@id/tvCategory\"\r\n            app:layout_constraintTop_toBottomOf=\"@id/tvCategory\" />\r\n\r\n        <!-- Edit Button -->\r\n        <ImageButton\r\n            android:id=\"@+id/btnEditGoal\"\r\n            android:layout_width=\"36dp\"\r\n            android:layout_height=\"36dp\"\r\n            android:background=\"@drawable/button_border_ash\"\r\n            android:contentDescription=\"Edit Goal\"\r\n            android:padding=\"6dp\"\r\n            android:src=\"@drawable/ic_edit\"\r\n            app:tint=\"@color/white\"\r\n            app:layout_constraintTop_toBottomOf=\"@id/tvDate\"\r\n            app:layout_constraintEnd_toStartOf=\"@id/btnDeleteGoal\"\r\n            android:layout_marginTop=\"6dp\"\r\n            android:layout_marginEnd=\"4dp\" />\r\n\r\n        <!-- Delete Button -->\r\n        <ImageButton\r\n            android:id=\"@+id/btnDeleteGoal\"\r\n            android:layout_width=\"36dp\"\r\n            android:layout_height=\"36dp\"\r\n            android:background=\"@drawable/button_border_black\"\r\n            android:contentDescription=\"Delete Goal\"\r\n            android:padding=\"6dp\"\r\n            app:tint=\"#000000\"\r\n            android:src=\"@drawable/ic_delete\"\r\n            app:layout_constraintTop_toTopOf=\"@id/btnEditGoal\"\r\n            app:layout_constraintEnd_toEndOf=\"parent\" />\r\n\r\n        <!-- Progress Bar -->\r\n        <com.google.android.material.progressindicator.LinearProgressIndicator\r\n            android:id=\"@+id/progressGoal\"\r\n            android:layout_width=\"0dp\"\r\n            android:layout_height=\"14dp\"\r\n            android:layout_marginTop=\"14dp\"\r\n            app:layout_constraintTop_toBottomOf=\"@id/btnEditGoal\"\r\n            app:layout_constraintStart_toStartOf=\"parent\"\r\n            app:layout_constraintEnd_toStartOf=\"@id/tvProgressPercentage\"\r\n            android:progress=\"40\"\r\n            app:indicatorColor=\"@color/teal_700\"\r\n            app:trackColor=\"@color/gray\"\r\n            app:trackCornerRadius=\"8dp\" />\r\n\r\n        <!-- Progress Percentage -->\r\n        <TextView\r\n            android:id=\"@+id/tvProgressPercentage\"\r\n            android:layout_width=\"wrap_content\"\r\n            android:layout_height=\"wrap_content\"\r\n            android:text=\"40%\"\r\n            android:textColor=\"@android:color/white\"\r\n            android:textSize=\"14sp\"\r\n            android:layout_marginStart=\"6dp\"\r\n            app:layout_constraintBaseline_toBaselineOf=\"@id/progressGoal\"\r\n            app:layout_constraintEnd_toEndOf=\"parent\" />\r\n\r\n        <!-- \uD83D\uDCB0 NEW: Add Transaction Button (Initially Hidden) -->\r\n        <Button\r\n            android:id=\"@+id/btnAddTransaction\"\r\n            android:layout_width=\"wrap_content\"\r\n            android:layout_height=\"wrap_content\"\r\n            android:text=\"Add Transaction\"\r\n            android:textStyle=\"bold\"\r\n            android:textColor=\"@android:color/white\"\r\n            android:backgroundTint=\"@color/teal_700\"\r\n            android:layout_marginTop=\"10dp\"\r\n            android:visibility=\"gone\"\r\n            app:layout_constraintTop_toBottomOf=\"@id/progressGoal\"\r\n            app:layout_constraintStart_toStartOf=\"parent\"\r\n            app:layout_constraintEnd_toEndOf=\"parent\"\r\n            app:cornerRadius=\"16dp\" />\r\n\r\n    </androidx.constraintlayout.widget.ConstraintLayout>\r\n\r\n</com.google.android.material.card.MaterialCardView>\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/res/layout/item_goal.xml b/app/src/main/res/layout/item_goal.xml
+--- a/app/src/main/res/layout/item_goal.xml	(revision 9d17739f93a48d3a52ff11c5965c6552353caf73)
++++ b/app/src/main/res/layout/item_goal.xml	(date 1762236202554)
+@@ -17,7 +17,6 @@
+         android:padding="14dp"
+         android:background="@drawable/glassy_teal_popup">
+ 
+-        <!-- Goal Name -->
+         <TextView
+             android:id="@+id/tvGoalName"
+             android:layout_width="wrap_content"
+@@ -29,7 +28,6 @@
+             app:layout_constraintStart_toStartOf="parent"
+             app:layout_constraintTop_toTopOf="parent" />
+ 
+-        <!-- Info Button -->
+         <ImageButton
+             android:id="@+id/btnInfo"
+             android:layout_width="40dp"
+@@ -43,7 +41,6 @@
+             app:layout_constraintTop_toTopOf="@id/tvGoalName"
+             app:layout_constraintEnd_toEndOf="parent" />
+ 
+-        <!-- Target Amount -->
+         <TextView
+             android:id="@+id/tvAmount"
+             android:layout_width="wrap_content"
+@@ -56,7 +53,6 @@
+             app:layout_constraintEnd_toStartOf="@id/btnInfo"
+             app:layout_constraintTop_toTopOf="parent" />
+ 
+-        <!-- Category Name -->
+         <TextView
+             android:id="@+id/tvCategory"
+             android:layout_width="0dp"
+@@ -68,7 +64,6 @@
+             app:layout_constraintTop_toBottomOf="@id/tvGoalName"
+             app:layout_constraintEnd_toStartOf="@id/btnInfo" />
+ 
+-        <!-- Target Date -->
+         <TextView
+             android:id="@+id/tvDate"
+             android:layout_width="wrap_content"
+@@ -80,7 +75,6 @@
+             app:layout_constraintStart_toStartOf="@id/tvCategory"
+             app:layout_constraintTop_toBottomOf="@id/tvCategory" />
+ 
+-        <!-- Edit Button -->
+         <ImageButton
+             android:id="@+id/btnEditGoal"
+             android:layout_width="36dp"
+@@ -92,10 +86,9 @@
+             app:tint="@color/white"
+             app:layout_constraintTop_toBottomOf="@id/tvDate"
+             app:layout_constraintEnd_toStartOf="@id/btnDeleteGoal"
+-            android:layout_marginTop="6dp"
++            android:layout_marginTop="4dp"
+             android:layout_marginEnd="4dp" />
+ 
+-        <!-- Delete Button -->
+         <ImageButton
+             android:id="@+id/btnDeleteGoal"
+             android:layout_width="36dp"
+@@ -108,48 +101,6 @@
+             app:layout_constraintTop_toTopOf="@id/btnEditGoal"
+             app:layout_constraintEnd_toEndOf="parent" />
+ 
+-        <!-- Progress Bar -->
+-        <com.google.android.material.progressindicator.LinearProgressIndicator
+-            android:id="@+id/progressGoal"
+-            android:layout_width="0dp"
+-            android:layout_height="14dp"
+-            android:layout_marginTop="14dp"
+-            app:layout_constraintTop_toBottomOf="@id/btnEditGoal"
+-            app:layout_constraintStart_toStartOf="parent"
+-            app:layout_constraintEnd_toStartOf="@id/tvProgressPercentage"
+-            android:progress="40"
+-            app:indicatorColor="@color/teal_700"
+-            app:trackColor="@color/gray"
+-            app:trackCornerRadius="8dp" />
+-
+-        <!-- Progress Percentage -->
+-        <TextView
+-            android:id="@+id/tvProgressPercentage"
+-            android:layout_width="wrap_content"
+-            android:layout_height="wrap_content"
+-            android:text="40%"
+-            android:textColor="@android:color/white"
+-            android:textSize="14sp"
+-            android:layout_marginStart="6dp"
+-            app:layout_constraintBaseline_toBaselineOf="@id/progressGoal"
+-            app:layout_constraintEnd_toEndOf="parent" />
+-
+-        <!-- 💰 NEW: Add Transaction Button (Initially Hidden) -->
+-        <Button
+-            android:id="@+id/btnAddTransaction"
+-            android:layout_width="wrap_content"
+-            android:layout_height="wrap_content"
+-            android:text="Add Transaction"
+-            android:textStyle="bold"
+-            android:textColor="@android:color/white"
+-            android:backgroundTint="@color/teal_700"
+-            android:layout_marginTop="10dp"
+-            android:visibility="gone"
+-            app:layout_constraintTop_toBottomOf="@id/progressGoal"
+-            app:layout_constraintStart_toStartOf="parent"
+-            app:layout_constraintEnd_toEndOf="parent"
+-            app:cornerRadius="16dp" />
+-
+     </androidx.constraintlayout.widget.ConstraintLayout>
+ 
+-</com.google.android.material.card.MaterialCardView>
++</com.google.android.material.card.MaterialCardView>
+\ No newline at end of file

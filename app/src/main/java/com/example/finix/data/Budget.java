@@ -9,9 +9,10 @@ import androidx.room.PrimaryKey;
 
 // Setting the entity for the budgets table, now with a Foreign Key to Category
 @Entity(tableName = "budgets",
-        indices = {@Index(value = {"category_id"})}, // Fix applied here
+        indices = {@Index(value = {"category_id"})},
         foreignKeys = @ForeignKey(entity = Category.class,
-                parentColumns = "id",
+                // UPDATED: Reference the 'local_id' column in the Category entity
+                parentColumns = "local_id",
                 childColumns = "category_id",
                 onDelete = ForeignKey.RESTRICT))
 public class Budget {

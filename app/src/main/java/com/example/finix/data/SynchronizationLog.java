@@ -12,11 +12,11 @@ public class SynchronizationLog {
     @ColumnInfo(name = "log_id")
     private int id;
 
-    // Name of the table the record belongs to (e.g., "transactions", "budgets")
+    // Name of the table the record belongs to (e.g., "categories")
     @ColumnInfo(name = "table_name")
     private String tableName;
 
-    // The primary key of the record in its respective table (e.g., transaction_id)
+    // The primary key of the record in its respective table (e.g., category_id)
     @ColumnInfo(name = "record_id")
     private int recordId;
 
@@ -24,7 +24,7 @@ public class SynchronizationLog {
     @ColumnInfo(name = "last_synced_timestamp")
     private long lastSyncedTimestamp;
 
-    // Status: 'PENDING', 'SYNCED', 'CONFLICT', 'DELETED_LOCAL'
+    // Status: 'PENDING', 'UPDATED', 'DELETED', 'SYNCED'
     @ColumnInfo(name = "status")
     private String status;
 

@@ -12,37 +12,33 @@ import java.util.List;
 @Dao
 public interface CategoryDAO {
 
-    // Version 1 method: Insert and return the row ID
+    // Insert and return the generated localId (long)
     @Insert
     long insert(Category category);
 
-    // Version 2 method: Update an existing category
+    // Update an existing category
     @Update
     void update(Category category);
 
-    // Present in both versions
     @Delete
     void delete(Category category);
 
-    // Present in both versions
     @Query("SELECT * FROM categories ORDER BY name ASC")
     List<Category> getAllCategories();
 
-    /**
-     * NEW METHOD: Returns LiveData, which is observable (used by the Repository for the UI).
-     */
     @Query("SELECT * FROM categories ORDER BY name ASC")
     LiveData<List<Category>> getAllCategoriesLiveData();
 
-    // Version 1 method: Get category by ID - CRITICAL FOR SYNC FIX
-    @Query("SELECT * FROM categories WHERE id = :categoryId")
-    Category getCategoryById(int categoryId);
+    // Query updated to search by local_id, as it is the Room Primary Key and
+    // the value stored in sync_log.record_id.
+    @Query("SELECT * FROM categories WHERE local_id = :localId")
+    Category getCategoryById(int localId);
 
-    // Version 2 method: Get category by Name
+    // Get category by Name
     @Query("SELECT * FROM categories WHERE name = :name COLLATE NOCASE LIMIT 1")
     Category getCategoryByName(String name);
 
-    // Version 2 method: Search categories by name
+    // Search categories by name
     @Query("SELECT * FROM categories WHERE name LIKE :query ORDER BY name ASC")
     List<Category> searchCategories(String query);
 }

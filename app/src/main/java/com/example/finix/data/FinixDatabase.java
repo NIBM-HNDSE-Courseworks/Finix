@@ -6,8 +6,15 @@ import androidx.room.Room;
 import androidx.room.RoomDatabase;
 
 @Database(
-        entities = {Category.class, SavingsGoal.class, Transaction.class, Budget.class, SynchronizationLog.class},
-        version = 1, //
+        entities = {
+                Category.class,
+                SavingsGoal.class,
+                Transaction.class,
+                Budget.class,
+                SynchronizationLog.class,
+                User.class // <-- Added User.class
+        },
+        version = 1,
         exportSchema = false
 )
 public abstract class FinixDatabase extends RoomDatabase {

@@ -6,7 +6,6 @@ import androidx.room.Insert;
 import androidx.room.Query;
 import androidx.room.Update;
 import androidx.room.Delete;
-
 import java.util.List;
 
 @Dao
@@ -28,31 +27,24 @@ public interface TransactionDAO {
     @Query("SELECT * FROM transactions ORDER BY date_time DESC")
     List<Transaction> getAllTransactions();
 
-    // 💰 Get all transactions by type (Income/Expense) — now case-insensitive
-    @Query("SELECT * FROM transactions WHERE LOWER(type) = LOWER(:type) ORDER BY date_time DESC")
+    // 💰 Get all transactions by type (Income/Expense)
+    @Query("SELECT * FROM transactions WHERE type = :type ORDER BY date_time DESC")
     List<Transaction> getTransactionsByType(String type);
 
-    // 🔍 Get transactions by category_id and type — now case-insensitive
-    @Query("SELECT * FROM transactions WHERE LOWER(type) = LOWER(:type) AND category_id = :categoryId ORDER BY date_time DESC")
+    // 🔍 Get transactions by category_id and type
+    @Query("SELECT * FROM transactions WHERE type = :type AND category_id = :categoryId ORDER BY date_time DESC")
     List<Transaction> getTransactionsByTypeAndCategory(String type, int categoryId);
 
     // 🆕 NEW: Get all distinct month/year timestamps
+    // We get the raw long, then format in the ViewModel
     @Query("SELECT DISTINCT date_time FROM transactions ORDER BY date_time DESC")
     List<Long> getDistinctMonthYear();
 
-    // 💰 FIX: Synchronous query for previous month total (case-insensitive)
-    @Query("SELECT SUM(amount) FROM transactions WHERE LOWER(type) = LOWER(:type) AND date_time BETWEEN :startTime AND :endTime")
-    Double getPreviousMonthTotalSync(String type, long startTime, long endTime);
+    // 💰 FIX: Synchronous query for the comparison calculation
+    @Query("SELECT SUM(amount) FROM transactions WHERE type = :type AND date_time BETWEEN :startTime AND :endTime")
+    Double getPreviousMonthTotalSync(String type, long startTime, long endTime); // NOTE: Returns Double, not LiveData!
 
-    // 📈 NEW: Get all transactions of a type within a date range (case-insensitive)
-    @Query("SELECT * FROM transactions WHERE LOWER(type) = LOWER(:type) AND date_time BETWEEN :startTime AND :endTime ORDER BY date_time DESC")
+    // 📈 NEW: Get all transactions of a type within a date range (for chart data)
+    @Query("SELECT * FROM transactions WHERE type = :type AND date_time BETWEEN :startTime AND :endTime ORDER BY date_time DESC")
     LiveData<List<Transaction>> getTransactionsByTypeAndDateRange(String type, long startTime, long endTime);
-
-    // 💵 Get total income (case-insensitive)
-    @Query("SELECT SUM(amount) FROM transactions WHERE LOWER(type) = 'income'")
-    Double getTotalIncome();
-
-    // 💸 Get total expense (case-insensitive)
-    @Query("SELECT SUM(amount) FROM transactions WHERE LOWER(type) = 'expense'")
-    Double getTotalExpense();
 }

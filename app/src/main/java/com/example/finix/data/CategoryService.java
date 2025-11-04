@@ -1,6 +1,5 @@
 package com.example.finix.data;
 
-import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
 import retrofit2.Call;
@@ -12,69 +11,46 @@ import retrofit2.http.PUT;
 import retrofit2.http.Path;
 
 /**
- * Retrofit interface for the Oracle REST Data Services (ORDS) 'categories' endpoint.
- * ... (omitted documentation) ...
+ * Retrofit Interface for Category-related API calls.
+ * All operations are expected to work with the 'Category' data model.
+ * NOTE: Paths are updated to align with ORDS schema (finix) and module (api) base paths.
  */
 public interface CategoryService {
 
-    // --- Data Transfer Objects (DTOs) for ORDS Communication ---
-    // ... (CategoryListResponse and CategoryNetworkModel remain the same) ...
-
-    class CategoryListResponse {
-        @SerializedName("items")
-        private List<CategoryNetworkModel> items;
-
-        public List<CategoryNetworkModel> getItems() {
-            return items;
-        }
-    }
-
-    class CategoryNetworkModel {
-        @SerializedName("ID") // Matches 'id' column in Oracle
-        private Integer id;
-
-        @SerializedName("NAME") // Matches 'name' column in Oracle
-        private String name;
-
-        public CategoryNetworkModel() {}
-
-        public CategoryNetworkModel(String name) {
-            this.name = name;
-        }
-
-        // --- Getters and Setters ---
-        public Integer getId() { return id; }
-        public void setId(Integer id) { this.id = id; }
-
-        public String getName() { return name; }
-        public void setName(String name) { this.name = name; }
-    }
-
-
-    // --- Retrofit API Endpoints ---
-
-    @GET("categories/")
-    Call<CategoryListResponse> getAllCategories();
-
-    @POST("categories/")
-    Call<CategoryNetworkModel> createCategory(@Body CategoryNetworkModel category);
+    // --- All paths now use the correct ORDS mapping: "finix/api/..." ---
 
     /**
-     * PUT: Updates an existing category on the server.
-     * Endpoint: /ords/finix/categories/{id}
+     * Retrieves all categories from the server.
+     */
+    @GET("finix/api/categories/") // CORRECTED: Added 'api/'
+    Call<List<Category>> getAllCategories();
+
+    /**
+     * Uploads a new category to the server (corresponds to local 'PENDING' status).
+     * @param category The Category object to be created.
+     * @return A Call object containing the newly created Category (which should include
+     * the server-assigned ID and timestamp).
+     */
+    @POST("finix/api/categories/") // CORRECTED: Added 'api/'
+    Call<Category> createCategory(@Body Category category);
+
+    /**
+     * Updates an existing category on the server (corresponds to local 'UPDATED' status).
      * @param id The ID of the category to update.
-     * @param category The updated category data.
-     * @return The updated category.
+     * @param category The Category object with updated fields.
+     * @return A Call object containing the updated Category.
      */
-    @PUT("categories/{id}")
-    Call<CategoryNetworkModel> updateCategory(@Path("id") int id, @Body CategoryNetworkModel category); // <-- USED FOR UPDATES
+    @PUT("finix/api/categories/{id}") // CORRECTED: Added 'api/'
+    Call<Category> updateCategory(
+            @Path("id") int id,
+            @Body Category category
+    );
 
     /**
-     * DELETE: Deletes a category from the server.
-     * Endpoint: /ords/finix/categories/{id}
+     * Deletes a category from the server (corresponds to local 'DELETED' status).
      * @param id The ID of the category to delete.
-     * @return An empty successful Response (Call<Void>) if deleted.
+     * @return A Call object for the response. Void is common for successful DELETE.
      */
-    @DELETE("categories/{id}")
+    @DELETE("finix/api/categories/{id}") // CORRECTED: Added 'api/'
     Call<Void> deleteCategory(@Path("id") int id);
 }

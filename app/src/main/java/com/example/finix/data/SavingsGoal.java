@@ -9,10 +9,12 @@ import androidx.room.PrimaryKey;
 
 @Entity(
         tableName = "savings_goals",
-        indices = {@Index(value = {"category_id"})}, // Fix applied here
+        // The index remains on the child column 'category_id'
+        indices = {@Index(value = {"category_id"})},
         foreignKeys = @ForeignKey(
                 entity = Category.class,
-                parentColumns = "id",
+                // UPDATED: Reference the 'local_id' column in the Category entity
+                parentColumns = "local_id",
                 childColumns = "category_id",
                 onDelete = ForeignKey.RESTRICT
         )
