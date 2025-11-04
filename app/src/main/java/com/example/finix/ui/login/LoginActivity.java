@@ -60,8 +60,8 @@ public class LoginActivity extends AppCompatActivity {
         viewModel.getResult().observe(this, msg -> {
             Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
 
-            if (msg.startsWith("SUCCESS|")) {
-                String username = msg.substring(8);
+            if (msg.startsWith("SUCCESS | ")) {
+                String username = msg.substring(8);  // Remove "SUCCESS|"
                 goToDashboard(username);
             } else if (msg.contains("Signup successful")) {
                 showLogin();
@@ -69,13 +69,12 @@ public class LoginActivity extends AppCompatActivity {
         });
     }
 
-    // THIS IS THE KEY PART
     private void goToDashboard(String username) {
-        Intent intent = new Intent(this, MainActivity.class);
+        Intent intent = new Intent(this, com.example.finix.MainActivity.class);
         intent.putExtra("username", username);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
-        finish(); // User can't go back to login
+        finish(); // Prevents going back to login
     }
 
     private void showSignup() {

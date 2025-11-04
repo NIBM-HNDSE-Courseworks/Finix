@@ -30,7 +30,7 @@ public class LoginViewModel extends AndroidViewModel {
                         .getUserByEmail(email);
 
                 if (user != null && BCrypt.checkpw(password, user.passwordHash)) {
-                    result.postValue("Login successful! Welcome, " + user.username);
+                    result.postValue("SUCCESS|" + user.username);  // ← USE "SUCCESS|"
                 } else {
                     result.postValue("Invalid email or password");
                 }
