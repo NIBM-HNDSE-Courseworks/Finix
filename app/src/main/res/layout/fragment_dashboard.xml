@@ -182,55 +182,6 @@
 
                 </androidx.constraintlayout.widget.ConstraintLayout>
 
-
-                    <!-- Toolbar -->
-
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:orientation="vertical"
-                        android:padding="24dp"
-                        app:layout_behavior="@string/appbar_scrolling_view_behavior">
-
-                        <!-- Big Gauge -->
-                        <com.ekn.gruzer.gaugelibrary.HalfGauge
-                            android:id="@+id/gauge"
-                            android:layout_marginTop="300dp"
-                            android:layout_width="match_parent"
-                            android:layout_height="250dp"
-                            android:layout_gravity="center_horizontal"
-                            app:gaugeStrokeWidth="28dp"
-                            app:gaugeNeedleColor="#FFFFFFFF"
-                            app:gaugeValueTextSize="48sp"
-                            app:gaugeValueTextColor="#FFFFFFFF"
-                            app:gaugeTitleText="Total spend"
-                            app:gaugeTitleTextSize="20sp"
-                            app:gaugeTitleTextColor="#FFAAAAAA"/>
-
-                        <!-- Category Chips -->
-                        <com.google.android.material.chip.ChipGroup
-                            android:id="@+id/chipGroup"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="32dp"
-                            app:singleLine="false"
-                            app:chipSpacingHorizontal="12dp"
-                            app:chipSpacingVertical="8dp"/>
-
-                        <!-- Limit Info -->
-                        <TextView
-                            android:id="@+id/tvLimit"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_gravity="center_horizontal"
-                            android:layout_marginTop="24dp"
-                            android:text="Your monthly spending limit is $10,000"
-                            android:textColor="#FFAAAAAA"
-                            android:textSize="16sp"/>
-                    </LinearLayout>
-                </androidx.coordinatorlayout.widget.CoordinatorLayout>
-
             </androidx.cardview.widget.CardView>
 
         </androidx.constraintlayout.widget.ConstraintLayout>

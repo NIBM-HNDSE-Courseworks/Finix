@@ -6,8 +6,15 @@ import androidx.room.Room;
 import androidx.room.RoomDatabase;
 
 @Database(
-        entities = {Category.class, SavingsGoal.class, Transaction.class, Budget.class, SynchronizationLog.class},
-        version = 1, //
+        entities = {
+                Category.class,
+                SavingsGoal.class,
+                Transaction.class,
+                Budget.class,
+                SynchronizationLog.class,
+                User.class                     // <-- NEW
+        },
+        version = 2,                           // <-- BUMP VERSION
         exportSchema = false
 )
 public abstract class FinixDatabase extends RoomDatabase {
@@ -17,7 +24,7 @@ public abstract class FinixDatabase extends RoomDatabase {
     public abstract TransactionDAO transactionDao();
     public abstract BudgetDAO budgetDao();
     public abstract SynchronizationLogDAO synchronizationLogDao();
-    public abstract UserDAO userDao();
+    public abstract UserDAO userDao();               // <-- NEW DAO
 
     private static volatile FinixDatabase INSTANCE;
     private static final String DATABASE_NAME = "finix_database";
@@ -30,7 +37,7 @@ public abstract class FinixDatabase extends RoomDatabase {
                                     context.getApplicationContext(),
                                     FinixDatabase.class,
                                     DATABASE_NAME)
-                            .fallbackToDestructiveMigration()
+                            .fallbackToDestructiveMigration()   // for demo only
                             .build();
                 }
             }
