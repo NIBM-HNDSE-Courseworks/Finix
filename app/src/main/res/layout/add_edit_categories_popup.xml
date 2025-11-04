@@ -13,7 +13,6 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
-        <!-- Title -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -25,7 +24,6 @@
             android:gravity="center"
             android:paddingBottom="16dp" />
 
-        <!-- Amount Label -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -47,25 +45,11 @@
             android:layout_marginBottom="12dp" />
 
 
-        <!-- Save Transaction -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:layout_marginTop="16dp">
-
-            <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/btnSaveCategory"
-                android:backgroundTint="@null"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Save"
-                android:background="@drawable/glassy_teal_button"
-                android:textColor="@color/white"
-                android:padding="12dp"
-                android:textStyle="bold"
-                android:layout_marginEnd="8dp"/>
 
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnCancel"
@@ -74,11 +58,25 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="Cancel"
-                android:background="@drawable/glassy_teal_button"
+                android:background="@drawable/glassy_gray_button"
                 android:textColor="@color/white"
                 android:padding="12dp"
                 android:textStyle="bold"
-                android:layout_marginStart="8dp"/>
+                android:layout_marginEnd="8dp"/>
+
+            <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnSaveCategory"
+            android:backgroundTint="@null"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Save"
+            android:background="@drawable/glassy_teal_button"
+            android:textColor="@color/white"
+            android:padding="12dp"
+            android:textStyle="bold"
+            android:layout_marginStart="8dp"/>
+
         </LinearLayout>
     </LinearLayout>
 </ScrollView>

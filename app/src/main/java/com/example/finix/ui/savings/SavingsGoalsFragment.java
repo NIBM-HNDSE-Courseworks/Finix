@@ -1,5 +1,6 @@
 package com.example.finix.ui.savings;
 
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.app.DatePickerDialog;
 import android.content.Context;
@@ -82,6 +83,13 @@ public class SavingsGoalsFragment extends Fragment {
                 new SavingsGoalsAdapter.OnGoalActionListener() {
                     @Override public void onEdit(SavingsGoal goal) { showEditGoalDialog(goal); }
                     @Override public void onDelete(SavingsGoal goal) { showConfirmDelete(goal); }
+
+                    @Override
+                    public void onGoalCompleted() {
+                        // This was called from the adapter!
+                        // Now we refresh the whole UI to update all progress bars.
+                        refreshData();
+                    }
                 }
         );
         recyclerView.setAdapter(adapter);
@@ -479,6 +487,26 @@ public class SavingsGoalsFragment extends Fragment {
             dialog.dismiss();
         });
     }
+
+    @SuppressLint("NotifyDataSetChanged")
+    private void refreshData() {
+        // 1. Tell the ViewModel to re-fetch the category map.
+        //    (The goals list updates automatically via LiveData, but categories don't)
+        if (viewModel != null) {
+            viewModel.fetchLatestCategoryMap();
+        }
+
+        // 2. Force the adapter to re-bind all visible items.
+        //    This is CRITICAL. It forces onBindViewHolder() to run again
+        //    for each item, which re-runs your progress bar calculation.
+        if (adapter != null) {
+            adapter.notifyDataSetChanged();
+        }
+
+        // 3. (Optional) Show a toast to confirm
+        showCustomToast("Refreshing goals...");
+    }
+
 
 
     // ------------------------------------------------------------
