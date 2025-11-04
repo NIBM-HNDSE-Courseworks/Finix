@@ -60,7 +60,7 @@ public class LoginActivity extends AppCompatActivity {
         viewModel.getResult().observe(this, msg -> {
             Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
 
-            if (msg.startsWith("SUCCESS | ")) {
+            if (msg.startsWith("SUCCESS|")) {
                 String username = msg.substring(8);  // Remove "SUCCESS|"
                 goToDashboard(username);
             } else if (msg.contains("Signup successful")) {
