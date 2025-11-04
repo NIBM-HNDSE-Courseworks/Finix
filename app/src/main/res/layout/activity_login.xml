@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F5F5F5">
+    android:background="#777d8f">
 
     <!-- LOGIN CARD -->
     <androidx.cardview.widget.CardView
@@ -13,6 +13,7 @@
         android:layout_margin="24dp"
         app:cardCornerRadius="20dp"
         app:cardElevation="12dp"
+        android:layout_gravity="center"
         >
 
         <LinearLayout
@@ -86,7 +87,8 @@
         android:layout_margin="24dp"
         app:cardCornerRadius="20dp"
         app:cardElevation="12dp"
-        android:visibility="gone">
+        android:visibility="gone"
+        android:layout_gravity="center">
 
         <LinearLayout
             android:layout_width="match_parent"
