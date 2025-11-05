@@ -7,10 +7,12 @@ import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 
 import com.example.finix.data.FinixRepository;
+import com.example.finix.data.SynchronizationLog; // NEW IMPORT
+import java.util.List; // NEW IMPORT
 
 /**
  * ViewModel responsible for SettingsFragment business logic,
- * including managing the synchronization process.
+ * including managing the synchronization process and accessing logs.
  */
 public class SettingsViewModel extends AndroidViewModel {
 
@@ -38,5 +40,12 @@ public class SettingsViewModel extends AndroidViewModel {
         repository.synchronizeCategories();
     }
 
-    // You can add more settings-related logic here (e.g., saving sync frequency preference)
+    /**
+     * NEW: Retrieves all synchronization logs.
+     * NOTE: This should ideally be an asynchronous operation (e.g., using LiveData or Coroutines in a production app).
+     * For this example, we call the synchronous repository method.
+     */
+    public List<SynchronizationLog> getAllSyncLogs() {
+        return repository.getAllSynchronizationLogs();
+    }
 }

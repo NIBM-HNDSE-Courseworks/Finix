@@ -24,16 +24,21 @@ public class SynchronizationLog {
     @ColumnInfo(name = "last_synced_timestamp")
     private long lastSyncedTimestamp;
 
-    // Status: 'PENDING', 'UPDATED', 'DELETED', 'SYNCED'
+    // Status: 'PENDING', 'UPDATED', 'DELETED', 'SYNCED', 'ERROR'
     @ColumnInfo(name = "status")
     private String status;
 
-    // Constructor
+    // 🌟 NEW: Detailed message for the log entry (e.g., error details or success note)
+    @ColumnInfo(name = "message")
+    private String message;
+
+    // Constructor (Updated to include message, which should typically be initialized as empty)
     public SynchronizationLog(String tableName, int recordId, long lastSyncedTimestamp, String status) {
         this.tableName = tableName;
         this.recordId = recordId;
         this.lastSyncedTimestamp = lastSyncedTimestamp;
         this.status = status;
+        this.message = ""; // Initialize the message as empty
     }
 
     // --- Getters and Setters ---
@@ -51,4 +56,8 @@ public class SynchronizationLog {
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+
+    // 🌟 NEW Getter and Setter for the message
+    public String getMessage() { return message; }
+    public void setMessage(String message) { this.message = message; }
 }

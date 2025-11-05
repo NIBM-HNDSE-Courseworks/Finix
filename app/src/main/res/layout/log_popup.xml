@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="24dp"
+    android:background="@drawable/glassy_teal_popup"
+    android:clipToPadding="false">
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <TextView
+            android:id="@+id/popupTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Sync Log"
+            android:textColor="@color/white"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:paddingBottom="16dp" />
+
+        <ScrollView
+            android:id="@+id/scroll_sync_log"
+            android:layout_width="match_parent"
+            android:layout_height="300dp"
+            android:background="@drawable/glassy_dark_bg"
+            android:padding="12dp">
+
+            <LinearLayout
+                android:id="@+id/layout_sync_log_entries"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+                <!-- Logs will be added dynamically -->
+            </LinearLayout>
+        </ScrollView>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="16dp">
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/buttonCancelLog"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Cancel"
+                android:textColor="@color/white"
+                android:textStyle="bold"
+                android:background="@drawable/glassy_gray_button"
+                android:layout_marginEnd="8dp"
+                android:padding="12dp"/>
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/buttonDownloadLog"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Download"
+                android:textColor="@color/white"
+                android:textStyle="bold"
+                android:background="@drawable/glassy_teal_button"
+                android:layout_marginStart="8dp"
+                android:padding="12dp"/>
+
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>

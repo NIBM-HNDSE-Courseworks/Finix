@@ -1,11 +1,17 @@
 package com.example.finix.ui.settings;
 
+import android.app.Dialog; // NEW IMPORT
+import android.graphics.Color; // NEW IMPORT
+import android.graphics.drawable.ColorDrawable; // NEW IMPORT
 import android.os.Bundle;
-import android.os.Handler; // NEW IMPORT
-import android.os.Looper; // NEW IMPORT
+import android.os.Handler;
+import android.os.Looper;
+import android.view.Gravity; // NEW IMPORT
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager; // NEW IMPORT
+import android.widget.LinearLayout; // NEW IMPORT
 import android.widget.ProgressBar;
 import android.widget.RadioGroup;
 import android.widget.TextView;
@@ -20,11 +26,17 @@ import androidx.navigation.Navigation;
 
 import com.example.finix.R;
 import com.example.finix.data.FinixRepository;
+import com.example.finix.data.SynchronizationLog; // NEW IMPORT
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.switchmaterial.SwitchMaterial;
 
 import androidx.transition.TransitionManager;
 import androidx.transition.AutoTransition;
+
+import java.text.SimpleDateFormat; // NEW IMPORT
+import java.util.Date; // NEW IMPORT
+import java.util.List;
+import java.util.Locale;
 
 public class SettingsFragment extends Fragment {
 
@@ -35,6 +47,7 @@ public class SettingsFragment extends Fragment {
     private RadioGroup radioGroupSync;
     private MaterialButton buttonSyncNow;
     private ConstraintLayout layoutManageCategory;
+    private ConstraintLayout layoutSyncLog; // NEW: ConstraintLayout for the Sync Log button
 
     // SYNC UI elements
     private ProgressBar progressSync;
@@ -70,6 +83,7 @@ public class SettingsFragment extends Fragment {
         radioGroupSync = view.findViewById(R.id.radio_group_sync);
         buttonSyncNow = view.findViewById(R.id.button_sync_now);
         layoutManageCategory = view.findViewById(R.id.layout_manage_category);
+        layoutSyncLog = view.findViewById(R.id.layout_sync_log); // NEW: Find Sync Log Layout
 
         progressSync = view.findViewById(R.id.progress_sync);
         textSyncPercentage = view.findViewById(R.id.text_sync_percentage);
@@ -103,7 +117,13 @@ public class SettingsFragment extends Fragment {
         observeSyncStatus();
 
 
-        // --- Edit Category Button Navigation ---
+        // 5. Sync Log Button Listener (NEW)
+        layoutSyncLog.setOnClickListener(v -> {
+            showSyncLogPopup();
+        });
+
+
+        // 6. Edit Category Button Navigation
         layoutManageCategory.setOnClickListener(v -> {
             try {
                 Navigation.findNavController(view).navigate(R.id.action_SettingsFragment_to_EditCategoriesFragment);
@@ -256,5 +276,73 @@ public class SettingsFragment extends Fragment {
             // Post the runnable with a 10-second delay (10000 milliseconds)
             handler.postDelayed(hideSyncUIRunnable, 10000);
         }
+    }
+
+
+    /**
+     * NEW: Displays the sync log popup and populates it with log entries.
+     */
+    private void showSyncLogPopup() {
+        Dialog dialog = new Dialog(requireContext());
+        dialog.setContentView(R.layout.log_popup);
+
+        // Make the dialog background transparent and set layout parameters
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            WindowManager.LayoutParams lp = new WindowManager.LayoutParams();
+            lp.copyFrom(dialog.getWindow().getAttributes());
+            lp.width = WindowManager.LayoutParams.MATCH_PARENT;
+            lp.height = WindowManager.LayoutParams.WRAP_CONTENT;
+            lp.gravity = Gravity.CENTER;
+            dialog.getWindow().setAttributes(lp);
+        }
+
+        LinearLayout logLayout = dialog.findViewById(R.id.layout_sync_log_entries);
+        logLayout.removeAllViews(); // Clear previous views
+
+        // Get logs from ViewModel (assuming a synchronous call for simplicity in this example)
+        // NOTE: In a real app, this should be done asynchronously (e.g., using LiveData/Coroutines).
+        List<SynchronizationLog> logs = viewModel.getAllSyncLogs();
+
+
+        if (logs == null || logs.isEmpty()) {
+            TextView noLogText = new TextView(getContext());
+            noLogText.setLayoutParams(new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT));
+            noLogText.setText("No synchronization logs found.");
+            noLogText.setTextColor(Color.parseColor("#AAAAAA"));
+            noLogText.setTextSize(16);
+            logLayout.addView(noLogText);
+        } else {
+            SimpleDateFormat sdf = new SimpleDateFormat("MMM dd, yyyy HH:mm:ss", Locale.getDefault());
+            for (SynchronizationLog log : logs) {
+                TextView logEntry = new TextView(getContext());
+                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT);
+                params.setMargins(0, 4, 0, 4);
+                logEntry.setLayoutParams(params);
+
+                String date = sdf.format(new Date(log.getLastSyncedTimestamp()));
+                String logText = String.format(Locale.getDefault(),
+                        "[%s] Table: %s | ID: %d | Status: %s",
+                        date, log.getTableName(), log.getRecordId(), log.getStatus());
+
+                logEntry.setText(logText);
+                logEntry.setTextColor(Color.parseColor("#FFFFFF"));
+                logEntry.setTextSize(14);
+                logLayout.addView(logEntry);
+            }
+        }
+
+        // Setup button listeners
+        dialog.findViewById(R.id.buttonCancelLog).setOnClickListener(v -> dialog.dismiss());
+        dialog.findViewById(R.id.buttonDownloadLog).setOnClickListener(v -> {
+            // Placeholder for download logic
+            Toast.makeText(getContext(), "Download Log functionality not yet implemented.", Toast.LENGTH_SHORT).show();
+        });
+
+        dialog.show();
     }
 }

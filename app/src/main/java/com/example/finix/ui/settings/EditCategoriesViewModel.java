@@ -177,37 +177,43 @@ public class EditCategoriesViewModel extends AndroidViewModel {
 
         executor.execute(() -> {
             // --- 2. Check for Duplicates (that aren't this category) ---
-            // Note: Category DAO uses name and ignores the server 'id' for duplicate check logic
             Category existingCategory = categoryDAO.getCategoryByName(trimmedName);
             if (existingCategory != null && existingCategory.getLocalId() != categoryToUpdate.getLocalId()) {
                 // Duplicate found (and it's a different item)
                 String duplicateErrorMessage = "Please edit the category name";
                 handler.post(() -> onFailure.accept(duplicateErrorMessage));
                 messageEvent.postValue(new Event<>("ERROR:A category with this name already exists"));
-            } else {
-                // --- 3. Update in Database ---
-                categoryToUpdate.setName(trimmedName);
-                categoryDAO.update(categoryToUpdate);
-
-                // --- 3.5. LOG UPDATED MODIFICATION ---
-                // record_id must be the localId (Room's PK) to correctly reference the local record
-                SynchronizationLog log = new SynchronizationLog(
-                        "categories",
-                        categoryToUpdate.getLocalId(), // Corrected to use localId (Room PK)
-                        System.currentTimeMillis(),
-                        "UPDATED"
-                );
-                synchronizationLogDAO.insert(log);
-
-                // --- 4. Report Success and Refresh ---
-                messageEvent.postValue(new Event<>("SUCCESS: This category updated successfully"));
-                loadCategories(); // Refresh the list
-
-                // Run the success callback on the main thread
-                handler.post(onSuccess);
+                return;
             }
+
+            // --- 3. Update in Database ---
+            categoryToUpdate.setName(trimmedName);
+            categoryDAO.update(categoryToUpdate);
+
+            // --- 3.5. LOG UPDATED MODIFICATION ---
+            // Use the server ID if available, otherwise fallback to localId
+            int recordIdToLog = (categoryToUpdate.getId() != 0)
+                    ? categoryToUpdate.getId()
+                    : categoryToUpdate.getLocalId();
+
+            SynchronizationLog log = new SynchronizationLog(
+                    "categories",
+                    recordIdToLog,
+                    System.currentTimeMillis(),
+                    "UPDATED"
+            );
+            log.setMessage("Category '" + trimmedName + "' updated locally, pending sync.");
+            synchronizationLogDAO.insert(log);
+
+            // --- 4. Report Success and Refresh ---
+            messageEvent.postValue(new Event<>("SUCCESS: This category updated successfully"));
+            loadCategories(); // Refresh the list
+
+            // Run the success callback on the main thread
+            handler.post(onSuccess);
         });
     }
+
 
     /**
      * Deletes a category from the database.
