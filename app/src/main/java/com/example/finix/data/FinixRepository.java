@@ -7,12 +7,19 @@ import androidx.lifecycle.MutableLiveData;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import okhttp3.ResponseBody; // Import required
+import okhttp3.ResponseBody;
 import retrofit2.Call;
 import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 import com.google.gson.Gson;
+
+// --- Wrapper class for ORDS JSON response ---
+class CategoryResponse {
+    public String status;
+    public String message;
+    public Category data; // the actual category object
+}
 
 public class FinixRepository {
 
@@ -25,7 +32,6 @@ public class FinixRepository {
     private final ExecutorService executorService;
     private final Gson gson;
 
-    // LiveData to expose synchronization status updates
     private final MutableLiveData<SynchronizationState> syncStatusLive = new MutableLiveData<>();
 
     public enum SynchronizationState {
@@ -57,14 +63,10 @@ public class FinixRepository {
         Log.i(TAG, "FinixRepository initialization complete. Status: IDLE");
     }
 
-    // --- Public Accessors ---
-
     public LiveData<SynchronizationState> getSyncStatus() {
         Log.v(TAG, "getSyncStatus() called.");
         return syncStatusLive;
     }
-
-    // --- Core Synchronization Logic ---
 
     public void synchronizeCategories() {
         syncStatusLive.postValue(SynchronizationState.CHECKING);
@@ -72,82 +74,53 @@ public class FinixRepository {
 
         executorService.execute(() -> {
             try {
-                Log.d(TAG, "Running sync on background thread: " + Thread.currentThread().getName());
-
                 List<SynchronizationLog> logsToSync = syncLogDAO.getAllLogs();
-                Log.v(TAG, "DB query for logsToSync completed. Found " + logsToSync.size() + " logs.");
-
                 if (logsToSync.isEmpty()) {
                     syncStatusLive.postValue(SynchronizationState.NO_CHANGES);
-                    Log.i(TAG, "No category changes found to sync. Status: NO_CHANGES");
                     return;
                 }
 
                 syncStatusLive.postValue(SynchronizationState.PROCESSING);
-                Log.i(TAG, logsToSync.size() + " category changes found. Starting processing...");
 
-                for (int i = 0; i < logsToSync.size(); i++) {
-                    SynchronizationLog log = logsToSync.get(i);
-                    int progressPercentage = (int) (((double) i / logsToSync.size()) * 100);
-                    Log.i(TAG, "Processing log " + (i + 1) + "/" + logsToSync.size() + " (" + progressPercentage + "%). Log ID: " + log.getId() + ", Status: " + log.getStatus() + ", Table: " + log.getTableName() + ", Record ID: " + log.getRecordId());
-
+                for (SynchronizationLog log : logsToSync) {
                     if ("categories".equals(log.getTableName())) {
                         boolean result = handleCategorySync(log);
                         if (!result) {
                             syncStatusLive.postValue(SynchronizationState.ERROR);
-                            Log.e(TAG, "Sync FAILED for log ID: " + log.getId() + ". Stopping sync process.");
                             return;
                         }
-                    } else {
-                        Log.w(TAG, "Skipping log ID: " + log.getId() + ". Unknown table: " + log.getTableName());
                     }
                 }
 
                 syncStatusLive.postValue(SynchronizationState.SUCCESS);
-                Log.i(TAG, "Category synchronization successful. Status: SUCCESS.");
 
             } catch (Exception e) {
-                Log.e(TAG, "FATAL: Database access error during sync (Top-level catch).", e);
+                Log.e(TAG, "FATAL: Database access error during sync.", e);
                 syncStatusLive.postValue(SynchronizationState.ERROR);
             }
         });
     }
 
     private boolean handleCategorySync(SynchronizationLog log) {
-        Log.d(TAG, "-> handleCategorySync for Log ID: " + log.getId() + ", Status: " + log.getStatus());
         try {
             int localRecordId = log.getRecordId();
             Category category = categoryDAO.getCategoryById(localRecordId);
 
-            Log.v(TAG, "DB fetch for category with local_id: " + localRecordId + " completed. Category found: " + (category != null));
-
             switch (log.getStatus()) {
                 case "PENDING":
-                    Log.d(TAG, "Case PENDING. Local category: " + (category != null ? category.getName() : "NULL"));
-                    if (category != null) {
-                        return addCategoryToServer(category, log);
-                    } else {
-                        Log.w(TAG, "PENDING log found, but local category is NULL. Deleting log ID: " + log.getId());
-                        syncLogDAO.delete(log);
-                        return true;
-                    }
+                    if (category != null) return addCategoryToServer(category, log);
+                    syncLogDAO.delete(log);
+                    return true;
 
                 case "UPDATED":
-                    Log.d(TAG, "Case UPDATED. Category name: " + (category != null ? category.getName() : "NULL") + ", Server ID: " + (category != null ? category.getId() : 0));
-                    if (category != null && category.getId() != 0) {
-                        return updateCategoryOnServer(category, log);
-                    } else {
-                        Log.w(TAG, "UPDATED log found, but category is missing or has no server ID. Deleting log ID: " + log.getId());
-                        syncLogDAO.delete(log);
-                        return true;
-                    }
+                    if (category != null && category.getId() != 0) return updateCategoryOnServer(category, log);
+                    syncLogDAO.delete(log);
+                    return true;
 
                 case "DELETED":
-                    Log.d(TAG, "Case DELETED. Attempting to delete server ID: " + localRecordId);
                     return deleteCategoryFromServer(log);
 
                 default:
-                    Log.w(TAG, "Unknown log status: " + log.getStatus() + ". Deleting log ID: " + log.getId());
                     syncLogDAO.delete(log);
                     return true;
             }
@@ -157,70 +130,56 @@ public class FinixRepository {
         }
     }
 
-
-    // --- Server Communication Methods (Synchronous Retrofit execution) ---
-
-    /**
-     * Uploads a new local category to the server (PENDING status).
-     * Now handles Call<ResponseBody> to be resilient against empty bodies.
-     */
     private boolean addCategoryToServer(Category localCategory, SynchronizationLog log) {
-        Log.i(TAG, "-> addCategoryToServer. Local Category JSON being sent: " + gson.toJson(localCategory));
+        Log.i(TAG, "-> addCategoryToServer. Local Category JSON: " + gson.toJson(localCategory));
 
         try {
-            // NOTE: Return type is now ResponseBody
             Call<ResponseBody> call = categoryService.createCategory(localCategory);
-            Log.d(TAG, "Executing call: " + call.request().url());
-
             Response<ResponseBody> response = call.execute();
 
-            Log.d(TAG, "Network response received. Code: " + response.code() + ", Message: " + response.message());
-
-            if (response.isSuccessful()) {
-
-                String rawJsonBody = "";
-                if (response.body() != null) {
-                    rawJsonBody = response.body().string();
-                }
-
-                // Check for empty body (the cause of EOFException)
-                if (rawJsonBody.isEmpty()) {
-                    // This is the fallback if the server unexpectedly returns a successful but empty response
-                    Log.w(TAG, "Successful response (" + response.code() + ") received but body was empty. Treating as success and deleting log, but local category ID not updated.");
-                    syncLogDAO.delete(log);
-                    return true;
-                }
-
-                Log.i(TAG, "SUCCESSFUL RESPONSE BODY (RAW): " + rawJsonBody);
-
-                // Manually parse the JSON now that we know it's not empty
-                Category serverCategory = gson.fromJson(rawJsonBody, Category.class);
-
-                if (serverCategory != null) {
-                    Log.d(TAG, "Server Category Body parsed successfully. Server ID: " + serverCategory.getId() + ", Local ID from Server: " + serverCategory.getLocalId());
-
-                    // 1. Update the local database record
-                    localCategory.setId(serverCategory.getId()); // Update local record with server ID
-                    categoryDAO.update(localCategory);
-                    Log.v(TAG, "Local DB Category updated with Server ID: " + serverCategory.getId());
-
-                    // 2. Delete the log entry
-                    syncLogDAO.delete(log);
-                    Log.i(TAG, "Category created successfully. Log ID " + log.getId() + " deleted.");
-                    return true;
-                } else {
-                    Log.e(TAG, "Server returned success (" + response.code() + ") but response body failed to parse into Category object.");
-                    return false;
-                }
-            } else {
+            if (!response.isSuccessful()) {
                 String errorBody = response.errorBody() != null ? response.errorBody().string() : "No error body";
                 Log.e(TAG, "Server error creating category. Code: " + response.code() + ". Error Body: " + errorBody);
                 return false;
             }
+
+            String rawJsonBody = response.body() != null ? response.body().string() : "";
+
+            if (rawJsonBody.isEmpty()) {
+                Log.w(TAG, "Empty response body. Deleting log.");
+                syncLogDAO.delete(log);
+                return true;
+            }
+
+            Log.i(TAG, "SUCCESSFUL RESPONSE BODY (RAW): " + rawJsonBody);
+
+            // Parse JSON safely
+            try {
+                CategoryResponse categoryResponse = gson.fromJson(rawJsonBody, CategoryResponse.class);
+
+                if (categoryResponse == null || categoryResponse.data == null) {
+                    Log.e(TAG, "Server returned invalid category data.");
+                    return false;
+                }
+
+                Category serverCategory = categoryResponse.data;
+
+                // ⚡ ONLY update the server ID in local DB
+                localCategory.setId(serverCategory.getId());
+                categoryDAO.update(localCategory);
+
+                syncLogDAO.delete(log);
+                Log.i(TAG, "Category synced. Server ID: " + serverCategory.getId() + ", local_id remains: " + localCategory.getLocalId());
+
+                return true;
+
+            } catch (Exception ex) {
+                Log.e(TAG, "JSON parsing error. Raw JSON: " + rawJsonBody, ex);
+                return false;
+            }
+
         } catch (Exception e) {
-            // This now catches true network errors or parsing exceptions on non-empty bodies
-            Log.e(TAG, "FATAL: Network error creating category (addCategoryToServer).", e);
-            Log.e(TAG, "ERROR CLASS: " + e.getClass().getName() + ". MESSAGE: " + e.getMessage());
+            Log.e(TAG, "Network error creating category.", e);
             return false;
         }
     }

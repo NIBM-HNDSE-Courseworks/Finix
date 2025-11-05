@@ -5,6 +5,8 @@ import androidx.room.Entity;
 import androidx.room.Ignore;
 import androidx.room.PrimaryKey;
 
+import com.google.gson.annotations.SerializedName;
+
 @Entity(tableName = "categories")
 public class Category {
 
@@ -12,6 +14,7 @@ public class Category {
     // Maps to the server's 'local_id' column for sync tracking.
     @PrimaryKey(autoGenerate = true)
     @ColumnInfo(name = "local_id")
+    @SerializedName("local_id")  // ✅ critical fix
     private int localId;
 
     // --- Server's unique ID. This will be 0 until successfully synced. ---
