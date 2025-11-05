@@ -75,10 +75,20 @@ public class FinixRepository {
         executorService.execute(() -> {
             try {
                 List<SynchronizationLog> logsToSync = syncLogDAO.getAllLogs();
+
                 if (logsToSync.isEmpty()) {
                     syncStatusLive.postValue(SynchronizationState.NO_CHANGES);
                     return;
                 }
+
+                // ✅ Sort logs by local_id of their category
+                logsToSync.sort((log1, log2) -> {
+                    Category c1 = categoryDAO.getCategoryById(log1.getRecordId());
+                    Category c2 = categoryDAO.getCategoryById(log2.getRecordId());
+                    int id1 = c1 != null ? c1.getLocalId() : Integer.MAX_VALUE;
+                    int id2 = c2 != null ? c2.getLocalId() : Integer.MAX_VALUE;
+                    return Integer.compare(id1, id2);
+                });
 
                 syncStatusLive.postValue(SynchronizationState.PROCESSING);
 
@@ -100,6 +110,7 @@ public class FinixRepository {
             }
         });
     }
+
 
     private boolean handleCategorySync(SynchronizationLog log) {
         try {
