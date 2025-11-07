@@ -18,8 +18,8 @@ Finix is designed to help individuals track expenses, budgets, and savings, util
 
 This project demonstrates a critical dual-role approach to data management, utilizing two distinct database platforms:
 
-| Components          | Database System | Purpose & Justification |
-|:--------------------| :--- | :--- |
+| Component | Database System | Purpose & Justification |
+| :--- | :--- | :--- |
 | **Local / Offline** | **SQLite** | Provides fast, reliable **offline data storage** and a seamless user experience even without an internet connection. |
 | **Central / Cloud** | **Oracle Database** | Used for **centralized financial data management**, aggregation, advanced analytics, and long-term storage. |
 
