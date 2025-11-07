@@ -36,6 +36,8 @@ import com.example.finix.data.Budget;
 import com.example.finix.data.Category;
 import com.example.finix.data.CategoryDAO;
 import com.example.finix.data.FinixDatabase;
+import com.example.finix.data.SynchronizationLog;
+import com.example.finix.data.SynchronizationLogDAO;
 import com.example.finix.data.Transaction;
 import com.example.finix.databinding.FragmentBudgetBinding;
 import com.google.android.material.button.MaterialButton;
@@ -271,20 +273,28 @@ public class BudgetFragment extends Fragment {
             new Thread(() -> {
                 try {
                     CategoryDAO categoryDao = FinixDatabase.getDatabase(requireContext()).categoryDao();
+                    SynchronizationLogDAO syncDao = FinixDatabase.getDatabase(requireContext()).synchronizationLogDao();
 
-                    // Insert the new category
+                    // 1️⃣ Insert the new category
                     Category newCategory = new Category(newCategoryName);
-                    long newRowId = categoryDao.insert(newCategory); // Get the ID of the new category
+                    long newRowId = categoryDao.insert(newCategory); // Get new category ID
 
-                    // Fetch updated categories
+                    // 2️⃣ Add to sync log
+                    SynchronizationLog log = new SynchronizationLog(
+                            "categories",
+                            (int)newRowId,
+                            System.currentTimeMillis(),
+                            "PENDING"
+                    );
+                    syncDao.insert(log);
+
+                    // 3️⃣ Fetch updated categories
                     List<Category> updated = categoryDao.getAllCategories();
                     List<String> updatedNames = new ArrayList<>();
-
-                    // Fix: Ensure "+ Add New Category" is first when reloading the list
-                    updatedNames.add("+ Add New Category");
+                    updatedNames.add("+ Add New Category"); // Always first
                     for (Category c : updated) updatedNames.add(c.getName());
 
-                    // After saving a new category during an edit, update the originalCategoryId holder
+                    // 4️⃣ Handle editing scenario
                     if (isEditing) {
                         Category savedCat = categoryDao.getCategoryById((int)newRowId);
                         if (savedCat != null) {
@@ -292,16 +302,14 @@ public class BudgetFragment extends Fragment {
                         }
                     }
 
-                    // Update UI on main thread
+                    // 5️⃣ Update UI on main thread
                     requireActivity().runOnUiThread(() -> {
                         showCustomToast("Category Added");
 
-                        // Reset visibility
                         llAddNewCategory.setVisibility(View.GONE);
                         etCategory.setVisibility(View.VISIBLE);
                         etCategory.setText(newCategoryName);
 
-                        // Reload dropdown
                         ArrayAdapter<String> newAdapter = new ArrayAdapter<>(
                                 requireContext(),
                                 android.R.layout.simple_dropdown_item_1line,
@@ -311,7 +319,6 @@ public class BudgetFragment extends Fragment {
                     });
 
                 } catch (Exception e) {
-                    // Catch any DB or runtime exception
                     requireActivity().runOnUiThread(() ->
                             showCustomToast("Error adding category: " + e.getMessage())
                     );

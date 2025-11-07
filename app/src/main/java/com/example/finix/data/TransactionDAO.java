@@ -13,7 +13,7 @@ public interface TransactionDAO {
 
     // ➕ Insert a new transaction
     @Insert
-    void insert(Transaction transaction);
+    long insert(Transaction transaction);
 
     // 🔁 Update an existing transaction
     @Update
@@ -40,6 +40,10 @@ public interface TransactionDAO {
     @Query("SELECT DISTINCT date_time FROM transactions ORDER BY date_time DESC")
     List<Long> getDistinctMonthYear();
 
+    // REQUIRED NEW METHOD: Returns a reactive LiveData list of distinct month/year timestamps (descending)
+    @Query("SELECT DISTINCT date_time FROM transactions ORDER BY date_time DESC")
+    LiveData<List<Long>> getDistinctMonthYearLive();
+
     // 💰 FIX: Synchronous query for the comparison calculation
     @Query("SELECT SUM(amount) FROM transactions WHERE type = :type AND date_time BETWEEN :startTime AND :endTime")
     Double getPreviousMonthTotalSync(String type, long startTime, long endTime); // NOTE: Returns Double, not LiveData!
@@ -47,4 +51,8 @@ public interface TransactionDAO {
     // 📈 NEW: Get all transactions of a type within a date range (for chart data)
     @Query("SELECT * FROM transactions WHERE type = :type AND date_time BETWEEN :startTime AND :endTime ORDER BY date_time DESC")
     LiveData<List<Transaction>> getTransactionsByTypeAndDateRange(String type, long startTime, long endTime);
+
+    // 🆕 NEW: Get transaction by local ID
+    @Query("SELECT * FROM transactions WHERE local_id = :localId LIMIT 1")
+    Transaction getTransactionById(int localId);
 }

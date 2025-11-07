@@ -7,7 +7,9 @@ import androidx.lifecycle.AndroidViewModel;
 
 import com.example.finix.data.Budget;
 import com.example.finix.data.BudgetRepository;
+import com.example.finix.data.Category;
 import com.example.finix.data.FinixDatabase;
+import com.example.finix.data.SynchronizationLog;
 
 import java.util.List;
 
@@ -35,5 +37,29 @@ public class BudgetViewModel extends AndroidViewModel {
     public void update(Budget budget) {
         new Thread(() -> FinixDatabase.getDatabase(getApplication()).budgetDao().update(budget)).start();
     }
+
+    public void addCategoryWithSync(String name) {
+        if (name == null || name.trim().isEmpty()) return;
+
+        new Thread(() -> {
+            try {
+                FinixDatabase db = FinixDatabase.getDatabase(getApplication());
+                Category category = new Category(name.trim());
+                long localId = db.categoryDao().insert(category);
+
+                // Add sync log entry
+                SynchronizationLog log = new SynchronizationLog(
+                        "categories",
+                        (int) localId,
+                        System.currentTimeMillis(),
+                        "PENDING"
+                );
+                db.synchronizationLogDao().insert(log);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
 
 }

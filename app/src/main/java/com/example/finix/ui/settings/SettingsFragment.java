@@ -108,7 +108,7 @@ public class SettingsFragment extends Fragment {
             TransitionManager.beginDelayedTransition(settingsRootLayout, new AutoTransition());
             showSyncUIElements(true);
 
-            viewModel.startCategorySync();
+            viewModel.startSync();
             Toast.makeText(getContext(), "Sync started...", Toast.LENGTH_SHORT).show();
         });
 

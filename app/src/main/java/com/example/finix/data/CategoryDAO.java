@@ -26,8 +26,9 @@ public interface CategoryDAO {
     @Query("SELECT * FROM categories ORDER BY name ASC")
     List<Category> getAllCategories();
 
+    // Change: Add this new LiveData method
     @Query("SELECT * FROM categories ORDER BY name ASC")
-    LiveData<List<Category>> getAllCategoriesLiveData();
+    LiveData<List<Category>> getAllCategoriesLive();
 
     // Query updated to search by local_id, as it is the Room Primary Key and
     // the value stored in sync_log.record_id.

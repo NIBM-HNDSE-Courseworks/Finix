@@ -458,28 +458,28 @@ public class TransactionsFragment extends Fragment {
 
         });
 
-        // ✅ Add new category - CRITICAL FIX APPLIED HERE
+        // ✅ Add new category with sync
         btnSaveCategory.setOnClickListener(v -> {
             String newCat = etNewCategory.getText().toString().trim();
             if (!newCat.isEmpty()) {
-                Log.d(TAG, "Dialog: Saving new category: " + newCat);
+                Log.d(TAG, "Dialog: Saving new category with sync: " + newCat);
 
-                // 1. Add category (ASYNC WRITE to DB, triggers LiveData update)
-                viewModel.addCategory(newCat);
-                // ⚠️ UPDATED: Removed "Information: " prefix
+                // 1️⃣ Add category and create sync log
+                viewModel.addCategoryWithSync(newCat);
+
+                // 2️⃣ Show toast immediately
                 showCustomToast("New Category Added");
 
-                // 2. CRITICAL FIX: Wait for LiveData confirmation and perform UI switch/text set
-                // This ensures the local lists/map are updated before setting the text.
+                // 3️⃣ Wait for LiveData update and update UI
                 onCategoryAdded(newCat, adapter, categoriesList, categoryNameToIdMap,
                         actCategory, llAddCategory, etNewCategory);
 
             } else {
-                // ⚠️ UPDATED: Removed "Error: " prefix
                 showCustomToast("Category Can not Be Empty");
                 Log.w(TAG, "Dialog: Attempted to save empty category.");
             }
         });
+
 
         btnBackCategory.setOnClickListener(v -> {
             llAddCategory.setVisibility(View.GONE);

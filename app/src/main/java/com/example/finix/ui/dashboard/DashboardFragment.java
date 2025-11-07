@@ -277,12 +277,18 @@ public class DashboardFragment extends Fragment {
         // 3. Create PieDataSet
         PieDataSet dataSet = new PieDataSet(entries, "");
 
-        // Updated darker, ash-toned palette
+        // Revised Dark-Only, Ash-Toned 10-color palette (Focus on Teals & Blue-Greys, No Brown/Black)
         final int[] CHART_COLORS = {
-                Color.parseColor("#00695C"), // Dark Teal (Rich and deep)
-                Color.parseColor("#455A64"), // Dark Blue Grey (Strong, neutral contrast)
-                Color.parseColor("#00897B"), // Medium Teal (Primary application color)
-                Color.parseColor("#78909C")  // Medium Blue Grey (Softer contrast)
+                Color.parseColor("#004D40"), // Deepest Teal
+                Color.parseColor("#263238"), // Extra Dark Ash Blue (Replaces nearly black)
+                Color.parseColor("#00695C"), // Dark Teal
+                Color.parseColor("#37474F"), // Deep Blue Grey
+                Color.parseColor("#00796B"), // Muted Teal (Lighter than deep)
+                Color.parseColor("#455A64"), // Dark Blue Grey
+                Color.parseColor("#546E7A"), // Medium Blue Slate
+                Color.parseColor("#00897B"), // Primary Application Teal
+                Color.parseColor("#607D8B"), // Ash Grey (Subtle contrast)
+                Color.parseColor("#78909C")  // Muted Slate Blue
         };
 
         ArrayList<Integer> colors = new ArrayList<>();

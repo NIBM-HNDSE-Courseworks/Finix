@@ -114,7 +114,7 @@ public class TransactionsViewModel extends AndroidViewModel {
         new Thread(() -> {
             Map<Integer, String> map = new HashMap<>();
             for (Category c : db.categoryDao().getAllCategories()) {
-                map.put(c.getId(), c.getName());
+                map.put(c.getLocalId(), c.getName());
             }
             categoryMapLive.postValue(map);
         }).start();
@@ -127,7 +127,7 @@ public class TransactionsViewModel extends AndroidViewModel {
 
             if (allCategories != null) {
                 for (Category c : allCategories) {
-                    map.put(c.getId(), c.getName());
+                    map.put(c.getLocalId(), c.getName());
                 }
                 categoryMapLive.postValue(map);
             }
@@ -136,8 +136,8 @@ public class TransactionsViewModel extends AndroidViewModel {
 
     public void saveTransaction(double amount, String type, int categoryId, long dateTime, String description, Runnable onComplete) {
         new Thread(() -> {
-            // 1. Save to DB
-            db.transactionDao().insert(new Transaction(amount, type, categoryId, dateTime, description));
+            long id = db.transactionDao().insert(new Transaction(amount, type, categoryId, dateTime, description));
+            logTransactionSave((int) id);
 
             // 2. ⚡ FIX: Call the synchronous helper on this same thread (no filter applied after save).
             // NOTE: This call updates incomeLive/expenseLive to show the LATEST data (all transactions).
@@ -159,33 +159,100 @@ public class TransactionsViewModel extends AndroidViewModel {
 
     public void updateTransaction(Transaction transaction) {
         new Thread(() -> {
-            // 1. Update DB
+            // 1️⃣ Update DB
             db.transactionDao().update(transaction);
 
-            // 2. ⚡ FIX: Call the synchronous helper on this same thread (no filter applied after update).
+            // 2️⃣ Log sync event (same style as save)
+            logTransactionUpdate(transaction.getLocalId());
+
+            // 3️⃣ Refresh data in LiveData
             _doLoadTransactionsAndPost(null);
 
-            // 3. 🆕 NEW: Reload distinct months
+            // 4️⃣ Reload distinct months
             loadDistinctMonths();
 
-            // 4. Reload categories just in case
+            // 5️⃣ Reload categories
             loadCategories();
         }).start();
     }
 
     public void deleteTransaction(Transaction transaction) {
         new Thread(() -> {
-            // 1. Delete from DB
+            // 1️⃣ Delete from DB
             db.transactionDao().delete(transaction);
 
-            // 2. ⚡ FIX: Call the synchronous helper on this same thread (no filter applied after delete).
+            // 2️⃣ Log sync event (same style as save)
+            logTransactionDelete(transaction.getId());
+
+            // 3️⃣ Refresh data in LiveData
             _doLoadTransactionsAndPost(null);
 
-            // 3. 🆕 NEW: Reload distinct months
+            // 4️⃣ Reload distinct months
             loadDistinctMonths();
 
-            // 4. Reload categories just in case
+            // 5️⃣ Reload categories
             loadCategories();
+        }).start();
+    }
+
+    public void addCategoryWithSync(String name) {
+        if (name == null || name.trim().isEmpty()) return;
+
+        new Thread(() -> {
+            // 1️⃣ Insert category into DB
+            Category category = new Category(name.trim());
+            long localId = db.categoryDao().insert(category);
+
+            // 2️⃣ Create sync log entry
+            SynchronizationLog log = new SynchronizationLog(
+                    "categories",
+                    (int) localId,
+                    System.currentTimeMillis(),
+                    "PENDING"
+            );
+            db.synchronizationLogDao().insert(log);
+
+            // 3️⃣ Reload categories LiveData
+            loadCategories();
+        }).start();
+    }
+
+    // 🆕 NEW: Add sync log for a saved transaction
+    public void logTransactionSave(int transactionId) {
+        new Thread(() -> {
+            SynchronizationLog log = new SynchronizationLog(
+                    "transactions",
+                    transactionId,
+                    System.currentTimeMillis(),
+                    "PENDING"
+            );
+            db.synchronizationLogDao().insert(log);
+        }).start();
+    }
+
+    // 🆕 NEW: Add sync log for an updated transaction
+    public void logTransactionUpdate(int transactionId) {
+        new Thread(() -> {
+            SynchronizationLog log = new SynchronizationLog(
+                    "transactions",
+                    transactionId,
+                    System.currentTimeMillis(),
+                    "UPDATED" // 💡 CHANGE THIS from "PENDING" to "UPDATED"
+            );
+            db.synchronizationLogDao().insert(log);
+        }).start();
+    }
+
+    // 🆕 NEW: Add sync log for a deleted transaction
+    public void logTransactionDelete(int transactionId) {
+        new Thread(() -> {
+            SynchronizationLog log = new SynchronizationLog(
+                    "transactions",
+                    transactionId,
+                    System.currentTimeMillis(),
+                    "DELETED"
+            );
+            db.synchronizationLogDao().insert(log);
         }).start();
     }
 

@@ -34,7 +34,11 @@ public class DashboardViewModel extends AndroidViewModel {
     private final SimpleDateFormat monthFormatter = new SimpleDateFormat("MMMM", Locale.getDefault());
 
     // 1. Month Picker Data
-    private final MutableLiveData<List<String>> distinctMonthsLive = new MutableLiveData<>(new ArrayList<>());
+    // ⭐ CHANGE 1: Use MediatorLiveData for reactivity and initial selection logic
+    private final LiveData<List<Long>> distinctTimestampsFromDao; // New field for DAO source
+    private final MediatorLiveData<List<String>> distinctMonthsMediatorLive = new MediatorLiveData<>();
+    public final LiveData<List<String>> distinctMonthsLive = distinctMonthsMediatorLive; // Keep public getter name
+
     private final MutableLiveData<String> selectedMonthYearLive = new MutableLiveData<>();
 
     // Dedicated LiveData to force a refresh, even if the selected month string hasn't changed.
@@ -62,15 +66,66 @@ public class DashboardViewModel extends AndroidViewModel {
     public final LiveData<List<Transaction>> monthlyIncomeTransactionsLive;
     public final LiveData<List<Transaction>> monthlyExpenseTransactionsLive;
 
-    // Chart Data
-    private final MutableLiveData<Map<Integer, String>> categoryMapLive = new MutableLiveData<>(new HashMap<>());
+    // New Reactive LiveData from the DAO (Requires a new getAllCategoriesLive() method in CategoryDAO)
+    public final LiveData<List<Category>> allCategoriesLive;
+
+    // The final map, derived from the LiveData above
+    public final LiveData<Map<Integer, String>> categoryMapLive; // No longer mutable
 
     public DashboardViewModel(@NonNull Application application, CategoryDAO categoryDao) {
         super(application);
         transactionDao = FinixDatabase.getDatabase(application).transactionDao();
         this.categoryDao = categoryDao;
-        loadDistinctMonths();
-        loadCategories();
+
+        // --- Category Setup (Kept from previous fix) ---
+        this.allCategoriesLive = categoryDao.getAllCategoriesLive();
+
+        categoryMapLive = Transformations.map(allCategoriesLive, categories -> {
+            Map<Integer, String> categoryMap = new HashMap<>();
+            for (Category cat : categories) {
+                categoryMap.put(cat.getLocalId(), cat.getName());
+            }
+            return categoryMap;
+        });
+
+        // --- Month Picker Setup (The New Fix) ---
+        // ⭐ CHANGE 2: Initialize DAO LiveData (assuming getDistinctMonthYearLive() exists)
+        this.distinctTimestampsFromDao = transactionDao.getDistinctMonthYearLive();
+
+        // ⭐ CHANGE 3: Add source to MediatorLiveData to handle the transformation reactively
+        distinctMonthsMediatorLive.addSource(distinctTimestampsFromDao, timestamps -> {
+            List<String> months = new ArrayList<>();
+
+            // NEW: Set the hasTransactions status (from the reactive data)
+            hasTransactionsMutableLive.postValue(!timestamps.isEmpty());
+
+            String lastMonthYear = null;
+            Calendar cal = Calendar.getInstance();
+
+            for (Long timestamp : timestamps) {
+                if (timestamp != null) {
+                    cal.setTimeInMillis(timestamp);
+                    String currentMonthYear = monthYearFormatter.format(cal.getTime());
+
+                    if (!currentMonthYear.equals(lastMonthYear)) {
+                        months.add(currentMonthYear);
+                        lastMonthYear = currentMonthYear;
+                    }
+                }
+            }
+            // Update the LiveData for the spinner list
+            distinctMonthsMediatorLive.setValue(months);
+
+            // Initial Selection Logic (Runs whenever the month list updates, but only sets selection if it's null)
+            if (!months.isEmpty() && selectedMonthYearLive.getValue() == null) {
+                // Initialize selected month to the newest one (index 0)
+                selectedMonthYearLive.setValue(months.get(0));
+            } else if (months.isEmpty()) {
+                // Clear selection if transactions are now empty
+                selectedMonthYearLive.setValue(null);
+            }
+        });
+        // ------------------------------------------
 
         // --- Date Range Mediator Setup (For month changes and pull-to-refresh) ---
         // 1. Listen to month selection change (normal operation)
@@ -201,39 +256,7 @@ public class DashboardViewModel extends AndroidViewModel {
         }
     }
 
-    /**
-     * Loads all distinct month/year strings from transactions (newest first).
-     */
-    private void loadDistinctMonths() {
-        executor.execute(() -> {
-            // Uses the new DAO method: getDistinctMonthYear()
-            List<Long> timestamps = transactionDao.getDistinctMonthYear();
-            List<String> months = new ArrayList<>();
-
-            // NEW: Set the hasTransactions status
-            hasTransactionsMutableLive.postValue(!timestamps.isEmpty());
-
-            String lastMonthYear = null;
-            Calendar cal = Calendar.getInstance();
-
-            for (Long timestamp : timestamps) {
-                if (timestamp != null) {
-                    cal.setTimeInMillis(timestamp);
-                    String currentMonthYear = monthYearFormatter.format(cal.getTime());
-
-                    if (!currentMonthYear.equals(lastMonthYear)) {
-                        months.add(currentMonthYear);
-                        lastMonthYear = currentMonthYear;
-                    }
-                }
-            }
-            distinctMonthsLive.postValue(months);
-            // Initialize selected month to the newest one
-            if (!months.isEmpty() && selectedMonthYearLive.getValue() == null) {
-                selectedMonthYearLive.postValue(months.get(0));
-            }
-        });
-    }
+    // ⭐ CHANGE 4: REMOVED the synchronous loadDistinctMonths() method entirely.
 
     /**
      * Updates the selected month and triggers all transformations.
@@ -343,23 +366,6 @@ public class DashboardViewModel extends AndroidViewModel {
 
             // 4. Post the value to LiveData (color|text format for view)
             comparisonLive.postValue(color + "|" + comparisonText);
-        });
-    }
-
-    private void loadCategories() {
-        executor.execute(() -> {
-            try {
-                // Assuming CategoryDAO has getAllCategories() which is synchronous
-                List<Category> categories = categoryDao.getAllCategories();
-                Map<Integer, String> categoryMap = new HashMap<>();
-                for (Category cat : categories) {
-                    categoryMap.put(cat.getId(), cat.getName());
-                }
-                categoryMapLive.postValue(categoryMap);
-            } catch (Exception e) {
-                // Log and handle error gracefully
-                System.err.println("Error loading categories: " + e.getMessage());
-            }
         });
     }
 }

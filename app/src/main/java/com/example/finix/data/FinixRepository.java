@@ -23,14 +23,22 @@ class CategoryResponse {
     public Category data; // the actual category object
 }
 
+class TransactionResponse {
+    public String status;
+    public String message;
+    public Transaction data; // the actual transaction object
+}
+
 public class FinixRepository {
 
     private static final String TAG = "FinixRepository_LOG";
-    private static final String BASE_URL = "http://192.168.8.182:8080/ords/";
+    private static final String BASE_URL = "http://10.219.24.245:8080/ords/";
 
     private final CategoryDAO categoryDAO;
+    private final TransactionDAO transactionDAO; // NEW
     private final SynchronizationLogDAO syncLogDAO;
     private final CategoryService categoryService;
+    private final TransactionService transactionService; // NEW
     private final ExecutorService executorService;
     private final Gson gson;
 
@@ -45,6 +53,7 @@ public class FinixRepository {
 
         FinixDatabase db = FinixDatabase.getDatabase(context);
         categoryDAO = db.categoryDao();
+        transactionDAO = db.transactionDao(); // NEW
         syncLogDAO = db.synchronizationLogDao();
         Log.d(TAG, "Database and DAOs initialized.");
 
@@ -59,6 +68,7 @@ public class FinixRepository {
                 .addConverterFactory(GsonConverterFactory.create(gson))
                 .build();
         categoryService = retrofit.create(CategoryService.class);
+        transactionService = retrofit.create(TransactionService.class); // NEW
         Log.d(TAG, "Retrofit initialized with BASE_URL: " + BASE_URL);
 
         syncStatusLive.setValue(SynchronizationState.IDLE);
@@ -88,6 +98,27 @@ public class FinixRepository {
     }
 
 
+
+
+
+
+
+
+
+
+    /**
+     * Public entry point to start the full synchronization process.
+     * This will execute categories, followed by transactions, sequentially.
+     */
+    public void synchronizeAllData() {
+        Log.i(TAG, "--- Starting synchronizeAllData() - Categories first ---");
+        synchronizeCategories();
+    }
+
+    /**
+     * Synchronize all categories logs.
+     * This method is the first step in the chain. It will call synchronizeTransactions() upon success.
+     */
     public void synchronizeCategories() {
         syncStatusLive.postValue(SynchronizationState.CHECKING);
         Log.i(TAG, "--- Starting synchronizeCategories() ---");
@@ -98,11 +129,15 @@ public class FinixRepository {
                 List<SynchronizationLog> logsToSync = syncLogDAO.getAllLogs();
 
                 if (logsToSync.isEmpty()) {
-                    syncStatusLive.postValue(SynchronizationState.NO_CHANGES);
+                    // If no logs, proceed to check transactions
+                    Log.i(TAG, "No category changes to sync. Proceeding to transactions...");
+                    synchronizeTransactions(); // <-- CHAIN NEXT STEP
                     return;
                 }
 
                 // ✅ Sort logs by local_id of their category
+                // NOTE: This sorting logic is highly inefficient and still processes ALL logs,
+                // but we keep it here to maintain the original logic while fixing the concurrency.
                 logsToSync.sort((log1, log2) -> {
                     Category c1 = categoryDAO.getCategoryById(log1.getRecordId());
                     Category c2 = categoryDAO.getCategoryById(log2.getRecordId());
@@ -124,16 +159,21 @@ public class FinixRepository {
                     }
                 }
 
-                syncStatusLive.postValue(SynchronizationState.SUCCESS);
+                // 🔥 CRITICAL CHANGE: Instead of posting SUCCESS for the whole process,
+                // we chain the next step.
+                Log.i(TAG, "Category sync completed successfully. Starting transaction sync...");
+                synchronizeTransactions(); // <-- CHAINED CALL
 
             } catch (Exception e) {
-                Log.e(TAG, "FATAL: Database access error during sync.", e);
+                Log.e(TAG, "FATAL: Database access error during category sync.", e);
                 syncStatusLive.postValue(SynchronizationState.ERROR);
             }
         });
     }
 
-
+    /**
+     * Handles all categories synchronization logic
+     */
     private boolean handleCategorySync(SynchronizationLog log) {
         try {
             int localRecordId = log.getRecordId();
@@ -181,6 +221,9 @@ public class FinixRepository {
         }
     }
 
+    /**
+     * Add a category to the server (PENDING status).
+     */
     private boolean addCategoryToServer(Category localCategory, SynchronizationLog log, String categoryName) {
         Log.i(TAG, "-> addCategoryToServer. Local Category JSON: " + gson.toJson(localCategory));
 
@@ -312,7 +355,6 @@ public class FinixRepository {
         }
     }
 
-
     /**
      * Deletes a category from the server (DELETED status).
      */
@@ -362,4 +404,260 @@ public class FinixRepository {
         }
     }
 
+
+
+
+
+
+
+
+
+
+    /**
+     * Synchronize all transaction logs
+     * This is the final step in the chained sync process.
+     */
+    public void synchronizeTransactions() {
+        // We already posted SynchronizationState.CHECKING in synchronizeCategories(), so we don't repeat it.
+        Log.i(TAG, "--- Starting synchronizeTransactions() ---");
+
+        executorService.execute(() -> {
+            try {
+                List<SynchronizationLog> logsToSync = syncLogDAO.getAllLogs();
+
+                // Filter only transaction logs for processing
+                List<SynchronizationLog> transactionLogs = new java.util.ArrayList<>();
+                List<SynchronizationLog> categoryLogs = new java.util.ArrayList<>();
+                for (SynchronizationLog log : logsToSync) {
+                    if ("transactions".equals(log.getTableName())) {
+                        transactionLogs.add(log);
+                    } else if ("categories".equals(log.getTableName())) {
+                        categoryLogs.add(log);
+                    }
+                }
+
+                // If the transaction list is empty, we must check if categories already finished with NO_CHANGES.
+                // (If the whole logsToSync was empty, this was handled in synchronizeCategories)
+                if (transactionLogs.isEmpty()) {
+                    // If the only remaining logs are synced categories, we can post NO_CHANGES,
+                    // otherwise we assume category sync took care of status.
+                    if(categoryLogs.isEmpty() || categoryLogs.stream().allMatch(log -> log.getStatus().startsWith("SYNCED"))) {
+                        syncStatusLive.postValue(SynchronizationState.NO_CHANGES);
+                    } else {
+                        syncStatusLive.postValue(SynchronizationState.SUCCESS); // Categories finished successfully
+                    }
+                    Log.i(TAG, "No pending transaction logs. Sync complete.");
+                    return;
+                }
+
+                // ✅ Sort only transaction logs by local_id
+                transactionLogs.sort((l1, l2) -> {
+                    Transaction t1 = transactionDAO.getTransactionById(l1.getRecordId());
+                    Transaction t2 = transactionDAO.getTransactionById(l2.getRecordId());
+                    int id1 = t1 != null ? t1.getLocalId() : Integer.MAX_VALUE;
+                    int id2 = t2 != null ? t2.getLocalId() : Integer.MAX_VALUE;
+                    return Integer.compare(id1, id2);
+                });
+
+                syncStatusLive.postValue(SynchronizationState.PROCESSING);
+
+                for (SynchronizationLog log : transactionLogs) {
+                    // The log is already filtered
+                    boolean result = handleTransactionSync(log);
+                    if (!result) {
+                        syncStatusLive.postValue(SynchronizationState.ERROR);
+                        return;
+                    }
+                }
+
+                // Post overall SUCCESS once transactions are complete
+                syncStatusLive.postValue(SynchronizationState.SUCCESS);
+
+            } catch (Exception e) {
+                Log.e(TAG, "FATAL: Error during transaction sync.", e);
+                syncStatusLive.postValue(SynchronizationState.ERROR);
+            }
+        });
+    }
+
+    /**
+     * Handles all transaction synchronization logic
+     */
+    private boolean handleTransactionSync(SynchronizationLog log) {
+        try {
+            int localRecordId = log.getRecordId();
+            Transaction transaction = transactionDAO.getTransactionById(localRecordId);
+
+            String transactionInfo = transaction != null
+                    ? "Transaction (Amount: " + transaction.getAmount() + ", Type: " + transaction.getType() + ")"
+                    : "Unknown Transaction (ID: " + localRecordId + ")";
+
+            switch (log.getStatus()) {
+                case "PENDING":
+                    if (transaction != null)
+                        return addTransactionToServer(transaction, log, transactionInfo);
+
+                    // Transaction deleted locally before sync
+                    log.setStatus("SYNCED - STALE");
+                    log.setMessage("Transaction not found locally (ID: " + localRecordId + "). Log cleared.");
+                    syncLogDAO.update(log);
+                    return true;
+
+                case "UPDATED":
+                    if (transaction != null && transaction.getId() != 0)
+                        return updateTransactionOnServer(transaction, log, transactionInfo);
+
+                    // Update skipped due to missing server ID
+                    log.setStatus("SYNCED - STALE");
+                    log.setMessage("Update skipped: Transaction missing server ID (local ID: " + localRecordId + ").");
+                    syncLogDAO.update(log);
+                    return true;
+
+                case "DELETED":
+                    return deleteTransactionFromServer(log, transactionInfo);
+
+                default:
+                    log.setStatus("SYNCED - STALE");
+                    log.setMessage("Unknown status '" + log.getStatus() + "'. Log cleared.");
+                    syncLogDAO.update(log);
+                    return true;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error in handleTransactionSync for log ID: " + log.getId(), e);
+            log.setStatus("ERROR");
+            log.setMessage("Internal error processing sync for transaction: " + e.getMessage());
+            syncLogDAO.update(log);
+            return false;
+        }
+    }
+
+    /**
+     * Add a transaction to the server (PENDING status).
+     */
+    private boolean addTransactionToServer(Transaction localTransaction, SynchronizationLog log, String transactionInfo) {
+        Log.i(TAG, "-> addTransactionToServer. Local JSON: " + gson.toJson(localTransaction));
+
+        try {
+            Call<ResponseBody> call = transactionService.createTransaction(localTransaction);
+            Response<ResponseBody> response = call.execute();
+
+            if (!response.isSuccessful()) {
+                String errorBody = response.errorBody() != null ? response.errorBody().string() : "No error body";
+                Log.e(TAG, "Server error adding transaction. Code: " + response.code() + " | Error: " + errorBody);
+
+                log.setStatus("ERROR - SERVER");
+                log.setMessage("ADD FAILED for " + transactionInfo + ". Code: " + response.code());
+                syncLogDAO.update(log);
+                return false;
+            }
+
+            String rawJsonBody = response.body() != null ? response.body().string() : "";
+            Log.i(TAG, "SUCCESSFUL RESPONSE BODY (RAW): " + rawJsonBody);
+
+            TransactionResponse transactionResponse = gson.fromJson(rawJsonBody, TransactionResponse.class);
+
+            if (transactionResponse == null || transactionResponse.data == null) {
+                log.setStatus("ERROR - DATA");
+                log.setMessage("ADD FAILED for " + transactionInfo + ". Invalid JSON/data.");
+                syncLogDAO.update(log);
+                return false;
+            }
+
+            Transaction serverTransaction = transactionResponse.data;
+
+            // ⚡ Update local transaction with server ID only
+            localTransaction.setId(serverTransaction.getId());
+            transactionDAO.update(localTransaction);
+
+            log.setStatus("SYNCED - ADDED");
+            log.setMessage(transactionInfo + " added successfully. Server ID: " + serverTransaction.getId());
+            log.setRecordId(serverTransaction.getId());
+            syncLogDAO.update(log);
+
+            Log.i(TAG, "Transaction synced. Server ID: " + serverTransaction.getId() +
+                    ", local_id remains: " + localTransaction.getLocalId());
+            return true;
+
+        } catch (Exception e) {
+            Log.e(TAG, "Network error adding transaction.", e);
+            log.setStatus("ERROR - NETWORK");
+            log.setMessage("ADD FAILED for " + transactionInfo + ". Network: " + e.getMessage());
+            syncLogDAO.update(log);
+            return false;
+        }
+    }
+
+    /**
+     * Updates an existing transaction on the server (UPDATED status).
+     */
+    private boolean updateTransactionOnServer(Transaction localTransaction, SynchronizationLog log, String transactionInfo) {
+        Log.i(TAG, "-> updateTransactionOnServer. Server ID: " + localTransaction.getId() +
+                " | JSON: " + gson.toJson(localTransaction));
+
+        try {
+            Call<ResponseBody> call = transactionService.updateTransaction(localTransaction.getId(), localTransaction);
+            Response<ResponseBody> response = call.execute();
+
+            String rawJsonBody = response.body() != null ? response.body().string() : "";
+            if (!rawJsonBody.isEmpty()) Log.i(TAG, "UPDATE RESPONSE BODY (RAW): " + rawJsonBody);
+
+            if (response.isSuccessful()) {
+                log.setStatus("SYNCED - UPDATED");
+                log.setMessage(transactionInfo + " updated successfully.");
+                syncLogDAO.update(log);
+                return true;
+            } else {
+                String errorBody = response.errorBody() != null ? response.errorBody().string() : "No error body";
+                Log.e(TAG, "Server error updating transaction. Code: " + response.code() + " | Error: " + errorBody);
+
+                log.setStatus("ERROR - SERVER");
+                log.setMessage("UPDATE FAILED for " + transactionInfo + ". Code: " + response.code());
+                syncLogDAO.update(log);
+                return false;
+            }
+
+        } catch (Exception e) {
+            Log.e(TAG, "Network error updating transaction.", e);
+            log.setStatus("ERROR - NETWORK");
+            log.setMessage("UPDATE FAILED for " + transactionInfo + ". Network: " + e.getMessage());
+            syncLogDAO.update(log);
+            return false;
+        }
+    }
+
+    /**
+     * Deletes a transaction from the server (DELETED status).
+     */
+    private boolean deleteTransactionFromServer(SynchronizationLog log, String transactionInfo) {
+        int serverRecordId = log.getRecordId();
+        Log.i(TAG, "-> deleteTransactionFromServer. Deleting record ID: " + serverRecordId);
+
+        try {
+            Call<ResponseBody> call = transactionService.deleteTransaction(serverRecordId);
+            Response<ResponseBody> response = call.execute();
+
+            String rawJsonBody = response.body() != null ? response.body().string() : "";
+            if (!rawJsonBody.isEmpty()) Log.i(TAG, "DELETE RESPONSE BODY (RAW): " + rawJsonBody);
+
+            if (response.isSuccessful() || response.code() == 404) {
+                log.setStatus("SYNCED - DELETED");
+                log.setMessage("Transaction deleted successfully (or already gone). ID: " + serverRecordId);
+                syncLogDAO.update(log);
+                Log.i(TAG, "Transaction deleted successfully.");
+                return true;
+            } else {
+                String errorBody = response.errorBody() != null ? response.errorBody().string() : "No error body";
+                log.setStatus("ERROR - SERVER");
+                log.setMessage("DELETE FAILED for Transaction ID " + serverRecordId + ". Code: " + response.code() + ". " + errorBody);
+                syncLogDAO.update(log);
+                return false;
+            }
+        } catch (Exception e) {
+            log.setStatus("ERROR - NETWORK");
+            log.setMessage("DELETE FAILED for Transaction ID " + serverRecordId + ". Network error: " + e.getMessage());
+            syncLogDAO.update(log);
+            Log.e(TAG, "Network error deleting transaction", e);
+            return false;
+        }
+    }
 }

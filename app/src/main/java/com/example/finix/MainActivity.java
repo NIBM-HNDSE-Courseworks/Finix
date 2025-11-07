@@ -36,6 +36,7 @@ import com.example.finix.data.Budget;
 import com.example.finix.data.Category;
 import com.example.finix.data.CategoryDAO;
 import com.example.finix.data.FinixDatabase;
+import com.example.finix.data.SynchronizationLog;
 import com.example.finix.data.Transaction;
 import com.example.finix.databinding.ActivityMainBinding;
 import com.example.finix.ui.budget.BudgetViewModel;
@@ -180,10 +181,10 @@ public class MainActivity extends AppCompatActivity {
             if (idToNameMap != null) {
                 for (Map.Entry<Integer, String> entry : idToNameMap.entrySet()) {
                     String name = entry.getValue();
-                    Integer id = entry.getKey();
+                    Integer localId = entry.getKey(); // <-- already the local_id
                     if (!"+Add New Category".equals(name)) {
                         categoriesList.add(name);
-                        categoryNameToIdMap.put(name, id);
+                        categoryNameToIdMap.put(name, localId); // ✅ use the map key (local_id)
                     }
                 }
             }
@@ -206,22 +207,30 @@ public class MainActivity extends AppCompatActivity {
 
         btnSaveCategory.setOnClickListener(v -> {
             String newCat = etNewCategory.getText().toString().trim();
-            if (!newCat.isEmpty()) {
-                viewModel.addCategory(newCat);
-                showCustomToast("New Category Added");
-
-                actCategory.postDelayed(() -> {
-                    actCategory.setText(newCat);
-                    actCategory.setVisibility(View.VISIBLE);
-                    llAddCategory.setVisibility(View.GONE);
-                    actCategory.clearFocus();
-                }, 200);
-
-                etNewCategory.setText("");
-            } else {
-                showCustomToast("Category Cannot be Empty");
+            if (newCat.isEmpty()) {
+                showCustomToast("Category cannot be empty");
+                return;
             }
+
+            // Call ViewModel method to add the category and sync
+            viewModel.addCategoryWithSync(newCat);
+
+            // Show confirmation toast
+            showCustomToast("New category added!");
+
+            // Delay briefly to let LiveData update and refresh UI
+            actCategory.postDelayed(() -> {
+                // Set the newly added category in the AutoCompleteTextView
+                actCategory.setText(newCat);
+                actCategory.setVisibility(View.VISIBLE);
+                llAddCategory.setVisibility(View.GONE);
+                actCategory.clearFocus();
+            }, 200);
+
+            // Clear the input field for next entry
+            etNewCategory.setText("");
         });
+
 
         btnBackCategory.setOnClickListener(v -> {
             llAddCategory.setVisibility(View.GONE);
@@ -253,19 +262,22 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
 
+            // Make sure the category exists in our map
             if (!categoryNameToIdMap.containsKey(catName)) {
                 showCustomToast("Invalid Category Selected");
                 return;
             }
 
-            int categoryId = categoryNameToIdMap.get(catName);
+            // ✅ Use local_id for the foreign key
+            int categoryLocalId = categoryNameToIdMap.get(catName);
 
             try {
                 double amount = Double.parseDouble(amountText);
                 long dateMillis = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
                         .parse(dateText).getTime();
 
-                viewModel.saveTransaction(amount, type, categoryId, dateMillis, desc, dialog::dismiss);
+                // Pass local_id to saveTransaction
+                viewModel.saveTransaction(amount, type, categoryLocalId, dateMillis, desc, dialog::dismiss);
                 showCustomToast("New Transaction Added");
             } catch (Exception e) {
                 showCustomToast("Invalid Amount or Date!");
@@ -516,19 +528,36 @@ public class MainActivity extends AppCompatActivity {
                 if (!newCat.isEmpty()) {
                     new Thread(() -> {
                         try {
-                            CategoryDAO dao = FinixDatabase.getDatabase(this).categoryDao();
-                            dao.insert(new Category(newCat));
+                            FinixDatabase db = FinixDatabase.getDatabase(this);
+
+                            // 1️⃣ Insert category into DB
+                            Category category = new Category(newCat);
+                            long localId = db.categoryDao().insert(category);
+
+                            // 2️⃣ Create sync log entry for pending upload
+                            SynchronizationLog log = new SynchronizationLog(
+                                    "categories",
+                                    (int) localId,
+                                    System.currentTimeMillis(),
+                                    "PENDING"
+                            );
+                            db.synchronizationLogDao().insert(log); // ✅ correct DAO name
+
+                            // 3️⃣ Update UI
                             runOnUiThread(() -> {
                                 showCustomToast("Category Added");
                                 llAddNewCategory.setVisibility(View.GONE);
                                 etCategory.setVisibility(View.VISIBLE);
                                 etCategory.setText(newCat);
                             });
+
                         } catch (Exception e) {
                             runOnUiThread(() -> showCustomToast("Failed to add category: " + e.getMessage()));
                         }
                     }).start();
-                } else showCustomToast("Category cannot be empty");
+                } else {
+                    showCustomToast("Category cannot be empty");
+                }
             });
 
             btnCancelCategory.setOnClickListener(v -> {
@@ -702,15 +731,29 @@ public class MainActivity extends AppCompatActivity {
             tvTargetDate.setOnClickListener(pickDate);
             btnPickDate.setOnClickListener(pickDate);
 
+            // --- Save new category ---
             btnSaveCategory.setOnClickListener(v -> {
                 String newCat = etNewCategory.getText().toString().trim();
                 if (!newCat.isEmpty()) {
                     new Thread(() -> {
                         try {
-                            CategoryDAO dao = FinixDatabase.getDatabase(this).categoryDao();
-                            dao.insert(new Category(newCat));
+                            FinixDatabase db = FinixDatabase.getDatabase(this);
 
-                            List<Category> updatedList = dao.getAllCategories();
+                            // 1️⃣ Insert category into DB
+                            Category category = new Category(newCat);
+                            long localId = db.categoryDao().insert(category);
+
+                            // 2️⃣ Create sync log entry (PENDING state)
+                            SynchronizationLog log = new SynchronizationLog(
+                                    "categories",
+                                    (int) localId,
+                                    System.currentTimeMillis(),
+                                    "PENDING"
+                            );
+                            db.synchronizationLogDao().insert(log); // ✅ correct DAO
+
+                            // 3️⃣ Refresh category list in UI
+                            List<Category> updatedList = db.categoryDao().getAllCategories();
                             categoryNames.clear();
                             nameToId.clear();
                             categoryNames.add("+ Add New Category");
@@ -719,17 +762,21 @@ public class MainActivity extends AppCompatActivity {
                                 nameToId.put(c.getName(), c.getId());
                             }
 
+                            // 4️⃣ Update UI
                             runOnUiThread(() -> {
                                 actCategory.setVisibility(View.VISIBLE);
                                 llAddCategory.setVisibility(View.GONE);
                                 actCategory.setText(newCat);
                                 showCustomToast("Category Added");
                             });
+
                         } catch (Exception e) {
                             runOnUiThread(() -> showCustomToast("Failed to add category: " + e.getMessage()));
                         }
                     }).start();
-                } else showCustomToast("Category cannot be empty");
+                } else {
+                    showCustomToast("Category cannot be empty");
+                }
             });
 
             btnCancelCategory.setOnClickListener(v -> {

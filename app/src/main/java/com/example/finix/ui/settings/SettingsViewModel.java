@@ -33,12 +33,24 @@ public class SettingsViewModel extends AndroidViewModel {
         return syncStatus;
     }
 
+
+    public void startSync() {
+        repository.synchronizeAllData();
+    }
+
     /**
      * Initiates the synchronization process for all categories.
      */
-    public void startCategorySync() {
+    /*public void startCategorySync() {
         repository.synchronizeCategories();
-    }
+    }*/
+
+    /**
+     * Initiates the synchronization process for all transactions. ✅
+     */
+    /*public void startTransactionSync() {
+        repository.synchronizeTransactions();
+    }*/
 
     /**
      * NEW: Retrieves all synchronization logs.

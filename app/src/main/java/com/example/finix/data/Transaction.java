@@ -3,23 +3,28 @@ package com.example.finix.data;
 import androidx.room.ColumnInfo;
 import androidx.room.Entity;
 import androidx.room.ForeignKey;
-import androidx.room.PrimaryKey;
+import androidx.room.Ignore;
 import androidx.room.Index;
+import androidx.room.PrimaryKey;
 
-// Defines the table name and now includes an INDEX on category_id
+import com.google.gson.annotations.SerializedName;
+
 @Entity(tableName = "transactions",
         foreignKeys = @ForeignKey(entity = Category.class,
-                // UPDATED: Changed parentColumns from "id" to "local_id"
-                parentColumns = "local_id",
+                parentColumns = "local_id", // Link to Category's local_id
                 childColumns = "category_id",
                 onDelete = ForeignKey.RESTRICT),
-        // Index on category_id is correct for the foreign key
         indices = {@Index(value = {"category_id"})})
 public class Transaction {
 
-    // Primary Key, auto-generates the ID
+    // --- Local unique ID for Room (auto-generated) ---
     @PrimaryKey(autoGenerate = true)
-    @ColumnInfo(name = "transaction_id")
+    @ColumnInfo(name = "local_id")
+    @SerializedName("local_id")
+    private int localId;
+
+    // --- Server ID, 0 until synced ---
+    @ColumnInfo(name = "id", defaultValue = "0")
     private int id;
 
     @ColumnInfo(name = "amount")
@@ -28,9 +33,8 @@ public class Transaction {
     @ColumnInfo(name = "type")
     private String type;
 
-    // Foreign key reference to Category table
     @ColumnInfo(name = "category_id")
-    private int categoryId;
+    private int categoryId; // FK to Category.local_id
 
     @ColumnInfo(name = "date_time")
     private long dateTime;
@@ -38,8 +42,25 @@ public class Transaction {
     @ColumnInfo(name = "description")
     private String description;
 
-    // Constructor
+    // ✅ Public no-arg constructor for Room
+    public Transaction() {}
+
+    // --- Constructor for new Transaction (localId auto-generated) ---
+    @Ignore
     public Transaction(double amount, String type, int categoryId, long dateTime, String description) {
+        this.amount = amount;
+        this.type = type;
+        this.categoryId = categoryId;
+        this.dateTime = dateTime;
+        this.description = description;
+        this.id = 0; // Server ID initially 0
+    }
+
+    // --- Constructor for mapping existing / server data ---
+    @Ignore
+    public Transaction(int localId, int id, double amount, String type, int categoryId, long dateTime, String description) {
+        this.localId = localId;
+        this.id = id;
         this.amount = amount;
         this.type = type;
         this.categoryId = categoryId;
@@ -47,7 +68,10 @@ public class Transaction {
         this.description = description;
     }
 
-    // --- Getters and Setters ---
+    // --- Getters & Setters ---
+    public int getLocalId() { return localId; }
+    public void setLocalId(int localId) { this.localId = localId; }
+
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
 

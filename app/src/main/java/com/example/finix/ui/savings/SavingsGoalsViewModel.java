@@ -76,4 +76,25 @@ public class SavingsGoalsViewModel extends AndroidViewModel {
     public void delete(SavingsGoal goal) {
         executor.execute(() -> db.savingsGoalDao().delete(goal));
     }
+
+    public void addCategoryWithSync(String name) {
+        executor.execute(() -> {
+            // 1. Insert category
+            long newId = db.categoryDao().insert(new Category(name));
+
+            // 2. Add to sync log
+            db.synchronizationLogDao().insert(
+                    new com.example.finix.data.SynchronizationLog(
+                            "categories",
+                            (int)newId,
+                            System.currentTimeMillis(),
+                            "PENDING"
+                    )
+            );
+
+            // 3. Reload categories for LiveData
+            loadCategories();
+        });
+    }
+
 }

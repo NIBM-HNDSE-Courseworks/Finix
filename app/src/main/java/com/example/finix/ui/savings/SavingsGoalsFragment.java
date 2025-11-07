@@ -206,7 +206,7 @@ public class SavingsGoalsFragment extends Fragment {
                 showCustomToast("Category cannot be empty");
                 return;
             }
-            viewModel.addCategory(newCat);
+            viewModel.addCategoryWithSync(newCat);
             // 📝 Changed to showCustomToast and removed prefix
             showCustomToast("New category added!");
             onCategoryAdded(newCat, ddAdapter, categoriesList, nameToId, actCategory, llAddCategory, etNewCategory);
@@ -358,7 +358,7 @@ public class SavingsGoalsFragment extends Fragment {
                 showCustomToast("Category cannot be empty");
                 return;
             }
-            viewModel.addCategory(newCat);
+            viewModel.addCategoryWithSync(newCat);
             // 📝 Changed to showCustomToast and removed prefix
             showCustomToast("New category added!");
             onCategoryAdded(newCat, ddAdapter, categoriesList, nameToId, actCategory, llAddCategory, etNewCategory);
