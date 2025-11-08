@@ -113,7 +113,7 @@
             android:id="@+id/progressGoal"
             android:layout_width="0dp"
             android:layout_height="14dp"
-            android:layout_marginTop="14dp"
+            android:layout_marginTop="25dp"
             app:layout_constraintTop_toBottomOf="@id/btnEditGoal"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toStartOf="@id/tvProgressPercentage"
@@ -132,7 +132,7 @@
             android:textSize="14sp"
             android:layout_marginStart="6dp"
             app:layout_constraintBaseline_toBaselineOf="@id/progressGoal"
-            app:layout_constraintEnd_toEndOf="parent" />
+            app:layout_constraintEnd_toEndOf="parent"/>
 
         <!-- 💰 NEW: Add Transaction Button (Initially Hidden) -->
         <Button

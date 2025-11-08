@@ -503,8 +503,6 @@ public class SavingsGoalsFragment extends Fragment {
             adapter.notifyDataSetChanged();
         }
 
-        // 3. (Optional) Show a toast to confirm
-        showCustomToast("Refreshing goals...");
     }
 
 
@@ -633,10 +631,10 @@ public class SavingsGoalsFragment extends Fragment {
             params.width = WindowManager.LayoutParams.MATCH_PARENT; // Set width to match parent
             params.height = WindowManager.LayoutParams.WRAP_CONTENT; // Set height to wrap content
 
-            // 🛠️ UPDATED: Set gravity to BOTTOM
+            // 🛠 UPDATED: Set gravity to BOTTOM
             params.gravity = android.view.Gravity.BOTTOM; // Position at bottom
 
-            // 🛠️ UPDATED: Set offset from bottom in pixels
+            // 🛠 UPDATED: Set offset from bottom in pixels
             params.y = 50;
 
             dialog.getWindow().setAttributes(params); // Apply attributes
