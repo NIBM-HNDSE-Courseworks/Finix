@@ -3,6 +3,7 @@ package com.example.finix.ui.transactions;
 import android.view.*;
 import android.widget.*;
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.DiffUtil; // 💡 NEW IMPORT
 import androidx.recyclerview.widget.RecyclerView;
 import com.example.finix.R;
 import com.example.finix.data.Transaction;
@@ -11,8 +12,9 @@ import java.util.*;
 
 public class TransactionAdapter extends RecyclerView.Adapter<TransactionAdapter.ViewHolder> {
 
+    // 💡 IMPORTANT: Keep this list non-final so you can clear/repopulate it effectively
     private final List<Transaction> list = new ArrayList<>();
-    // 💡 NEW: Map to store Category ID -> Category Name
+
     private Map<Integer, String> categoryMap = new HashMap<>();
     private OnTransactionActionListener listener;
 
@@ -25,16 +27,33 @@ public class TransactionAdapter extends RecyclerView.Adapter<TransactionAdapter.
         this.listener = listener;
     }
 
-    // 💡 NEW: Method to update the category map
     public void setCategoryMap(Map<Integer, String> map) {
         this.categoryMap = map;
-        // Don't call notifyDataSetChanged here, wait for setTransactions if data changes
+        // NOTE: We don't call notifyDataSetChanged here. The changes will be applied
+        // when setTransactions is called next, or if you need the *content* to update
+        // without transaction list change, you'd call notifyDataSetChanged() here.
     }
 
+    /**
+     * 💡 FIX: Use DiffUtil for smooth updates instead of notifyDataSetChanged().
+     */
     public void setTransactions(List<Transaction> transactions) {
-        list.clear();
-        list.addAll(transactions);
-        notifyDataSetChanged();
+        if (this.list.isEmpty()) {
+            // Case 1: Initial load
+            this.list.addAll(transactions);
+            notifyDataSetChanged();
+        } else {
+            // Case 2: Update/Filter - Use DiffUtil for smooth animation
+            TransactionDiffCallback diffCallback = new TransactionDiffCallback(this.list, transactions);
+            DiffUtil.DiffResult diffResult = DiffUtil.calculateDiff(diffCallback);
+
+            // Update the list by clearing the old and adding the new
+            this.list.clear();
+            this.list.addAll(transactions);
+
+            // Dispatch the minimal updates, enabling smooth animations (insert/remove/move)
+            diffResult.dispatchUpdatesTo(this);
+        }
     }
 
     @NonNull
@@ -56,24 +75,18 @@ public class TransactionAdapter extends RecyclerView.Adapter<TransactionAdapter.
 
         // 3. Define the conditions
         boolean isCategoryTooLong = categoryName.length() > 11;
-        // Condition check for the *formatted* amount string length.
-        // For "Rs. 9,999,999", the length is 13.
-        // For "Rs. 999,999", the length is 11.
-        // We want to limit the category when the amount is a *very large* one, which typically results in 12 or 13 characters.
         boolean isAmountVeryLarge = amountString.length() == 12 || amountString.length() == 13;
 
         // 4. Apply character limit logic
         if (isCategoryTooLong && isAmountVeryLarge) {
-            // Limit category name to 7 characters and append "..."
             String limitedCategoryName = categoryName.substring(0, 7) + "...";
             h.tvCategory.setText(limitedCategoryName);
         } else {
-            // Use the full category name
             h.tvCategory.setText(categoryName);
         }
 
         h.tvDescription.setText(t.getDescription());
-        h.tvAmount.setText(amountString); // Use the pre-calculated amount string
+        h.tvAmount.setText(amountString);
 
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
         h.tvDescription.append("\n" + sdf.format(new Date(t.getDateTime())));
@@ -101,6 +114,47 @@ public class TransactionAdapter extends RecyclerView.Adapter<TransactionAdapter.
             tvDescription = item.findViewById(R.id.tvDescription);
             btnEdit = item.findViewById(R.id.btnEdit);
             btnDelete = item.findViewById(R.id.btnDelete);
+        }
+    }
+
+    // 💡 NEW: DiffUtil Implementation for smooth animations
+    private static class TransactionDiffCallback extends DiffUtil.Callback {
+        private final List<Transaction> oldList;
+        private final List<Transaction> newList;
+
+        public TransactionDiffCallback(List<Transaction> oldList, List<Transaction> newList) {
+            this.oldList = oldList;
+            this.newList = newList;
+        }
+
+        @Override
+        public int getOldListSize() {
+            return oldList.size();
+        }
+
+        @Override
+        public int getNewListSize() {
+            return newList.size();
+        }
+
+        @Override
+        public boolean areItemsTheSame(int oldItemPosition, int newItemPosition) {
+            // Compare by a unique ID (assuming Transaction has getLocalId() or similar)
+            return oldList.get(oldItemPosition).getLocalId() == newList.get(newItemPosition).getLocalId();
+        }
+
+        @Override
+        public boolean areContentsTheSame(int oldItemPosition, int newItemPosition) {
+            // Compare all fields that affect the display
+            Transaction oldT = oldList.get(oldItemPosition);
+            Transaction newT = newList.get(newItemPosition);
+
+            return oldT.getLocalId() == newT.getLocalId() &&
+                    oldT.getAmount() == newT.getAmount() &&
+                    oldT.getCategoryId() == newT.getCategoryId() &&
+                    oldT.getDateTime() == newT.getDateTime() &&
+                    Objects.equals(oldT.getDescription(), newT.getDescription()) &&
+                    Objects.equals(oldT.getType(), newT.getType());
         }
     }
 }

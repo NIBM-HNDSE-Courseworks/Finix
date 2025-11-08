@@ -12,7 +12,7 @@
     public interface BudgetDAO {
 
         @Insert
-        void insert(Budget budget);
+        long insert(Budget budget);
 
         @Delete
         void delete(Budget budget);
@@ -30,5 +30,9 @@
 
         @Update
         void update(Budget budget);
+
+        // 🆕 FIX: Method required by FinixRepository for synchronization
+        @Query("SELECT * FROM budgets WHERE local_id = :localId")
+        Budget getBudgetById(int localId);
 
     }

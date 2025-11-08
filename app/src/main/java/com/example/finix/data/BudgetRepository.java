@@ -11,6 +11,7 @@ public class BudgetRepository {
     private final BudgetDAO budgetDao;
     private final ExecutorService executorService;
 
+
     public BudgetRepository(Application application) {
         FinixDatabase db = FinixDatabase.getDatabase(application);
         budgetDao = db.budgetDao();

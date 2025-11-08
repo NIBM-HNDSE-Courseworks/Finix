@@ -161,13 +161,13 @@ public class TransactionsFragment extends Fragment {
         incomeAdapter.setListener(new TransactionAdapter.OnTransactionActionListener() {
             @Override
             public void onEdit(Transaction t) {
-                Log.d(TAG, "Income transaction EDIT clicked for ID: " + t.getId());
+                Log.d(TAG, "Income transaction EDIT clicked for ID: " + t.getLocalId());
                 showAddTransactionDialog(t);
             }
 
             @Override
             public void onDelete(Transaction t) {
-                Log.d(TAG, "Income transaction DELETE clicked for ID: " + t.getId());
+                Log.d(TAG, "Income transaction DELETE clicked for ID: " + t.getLocalId());
                 showDeleteConfirmation(t);
             }
         });
@@ -175,13 +175,13 @@ public class TransactionsFragment extends Fragment {
         expenseAdapter.setListener(new TransactionAdapter.OnTransactionActionListener() {
             @Override
             public void onEdit(Transaction t) {
-                Log.d(TAG, "Expense transaction EDIT clicked for ID: " + t.getId());
+                Log.d(TAG, "Expense transaction EDIT clicked for ID: " + t.getLocalId());
                 showAddTransactionDialog(t);
             }
 
             @Override
             public void onDelete(Transaction t) {
-                Log.d(TAG, "Expense transaction DELETE clicked for ID: " + t.getId());
+                Log.d(TAG, "Expense transaction DELETE clicked for ID: " + t.getLocalId());
                 showDeleteConfirmation(t);
             }
         });
@@ -305,7 +305,7 @@ public class TransactionsFragment extends Fragment {
 
     // --- NEW METHOD FOR CUSTOM DELETE CONFIRMATION ---
     private void showDeleteConfirmation(Transaction t) {
-        Log.d(TAG, "showDeleteConfirmation: Preparing dialog for transaction ID: " + t.getId());
+        Log.d(TAG, "showDeleteConfirmation: Preparing dialog for transaction ID: " + t.getLocalId());
         View popupView = requireActivity().getLayoutInflater().inflate(R.layout.delete_confirmation_popup, null);
 
         TextView tvMessage = popupView.findViewById(R.id.deleteMessage);
@@ -337,7 +337,7 @@ public class TransactionsFragment extends Fragment {
         });
 
         confirmBtn.setOnClickListener(v -> {
-            Log.i(TAG, "Delete dialog: Confirm clicked. Deleting transaction ID: " + t.getId());
+            Log.i(TAG, "Delete dialog: Confirm clicked. Deleting transaction ID: " + t.getLocalId());
             dialog.dismiss();
 
             // 1. Initiate the delete operation
@@ -363,7 +363,7 @@ public class TransactionsFragment extends Fragment {
     // 🔹 Popup for Add/Edit Transaction
     private void showAddTransactionDialog(Transaction transactionToEdit) {
         if (transactionToEdit != null) {
-            Log.i(TAG, "showAddTransactionDialog: Editing existing transaction ID: " + transactionToEdit.getId());
+            Log.i(TAG, "showAddTransactionDialog: Editing existing transaction ID: " + transactionToEdit.getLocalId());
         } else {
             Log.i(TAG, "showAddTransactionDialog: Adding new transaction.");
         }
@@ -627,7 +627,7 @@ public class TransactionsFragment extends Fragment {
                     viewModel.updateTransaction(transactionToEdit);
                     // ⚠️ UPDATED: Removed "Information: " prefix
                     showCustomToast("Transaction updated successfully!");
-                    Log.i(TAG, "Edit transaction: Update initiated for ID: " + transactionToEdit.getId());
+                    Log.i(TAG, "Edit transaction: Update initiated for ID: " + transactionToEdit.getLocalId());
 
                     // 🏆 CRITICAL FIX: Re-apply filter after update
                     onTransactionModified();

@@ -29,16 +29,25 @@ class TransactionResponse {
     public Transaction data; // the actual transaction object
 }
 
+// Add these new wrapper class definitions at the top, along with CategoryResponse and TransactionResponse
+class BudgetResponse {
+    public String status;
+    public String message;
+    public Budget data; // the actual budget object
+}
+
 public class FinixRepository {
 
     private static final String TAG = "FinixRepository_LOG";
-    private static final String BASE_URL = "http://10.219.24.245:8080/ords/";
+    private static final String BASE_URL = "http://192.168.8.182:8080/ords/";
 
     private final CategoryDAO categoryDAO;
     private final TransactionDAO transactionDAO; // NEW
+    private final BudgetDAO budgetDAO; // NEW
     private final SynchronizationLogDAO syncLogDAO;
     private final CategoryService categoryService;
     private final TransactionService transactionService; // NEW
+    private final BudgetService budgetService; // NEW
     private final ExecutorService executorService;
     private final Gson gson;
 
@@ -54,6 +63,7 @@ public class FinixRepository {
         FinixDatabase db = FinixDatabase.getDatabase(context);
         categoryDAO = db.categoryDao();
         transactionDAO = db.transactionDao(); // NEW
+        budgetDAO = db.budgetDao(); // NEW
         syncLogDAO = db.synchronizationLogDao();
         Log.d(TAG, "Database and DAOs initialized.");
 
@@ -69,6 +79,7 @@ public class FinixRepository {
                 .build();
         categoryService = retrofit.create(CategoryService.class);
         transactionService = retrofit.create(TransactionService.class); // NEW
+        budgetService = retrofit.create(BudgetService.class); // NEW
         Log.d(TAG, "Retrofit initialized with BASE_URL: " + BASE_URL);
 
         syncStatusLive.setValue(SynchronizationState.IDLE);
@@ -108,12 +119,18 @@ public class FinixRepository {
 
     /**
      * Public entry point to start the full synchronization process.
-     * This will execute categories, followed by transactions, sequentially.
+     * This will execute categories, followed by transactions, and finally budgets, sequentially.
      */
     public void synchronizeAllData() {
         Log.i(TAG, "--- Starting synchronizeAllData() - Categories first ---");
         synchronizeCategories();
     }
+
+
+
+
+
+
 
     /**
      * Synchronize all categories logs.
@@ -413,9 +430,13 @@ public class FinixRepository {
 
 
 
+
+
+
+
     /**
      * Synchronize all transaction logs
-     * This is the final step in the chained sync process.
+     * This step now chains to synchronizeBudgets() upon successful completion.
      */
     public void synchronizeTransactions() {
         // We already posted SynchronizationState.CHECKING in synchronizeCategories(), so we don't repeat it.
@@ -428,25 +449,23 @@ public class FinixRepository {
                 // Filter only transaction logs for processing
                 List<SynchronizationLog> transactionLogs = new java.util.ArrayList<>();
                 List<SynchronizationLog> categoryLogs = new java.util.ArrayList<>();
+                // 🆕 Filter out budget logs as well
+                List<SynchronizationLog> budgetLogs = new java.util.ArrayList<>();
+
                 for (SynchronizationLog log : logsToSync) {
                     if ("transactions".equals(log.getTableName())) {
                         transactionLogs.add(log);
                     } else if ("categories".equals(log.getTableName())) {
                         categoryLogs.add(log);
+                    } else if ("budgets".equals(log.getTableName())) { // 🆕
+                        budgetLogs.add(log);
                     }
                 }
 
-                // If the transaction list is empty, we must check if categories already finished with NO_CHANGES.
-                // (If the whole logsToSync was empty, this was handled in synchronizeCategories)
                 if (transactionLogs.isEmpty()) {
-                    // If the only remaining logs are synced categories, we can post NO_CHANGES,
-                    // otherwise we assume category sync took care of status.
-                    if(categoryLogs.isEmpty() || categoryLogs.stream().allMatch(log -> log.getStatus().startsWith("SYNCED"))) {
-                        syncStatusLive.postValue(SynchronizationState.NO_CHANGES);
-                    } else {
-                        syncStatusLive.postValue(SynchronizationState.SUCCESS); // Categories finished successfully
-                    }
-                    Log.i(TAG, "No pending transaction logs. Sync complete.");
+                    // If no transaction logs, proceed to check budgets
+                    Log.i(TAG, "No pending transaction logs. Proceeding to budgets...");
+                    synchronizeBudgets(); // <-- CHAIN NEXT STEP
                     return;
                 }
 
@@ -462,7 +481,6 @@ public class FinixRepository {
                 syncStatusLive.postValue(SynchronizationState.PROCESSING);
 
                 for (SynchronizationLog log : transactionLogs) {
-                    // The log is already filtered
                     boolean result = handleTransactionSync(log);
                     if (!result) {
                         syncStatusLive.postValue(SynchronizationState.ERROR);
@@ -470,8 +488,9 @@ public class FinixRepository {
                     }
                 }
 
-                // Post overall SUCCESS once transactions are complete
-                syncStatusLive.postValue(SynchronizationState.SUCCESS);
+                // 🆕 CRITICAL CHANGE: Chain to the next step (Budgets)
+                Log.i(TAG, "Transaction sync completed successfully. Starting budget sync...");
+                synchronizeBudgets();
 
             } catch (Exception e) {
                 Log.e(TAG, "FATAL: Error during transaction sync.", e);
@@ -657,6 +676,264 @@ public class FinixRepository {
             log.setMessage("DELETE FAILED for Transaction ID " + serverRecordId + ". Network error: " + e.getMessage());
             syncLogDAO.update(log);
             Log.e(TAG, "Network error deleting transaction", e);
+            return false;
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    /**
+     * Synchronize all budget logs.
+     * This is the final step in the chained sync process before posting success/no_changes.
+     */
+    public void synchronizeBudgets() {
+        Log.i(TAG, "--- Starting synchronizeBudgets() ---");
+
+        executorService.execute(() -> {
+            try {
+                List<SynchronizationLog> logsToSync = syncLogDAO.getAllLogs();
+
+                // Filter only budget logs for processing
+                List<SynchronizationLog> budgetLogs = new java.util.ArrayList<>();
+                for (SynchronizationLog log : logsToSync) {
+                    if ("budgets".equals(log.getTableName())) {
+                        budgetLogs.add(log);
+                    }
+                }
+
+                if (budgetLogs.isEmpty()) {
+                    // If no budget logs, check if there are other pending logs.
+                    // If only SYNCED logs remain, post NO_CHANGES.
+                    if (logsToSync.stream().allMatch(log -> log.getStatus().startsWith("SYNCED"))) {
+                        syncStatusLive.postValue(SynchronizationState.NO_CHANGES);
+                    } else {
+                        syncStatusLive.postValue(SynchronizationState.SUCCESS);
+                    }
+                    Log.i(TAG, "No pending budget logs. Sync complete (SUCCESS/NO_CHANGES posted).");
+                    return;
+                }
+
+                // ✅ Sort budget logs by local_id
+                budgetLogs.sort((l1, l2) -> {
+                    Budget b1 = budgetDAO.getBudgetById(l1.getRecordId());
+                    Budget b2 = budgetDAO.getBudgetById(l2.getRecordId());
+                    int id1 = b1 != null ? b1.getLocalId() : Integer.MAX_VALUE;
+                    int id2 = b2 != null ? b2.getLocalId() : Integer.MAX_VALUE;
+                    return Integer.compare(id1, id2);
+                });
+
+                syncStatusLive.postValue(SynchronizationState.PROCESSING);
+
+                for (SynchronizationLog log : budgetLogs) {
+                    boolean result = handleBudgetSync(log);
+                    if (!result) {
+                        syncStatusLive.postValue(SynchronizationState.ERROR);
+                        return;
+                    }
+                }
+
+                // Post overall SUCCESS once budgets are complete
+                syncStatusLive.postValue(SynchronizationState.SUCCESS);
+
+            } catch (Exception e) {
+                Log.e(TAG, "FATAL: Error during budget sync.", e);
+                syncStatusLive.postValue(SynchronizationState.ERROR);
+            }
+        });
+    }
+
+    /**
+     * Handles all budget synchronization logic
+     */
+    private boolean handleBudgetSync(SynchronizationLog log) {
+        try {
+            int localRecordId = log.getRecordId();
+            Budget budget = budgetDAO.getBudgetById(localRecordId);
+
+            String budgetInfo = budget != null
+                    ? "Budget (Amount: " + budget.getBudgetedAmount() + ", Cat ID: " + budget.getCategoryId() + ")"
+                    : "Unknown Budget (ID: " + localRecordId + ")";
+
+            switch (log.getStatus()) {
+                case "PENDING":
+                    if (budget != null)
+                        return addBudgetToServer(budget, log, budgetInfo);
+
+                    // Budget deleted locally before sync
+                    log.setStatus("SYNCED - STALE");
+                    log.setMessage("Budget not found locally (ID: " + localRecordId + "). Log cleared.");
+                    syncLogDAO.update(log);
+                    return true;
+
+                case "UPDATED":
+                    if (budget != null && budget.getId() != 0)
+                        return updateBudgetOnServer(budget, log, budgetInfo);
+
+                    // Update skipped due to missing server ID
+                    log.setStatus("SYNCED - STALE");
+                    log.setMessage("Update skipped: Budget missing server ID (local ID: " + localRecordId + ").");
+                    syncLogDAO.update(log);
+                    return true;
+
+                case "DELETED":
+                    return deleteBudgetFromServer(log, budgetInfo);
+
+                default:
+                    log.setStatus("SYNCED - STALE");
+                    log.setMessage("Unknown status '" + log.getStatus() + "'. Log cleared.");
+                    syncLogDAO.update(log);
+                    return true;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error in handleBudgetSync for log ID: " + log.getId(), e);
+            log.setStatus("ERROR");
+            log.setMessage("Internal error processing sync for budget: " + e.getMessage());
+            syncLogDAO.update(log);
+            return false;
+        }
+    }
+
+    /**
+     * Add a budget to the server (PENDING status).
+     */
+    private boolean addBudgetToServer(Budget localBudget, SynchronizationLog log, String budgetInfo) {
+        Log.i(TAG, "-> addBudgetToServer. Local JSON: " + gson.toJson(localBudget));
+
+        try {
+            Call<ResponseBody> call = budgetService.createBudget(localBudget);
+            Response<ResponseBody> response = call.execute();
+
+            if (!response.isSuccessful()) {
+                String errorBody = response.errorBody() != null ? response.errorBody().string() : "No error body";
+                Log.e(TAG, "Server error adding budget. Code: " + response.code() + " | Error: " + errorBody);
+
+                log.setStatus("ERROR - SERVER");
+                log.setMessage("ADD FAILED for " + budgetInfo + ". Code: " + response.code());
+                syncLogDAO.update(log);
+                return false;
+            }
+
+            String rawJsonBody = response.body() != null ? response.body().string() : "";
+            Log.i(TAG, "SUCCESSFUL RESPONSE BODY (RAW): " + rawJsonBody);
+
+            BudgetResponse budgetResponse = gson.fromJson(rawJsonBody, BudgetResponse.class);
+
+            if (budgetResponse == null || budgetResponse.data == null) {
+                log.setStatus("ERROR - DATA");
+                log.setMessage("ADD FAILED for " + budgetInfo + ". Invalid JSON/data.");
+                syncLogDAO.update(log);
+                return false;
+            }
+
+            Budget serverBudget = budgetResponse.data;
+
+            // ⚡ Update local budget with server ID only
+            localBudget.setId(serverBudget.getId());
+            budgetDAO.update(localBudget);
+
+            log.setStatus("SYNCED - ADDED");
+            log.setMessage(budgetInfo + " added successfully. Server ID: " + serverBudget.getId());
+            log.setRecordId(serverBudget.getId());
+            syncLogDAO.update(log);
+
+            Log.i(TAG, "Budget synced. Server ID: " + serverBudget.getId() +
+                    ", local_id remains: " + localBudget.getLocalId());
+            return true;
+
+        } catch (Exception e) {
+            Log.e(TAG, "Network error adding budget.", e);
+            log.setStatus("ERROR - NETWORK");
+            log.setMessage("ADD FAILED for " + budgetInfo + ". Network: " + e.getMessage());
+            syncLogDAO.update(log);
+            return false;
+        }
+    }
+
+    /**
+     * Updates an existing budget on the server (UPDATED status).
+     */
+    private boolean updateBudgetOnServer(Budget localBudget, SynchronizationLog log, String budgetInfo) {
+        Log.i(TAG, "-> updateBudgetOnServer. Server ID: " + localBudget.getId() +
+                " | JSON: " + gson.toJson(localBudget));
+
+        try {
+            Call<ResponseBody> call = budgetService.updateBudget(localBudget.getId(), localBudget);
+            Response<ResponseBody> response = call.execute();
+
+            String rawJsonBody = response.body() != null ? response.body().string() : "";
+            if (!rawJsonBody.isEmpty()) Log.i(TAG, "UPDATE RESPONSE BODY (RAW): " + rawJsonBody);
+
+            if (response.isSuccessful()) {
+                log.setStatus("SYNCED - UPDATED");
+                log.setMessage(budgetInfo + " updated successfully.");
+                syncLogDAO.update(log);
+                return true;
+            } else {
+                String errorBody = response.errorBody() != null ? response.errorBody().string() : "No error body";
+                Log.e(TAG, "Server error updating budget. Code: " + response.code() + " | Error: " + errorBody);
+
+                log.setStatus("ERROR - SERVER");
+                log.setMessage("UPDATE FAILED for " + budgetInfo + ". Code: " + response.code());
+                syncLogDAO.update(log);
+                return false;
+            }
+
+        } catch (Exception e) {
+            Log.e(TAG, "Network error updating budget.", e);
+            log.setStatus("ERROR - NETWORK");
+            log.setMessage("UPDATE FAILED for " + budgetInfo + ". Network: " + e.getMessage());
+            syncLogDAO.update(log);
+            return false;
+        }
+    }
+
+    /**
+     * Deletes a budget from the server (DELETED status).
+     */
+    private boolean deleteBudgetFromServer(SynchronizationLog log, String budgetInfo) {
+        int serverRecordId = log.getRecordId();
+        Log.i(TAG, "-> deleteBudgetFromServer. Deleting record ID: " + serverRecordId);
+
+        try {
+            Call<ResponseBody> call = budgetService.deleteBudget(serverRecordId);
+            Response<ResponseBody> response = call.execute();
+
+            String rawJsonBody = response.body() != null ? response.body().string() : "";
+            if (!rawJsonBody.isEmpty()) Log.i(TAG, "DELETE RESPONSE BODY (RAW): " + rawJsonBody);
+
+            if (response.isSuccessful() || response.code() == 404) {
+                log.setStatus("SYNCED - DELETED");
+                log.setMessage("Budget deleted successfully (or already gone). ID: " + serverRecordId);
+                syncLogDAO.update(log);
+                Log.i(TAG, "Budget deleted successfully.");
+                return true;
+            } else {
+                String errorBody = response.errorBody() != null ? response.errorBody().string() : "No error body";
+                log.setStatus("ERROR - SERVER");
+                log.setMessage("DELETE FAILED for Budget ID " + serverRecordId + ". Code: " + response.code() + ". " + errorBody);
+                syncLogDAO.update(log);
+                return false;
+            }
+        } catch (Exception e) {
+            log.setStatus("ERROR - NETWORK");
+            log.setMessage("DELETE FAILED for Budget ID " + serverRecordId + ". Network error: " + e.getMessage());
+            syncLogDAO.update(log);
+            Log.e(TAG, "Network error deleting budget", e);
             return false;
         }
     }

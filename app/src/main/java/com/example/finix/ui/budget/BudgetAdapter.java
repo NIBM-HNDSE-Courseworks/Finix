@@ -10,6 +10,7 @@ import android.widget.ImageButton;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.DiffUtil; // 💡 NEW IMPORT
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.core.content.ContextCompat;
 
@@ -47,11 +48,29 @@ public class BudgetAdapter extends RecyclerView.Adapter<BudgetAdapter.BudgetView
         this.listener = listener;
     }
 
+    /**
+     * 💡 FIX: Use DiffUtil for smooth updates instead of notifyDataSetChanged().
+     */
     public void setData(List<Budget> budgets, List<Transaction> transactions, List<Category> categories) {
-        this.budgetList = budgets;
-        this.transactionList = transactions;
-        this.categoryList = categories;
-        notifyDataSetChanged();
+        if (this.budgetList == null) {
+            // Case 1: Initial load
+            this.budgetList = budgets;
+            this.transactionList = transactions;
+            this.categoryList = categories;
+            notifyDataSetChanged();
+        } else {
+            // Case 2: Update/Filter - Use DiffUtil for smooth animation
+            BudgetDiffCallback diffCallback = new BudgetDiffCallback(this.budgetList, budgets);
+            DiffUtil.DiffResult diffResult = DiffUtil.calculateDiff(diffCallback);
+
+            // Update internal list references
+            this.budgetList = budgets;
+            this.transactionList = transactions;
+            this.categoryList = categories;
+
+            // Dispatch the minimal updates, enabling smooth animations (insert/remove/move)
+            diffResult.dispatchUpdatesTo(this);
+        }
     }
 
     @NonNull
@@ -69,7 +88,7 @@ public class BudgetAdapter extends RecyclerView.Adapter<BudgetAdapter.BudgetView
         String categoryName = "Unknown";
         if (categoryList != null) {
             for (Category c : categoryList) {
-                if (c.getId() == budget.getCategoryId()) {
+                if (c.getLocalId() == budget.getCategoryId()) {
                     categoryName = c.getName();
                     break;
                 }
@@ -168,6 +187,46 @@ public class BudgetAdapter extends RecyclerView.Adapter<BudgetAdapter.BudgetView
             tvProgressPercentage = itemView.findViewById(R.id.tvProgressPercentage);
             btnEdit = itemView.findViewById(R.id.btnEdit);
             btnDelete = itemView.findViewById(R.id.btnDelete);
+        }
+    }
+
+    // 💡 NEW: DiffUtil Implementation for smooth animations
+    private static class BudgetDiffCallback extends DiffUtil.Callback {
+        private final List<Budget> oldList;
+        private final List<Budget> newList;
+
+        public BudgetDiffCallback(List<Budget> oldList, List<Budget> newList) {
+            this.oldList = oldList;
+            this.newList = newList;
+        }
+
+        @Override
+        public int getOldListSize() {
+            return oldList.size();
+        }
+
+        @Override
+        public int getNewListSize() {
+            return newList.size();
+        }
+
+        @Override
+        public boolean areItemsTheSame(int oldItemPosition, int newItemPosition) {
+            // Check if items represent the same budget (using localId)
+            return oldList.get(oldItemPosition).getLocalId() == newList.get(newItemPosition).getLocalId();
+        }
+
+        @Override
+        public boolean areContentsTheSame(int oldItemPosition, int newItemPosition) {
+            // Check if the contents of the same budget item have changed
+            Budget oldBudget = oldList.get(oldItemPosition);
+            Budget newBudget = newList.get(newItemPosition);
+
+            // Compare fields that affect the display and are part of the Budget object
+            return oldBudget.getBudgetedAmount() == newBudget.getBudgetedAmount() &&
+                    oldBudget.getStartDate() == newBudget.getStartDate() &&
+                    oldBudget.getEndDate() == newBudget.getEndDate() &&
+                    oldBudget.getCategoryId() == newBudget.getCategoryId();
         }
     }
 }

@@ -180,7 +180,7 @@ public class BudgetFragment extends Fragment {
         final double originalAmount = isEditing ? budgetToEdit.getBudgetedAmount() : 0.0;
         // Category ID requires an async lookup, so we use a holder
         final int[] originalCategoryId = {isEditing ? budgetToEdit.getCategoryId() : 0};
-        final int originalBudgetId = isEditing ? budgetToEdit.getId() : 0; // Needed for exclusion check in Edit Mode
+        final int originalBudgetId = isEditing ? budgetToEdit.getLocalId() : 0; // Needed for exclusion check in Edit Mode
 
         // --- UI Setup for Edit Mode ---
         if (isEditing) {
@@ -251,11 +251,11 @@ public class BudgetFragment extends Fragment {
             new Thread(() -> {
                 List<Category> categories = FinixDatabase.getDatabase(requireContext()).categoryDao().getAllCategories();
                 for (Category c : categories) {
-                    if (c.getId() == budgetToEdit.getCategoryId()) {
+                    if (c.getLocalId() == budgetToEdit.getCategoryId()) {
                         String catName = c.getName();
                         requireActivity().runOnUiThread(() -> etCategory.setText(catName));
                         // originalCategoryId[0] is already set, but confirm it's correct
-                        originalCategoryId[0] = c.getId();
+                        originalCategoryId[0] = c.getLocalId();
                         break;
                     }
                 }
@@ -298,7 +298,7 @@ public class BudgetFragment extends Fragment {
                     if (isEditing) {
                         Category savedCat = categoryDao.getCategoryById((int)newRowId);
                         if (savedCat != null) {
-                            originalCategoryId[0] = savedCat.getId();
+                            originalCategoryId[0] = savedCat.getLocalId();
                         }
                     }
 
@@ -383,9 +383,9 @@ public class BudgetFragment extends Fragment {
 
                         // Fetch latest category
                         List<Category> updated = categoryDao.getAllCategories();
-                        categoryId = updated.get(updated.size() - 1).getId();
+                        categoryId = updated.get(updated.size() - 1).getLocalId();
                     } else {
-                        categoryId = matchingCategory.getId();
+                        categoryId = matchingCategory.getLocalId();
                     }
 
                     // --- NEW VALIDATION: Check for existing budget in the same month/category ---
@@ -398,7 +398,7 @@ public class BudgetFragment extends Fragment {
 
                     for (Budget existingBudget : existingBudgets) {
                         // Skip the current budget being edited to allow changes to itself
-                        if (isEditing && existingBudget.getId() == originalBudgetId) {
+                        if (isEditing && existingBudget.getLocalId() == originalBudgetId) {
                             continue;
                         }
 
@@ -436,30 +436,38 @@ public class BudgetFragment extends Fragment {
                         }
                     }
 
-                    // --- Proceed with Save/Update ---
-                    String successMessage;
+                    // 🔑 FIX: Initialize successMessage here so it's effectively final for the lambda
+                    final String successMessage;
+                    if (isEditing) {
+                        successMessage = "Budget Updated Successfully";
+                    } else {
+                        successMessage = "Budget Added Successfully";
+                    }
 
+                    // --- Setup OnComplete Callback (The Fix) ---
+                    Runnable onComplete = () -> {
+                        requireActivity().runOnUiThread(() -> {
+                            loadBudgets(); // <-- This runs ONLY after the DB operation finishes
+                            dialog.dismiss();
+                            showCustomToast(successMessage); // successMessage is now guaranteed to be initialized
+                        });
+                    };
+                    // ------------------------------------------
+
+                    // --- Proceed with Save/Update ---
                     if (isEditing) { // <-- Edit mode
                         budgetToEdit.setCategoryId(categoryId);
                         budgetToEdit.setBudgetedAmount(amount);
                         budgetToEdit.setStartDate(startDateMillis);
                         budgetToEdit.setEndDate(endDateMillis);
-                        budgetViewModel.update(budgetToEdit);
-                        successMessage = "Budget Updated Successfully";
+                        // 🔑 Pass the callback to the ViewModel
+                        budgetViewModel.update(budgetToEdit, onComplete);
                     } else {
-                        successMessage = "Budget Added Successfully"; // Add mode
                         Budget newBudget = new Budget(categoryId, amount, startDateMillis, endDateMillis);
-                        budgetViewModel.insert(newBudget);
+                        // 🔑 Pass the callback to the ViewModel
+                        budgetViewModel.insert(newBudget, onComplete);
                     }
 
-                    // *** REFRESH LOGIC: This ensures loadBudgets() is called only AFTER the DB operation is complete. ***
-                    requireActivity().runOnUiThread(() -> {
-                        // loadBudgets() will start a new background thread to fetch the updated list
-                        loadBudgets();
-                        dialog.dismiss();
-                        showCustomToast(successMessage);
-                    });
-                    // *** END REFRESH LOGIC ***
 
                 } catch (Exception e) {
                     requireActivity().runOnUiThread(() ->
@@ -558,6 +566,7 @@ public class BudgetFragment extends Fragment {
     }
 
     // Inside BudgetFragment.java
+    // Inside BudgetFragment.java
     private void showDeleteConfirmationDialog(Budget budgetToDelete) {
         // ... (All the dialog setup before fetching the category name)
 
@@ -596,7 +605,7 @@ public class BudgetFragment extends Fragment {
                     window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
 
                     // Set width to 70% of screen (CHANGED from 0.8)
-                    int dialogWidth = (int)(requireActivity().getResources().getDisplayMetrics().widthPixels * 0.7);
+                    int dialogWidth = (int)(requireActivity().getResources().getDisplayMetrics().widthPixels * 0.8);
                     window.setLayout(dialogWidth, WindowManager.LayoutParams.WRAP_CONTENT);
                 }
                 // --------------------------------------------------------
@@ -604,14 +613,19 @@ public class BudgetFragment extends Fragment {
                 btnCancel.setOnClickListener(v -> dialog.dismiss());
 
                 btnConfirm.setOnClickListener(v -> {
-                    // The actual delete operation is already on a background thread later on
-                    new Thread(() -> {
-                        budgetViewModel.delete(budgetToDelete); // <-- Delete action
+                    // 🔑 Define the OnComplete callback (The Fix)
+                    Runnable onComplete = () -> {
                         requireActivity().runOnUiThread(() -> {
-                            loadBudgets();
+                            loadBudgets(); // <-- This runs ONLY after the DB operation finishes
                             dialog.dismiss();
                             showCustomToast("Budget Deleted Successfully");
                         });
+                    };
+
+                    // The actual delete operation runs on a background thread
+                    new Thread(() -> {
+                        // 🔑 Pass the callback to the ViewModel
+                        budgetViewModel.delete(budgetToDelete, onComplete);
                     }).start();
                 });
             });
@@ -625,7 +639,7 @@ public class BudgetFragment extends Fragment {
         CategoryDAO categoryDao = FinixDatabase.getDatabase(requireContext()).categoryDao();
         List<Category> categories = categoryDao.getAllCategories();
         for (Category c : categories) {
-            if (c.getId() == categoryId) {
+            if (c.getLocalId() == categoryId) {
                 return c.getName();
             }
         }
@@ -634,15 +648,35 @@ public class BudgetFragment extends Fragment {
 
 
     private void loadMonthFilter(List<Budget> budgets) {
-        List<String> months = new ArrayList<>();
-        months.add("All"); // default option
-
-        SimpleDateFormat sdf = new SimpleDateFormat("MMMM yyyy", Locale.getDefault());
+        // Find the latest budget start date to determine the default selection
+        long latestDateMillis = 0;
         for (Budget b : budgets) {
-            String month = sdf.format(new Date(b.getStartDate()));
-            if (!months.contains(month)) months.add(month);
+            if (b.getStartDate() > latestDateMillis) {
+                latestDateMillis = b.getStartDate();
+            }
         }
 
+        List<String> months = new ArrayList<>();
+        // 1. "All" remains the first option
+        months.add("All");
+
+        SimpleDateFormat sdf = new SimpleDateFormat("MMMM yyyy", Locale.getDefault());
+        String latestMonthYear = null;
+
+        // 2. Populate the list with unique months and find the latest month string
+        for (Budget b : budgets) {
+            String month = sdf.format(new Date(b.getStartDate()));
+            if (!months.contains(month)) {
+                months.add(month);
+            }
+        }
+
+        // 3. Determine the latest month string based on the latest date
+        if (latestDateMillis > 0) {
+            latestMonthYear = sdf.format(new Date(latestDateMillis));
+        }
+
+        // 4. Set the Adapter
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
                 requireContext(),
                 android.R.layout.simple_spinner_item,
@@ -651,9 +685,24 @@ public class BudgetFragment extends Fragment {
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         binding.spinnerMonthFilter.setAdapter(adapter);
 
+        // 5. Set the default selection to the latest month
+        int defaultSelectionIndex = 0; // Default to "All" if no budgets or calculation fails
+        if (latestMonthYear != null) {
+            int latestMonthIndex = months.indexOf(latestMonthYear);
+            if (latestMonthIndex != -1) {
+                defaultSelectionIndex = latestMonthIndex;
+            }
+        }
+
+        // Set the selection and trigger the filtering for the default month
+        binding.spinnerMonthFilter.setSelection(defaultSelectionIndex);
+
+        // 6. Set the Listener (This logic remains the same, but it will be triggered
+        // by setSelection(defaultSelectionIndex) if it's called after the spinner is visible)
         binding.spinnerMonthFilter.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                // filterBudgetsByMonth will be called with the latest month when the fragment loads
                 filterBudgetsByMonth(months.get(position));
             }
 

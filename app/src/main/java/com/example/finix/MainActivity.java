@@ -452,6 +452,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void showAddBudgetDialog() {
+        // 💡 Assume you have access to your BudgetViewModel, e.g., via a field or helper
+        // If BudgetViewModel is not a field, you might need to instantiate it,
+        // although typically ViewModels are scoped to an Activity/Fragment.
+        // For this example, I'll assume you have a way to access it, or you can create one:
+        BudgetViewModel budgetViewModel = new BudgetViewModel(getApplication()); // Requires access to Application
+
         try {
             View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_add_budget, null);
             AlertDialog dialog = new AlertDialog.Builder(this).setView(dialogView).create();
@@ -504,7 +510,7 @@ public class MainActivity extends AppCompatActivity {
                                     // 🎯 Auto focus and show keyboard
                                     etNewCategory.requestFocus();
                                     InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-                                    imm.showSoftInput(etNewCategory, InputMethodManager.SHOW_IMPLICIT);
+                                    if (imm != null) imm.showSoftInput(etNewCategory, InputMethodManager.SHOW_IMPLICIT);
                                 } else {
                                     llAddNewCategory.setVisibility(View.GONE);
                                 }
@@ -541,7 +547,7 @@ public class MainActivity extends AppCompatActivity {
                                     System.currentTimeMillis(),
                                     "PENDING"
                             );
-                            db.synchronizationLogDao().insert(log); // ✅ correct DAO name
+                            db.synchronizationLogDao().insert(log);
 
                             // 3️⃣ Update UI
                             runOnUiThread(() -> {
@@ -549,6 +555,9 @@ public class MainActivity extends AppCompatActivity {
                                 llAddNewCategory.setVisibility(View.GONE);
                                 etCategory.setVisibility(View.VISIBLE);
                                 etCategory.setText(newCat);
+
+                                // Re-load category list in adapter (simple fix for in-dialog update)
+                                // Ideally, this would re-run the initial category loading thread.
                             });
 
                         } catch (Exception e) {
@@ -570,8 +579,8 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     String catName = etCategory.getText().toString().trim();
                     String amountText = etAmount.getText().toString().trim();
-                    if (catName.isEmpty() || amountText.isEmpty()) {
-                        showCustomToast("Fill all fields");
+                    if (catName.isEmpty() || amountText.isEmpty() || startDateMillis == 0 || endDateMillis == 0) {
+                        showCustomToast("Fill all fields, including dates");
                         return;
                     }
 
@@ -589,7 +598,8 @@ public class MainActivity extends AppCompatActivity {
                             int catId = -1;
                             for (Category c : allCats) {
                                 if (c.getName().equalsIgnoreCase(catName)) {
-                                    catId = c.getId();
+                                    // Assuming your Budget table uses the Category's localId, not server ID (`getId()`)
+                                    catId = c.getLocalId();
                                     break;
                                 }
                             }
@@ -599,12 +609,22 @@ public class MainActivity extends AppCompatActivity {
                             }
 
                             Budget budget = new Budget(catId, amount, startDateMillis, endDateMillis);
-                            new BudgetViewModel(getApplication()).insert(budget);
 
-                            runOnUiThread(() -> {
-                                dialog.dismiss();
-                                showCustomToast("Budget Added Successfully");
-                            });
+                            // 1. Define the success callback
+                            Runnable onComplete = () -> {
+                                runOnUiThread(() -> {
+                                    dialog.dismiss();
+                                    showCustomToast("Budget Added Successfully");
+                                    // 💡 If this dialog is launched from an Activity, you might need
+                                    // an interface or broadcast to tell the BudgetFragment to refresh.
+                                    // If the BudgetFragment is alive, its LiveData/onSnapshot should update automatically.
+                                });
+                            };
+
+                            // 2. Call the ViewModel's insert method with the callback
+                            budgetViewModel.insert(budget, onComplete);
+
+
                         } catch (Exception e) {
                             runOnUiThread(() -> showCustomToast("Failed to save budget: " + e.getMessage()));
                         }
