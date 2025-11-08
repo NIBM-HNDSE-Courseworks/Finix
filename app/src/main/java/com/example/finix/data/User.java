@@ -17,14 +17,14 @@ public class User {
     private int id;
 
     @ColumnInfo(name = "username")
-    private String username;
+    public String username;
 
     // This column must have a unique value across all rows, enforced by the index above
     @ColumnInfo(name = "email")
     private String email;
 
     @ColumnInfo(name = "password_hash")
-    private String passwordHash; // Storing a hash, not the plaintext password
+    public String passwordHash; // Storing a hash, not the plaintext password
 
     // Constructor
     public User(String username, String email, String passwordHash) {

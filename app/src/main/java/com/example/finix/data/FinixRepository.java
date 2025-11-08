@@ -39,7 +39,7 @@ class BudgetResponse {
 public class FinixRepository {
 
     private static final String TAG = "FinixRepository_LOG";
-    private static final String BASE_URL = "http://192.168.8.182:8080/ords/";
+    private static final String BASE_URL = "http://10.219.24.245:8080/ords/";
 
     private final CategoryDAO categoryDAO;
     private final TransactionDAO transactionDAO; // NEW

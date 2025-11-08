@@ -56,4 +56,9 @@ dependencies {
     implementation 'com.squareup.retrofit2:converter-gson:2.9.0'
     // GSON: Google's Java library for serializing/deserializing Java objects to/from JSON
     implementation 'com.google.code.gson:gson:2.10.1'
+
+
+    //BCrypt for password hashing
+    implementation 'org.mindrot:jbcrypt:0.4'
+
 }
