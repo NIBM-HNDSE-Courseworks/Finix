@@ -10,6 +10,7 @@ import androidx.lifecycle.MutableLiveData;
 import com.example.finix.data.Category;
 import com.example.finix.data.FinixDatabase;
 import com.example.finix.data.SavingsGoal;
+import com.example.finix.data.SynchronizationLog; // ✅ Ensure this is imported
 
 import java.util.HashMap;
 import java.util.List;
@@ -46,7 +47,7 @@ public class SavingsGoalsViewModel extends AndroidViewModel {
             Map<Integer, String> map = new HashMap<>();
             List<Category> all = db.categoryDao().getAllCategories();
             for (Category c : all) {
-                map.put(c.getId(), c.getName());
+                map.put(c.getLocalId(), c.getName());
             }
             categoryMapLive.postValue(map);
         });
@@ -56,33 +57,81 @@ public class SavingsGoalsViewModel extends AndroidViewModel {
         loadCategories();
     }
 
-    public void addCategory(String name) {
+
+    // --- SavingsGoals CRUD with Sync Logs ---
+
+    public void insert(SavingsGoal goal, Runnable onComplete) {
         executor.execute(() -> {
-            db.categoryDao().insert(new Category(name));
-            loadCategories();
+            long localId = db.savingsGoalDao().insert(goal);
+            logGoalSave((int) localId);
+            if (onComplete != null) onComplete.run();
         });
     }
 
-    // --- SavingsGoals CRUD ---
+    public void update(SavingsGoal goal, Runnable onComplete) {
+        executor.execute(() -> {
+            db.savingsGoalDao().update(goal);
 
-    public void insert(SavingsGoal goal) {
-        executor.execute(() -> db.savingsGoalDao().insert(goal));
+            // 🔄 Change: Using LOCAL ID for update, mirroring logTransactionUpdate
+            logGoalUpdate(goal.getLocalId());
+
+            if (onComplete != null) onComplete.run();
+        });
     }
 
-    public void update(SavingsGoal goal) {
-        executor.execute(() -> db.savingsGoalDao().update(goal));
+    // SavingsGoalsViewModel.java (Add this or fix your existing method)
+    public void delete(SavingsGoal goal, Runnable onComplete) {
+        executor.execute(() -> {
+            db.savingsGoalDao().delete(goal);
+
+            // 🛑 Change: Using SERVER ID for delete, mirroring logTransactionDelete
+            logGoalDelete(goal.getId());
+
+            if (onComplete != null) {
+                onComplete.run();
+            }
+        });
     }
 
-    public void delete(SavingsGoal goal) {
-        executor.execute(() -> db.savingsGoalDao().delete(goal));
+    // --- Synchronization Log Methods for Savings Goals ---
+    private void logGoalSave(int goalLocalId) {
+        SynchronizationLog log = new SynchronizationLog(
+                "savings_goals",
+                goalLocalId,
+                System.currentTimeMillis(),
+                "PENDING"
+        );
+        db.synchronizationLogDao().insert(log);
+    }
+
+    private void logGoalUpdate(int goalId) {
+        SynchronizationLog log = new SynchronizationLog(
+                "savings_goals",
+                goalId,
+                System.currentTimeMillis(),
+                "UPDATED"
+        );
+        // The insert is called directly on the executor thread of the update() method.
+        db.synchronizationLogDao().insert(log);
+    }
+
+    private void logGoalDelete(int goalId) {
+        SynchronizationLog log = new SynchronizationLog(
+                "savings_goals",
+                goalId,
+                System.currentTimeMillis(),
+                "DELETED"
+        );
+        db.synchronizationLogDao().insert(log);
     }
 
     public void addCategoryWithSync(String name) {
         executor.execute(() -> {
-            // 1. Insert category
-            long newId = db.categoryDao().insert(new Category(name));
+            // 1️⃣ Insert category into DB
+            Category category = new Category(name);
+            long newId = db.categoryDao().insert(category);
 
-            // 2. Add to sync log
+            // 2️⃣ Create sync log entry (PENDING state)
             db.synchronizationLogDao().insert(
                     new com.example.finix.data.SynchronizationLog(
                             "categories",
@@ -92,7 +141,7 @@ public class SavingsGoalsViewModel extends AndroidViewModel {
                     )
             );
 
-            // 3. Reload categories for LiveData
+            // 3️⃣ Reload categories for LiveData
             loadCategories();
         });
     }

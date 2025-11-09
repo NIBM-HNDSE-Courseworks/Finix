@@ -13,7 +13,7 @@ import java.util.List;
 public interface SavingsGoalDAO {
 
     @Insert
-    void insert(SavingsGoal goal);
+    long insert(SavingsGoal goal);
 
     @Update
     void update(SavingsGoal goal);
@@ -26,4 +26,8 @@ public interface SavingsGoalDAO {
 
     @Query("SELECT * FROM savings_goals ORDER BY target_date ASC")
     List<SavingsGoal> getAllGoals();
+
+    @Query("SELECT * FROM savings_goals WHERE local_id = :localId LIMIT 1")
+    SavingsGoal getSavingsGoalById(int localId);
+
 }

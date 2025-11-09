@@ -7,22 +7,28 @@ import androidx.room.Ignore;
 import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
+import com.google.gson.annotations.SerializedName;
+
 @Entity(
         tableName = "savings_goals",
-        // The index remains on the child column 'category_id'
-        indices = {@Index(value = {"category_id"})},
         foreignKeys = @ForeignKey(
                 entity = Category.class,
-                // UPDATED: Reference the 'local_id' column in the Category entity
                 parentColumns = "local_id",
                 childColumns = "category_id",
                 onDelete = ForeignKey.RESTRICT
-        )
+        ),
+        indices = {@Index(value = {"category_id"})}
 )
 public class SavingsGoal {
 
+    // --- Local unique ID for Room (auto-generated) ---
     @PrimaryKey(autoGenerate = true)
-    @ColumnInfo(name = "goal_id")
+    @ColumnInfo(name = "local_id")
+    @SerializedName("local_id")
+    private int localId;
+
+    // --- Server ID, 0 until synced ---
+    @ColumnInfo(name = "id", defaultValue = "0")
     private int id;
 
     @ColumnInfo(name = "category_id")
@@ -40,11 +46,25 @@ public class SavingsGoal {
     @ColumnInfo(name = "target_date")
     private long targetDate;
 
-    // ✅ Room requires a no-arg constructor
+    // ✅ Public no-arg constructor for Room
     public SavingsGoal() {}
 
+    // --- Constructor for new Goal (localId auto-generated) ---
     @Ignore
     public SavingsGoal(int categoryId, String goalName, String goalDescription, double targetAmount, long targetDate) {
+        this.categoryId = categoryId;
+        this.goalName = goalName;
+        this.goalDescription = goalDescription;
+        this.targetAmount = targetAmount;
+        this.targetDate = targetDate;
+        this.id = 0; // Server ID initially 0
+    }
+
+    // --- Constructor for mapping existing / server data ---
+    @Ignore
+    public SavingsGoal(int localId, int id, int categoryId, String goalName, String goalDescription, double targetAmount, long targetDate) {
+        this.localId = localId;
+        this.id = id;
         this.categoryId = categoryId;
         this.goalName = goalName;
         this.goalDescription = goalDescription;
@@ -53,6 +73,9 @@ public class SavingsGoal {
     }
 
     // --- Getters & Setters ---
+    public int getLocalId() { return localId; }
+    public void setLocalId(int localId) { this.localId = localId; }
+
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
 

@@ -55,7 +55,7 @@ public class SavingsGoalsAdapter extends ListAdapter<SavingsGoal, SavingsGoalsAd
             new DiffUtil.ItemCallback<SavingsGoal>() {
                 @Override
                 public boolean areItemsTheSame(@NonNull SavingsGoal a, @NonNull SavingsGoal b) {
-                    return a.getId() == b.getId();
+                    return a.getLocalId() == b.getLocalId();
                 }
 
                 @Override

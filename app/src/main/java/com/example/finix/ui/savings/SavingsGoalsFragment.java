@@ -36,7 +36,12 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.finix.R;
+import com.example.finix.data.Category;
+import com.example.finix.data.CategoryDAO;
+import com.example.finix.data.FinixDatabase;
 import com.example.finix.data.SavingsGoal;
+import com.example.finix.data.SynchronizationLog;
+import com.example.finix.data.SynchronizationLogDAO;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import java.text.SimpleDateFormat;
@@ -126,31 +131,24 @@ public class SavingsGoalsFragment extends Fragment {
     }
 
     // ------------------------------------------------------------
-    // ADD GOAL
-    // ------------------------------------------------------------
+// ADD GOAL
+// ------------------------------------------------------------
     private void showAddGoalDialog() {
         View popup = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_add_goal, null);
         AlertDialog dialog = new AlertDialog.Builder(requireContext()).setView(popup).create();
 
         if (dialog.getWindow() != null) {
-            // CRITICAL FIX 1: Force Full Width and Full Height
             dialog.getWindow().setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT);
-
-            // CRITICAL FIX 2: Ensure dialog resizes when keyboard appears
             dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
-
-            // CRITICAL FIX 3: Remove default AlertDialog padding/insets for true full screen
             dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         }
 
-        // Category controls
         AutoCompleteTextView actCategory = popup.findViewById(R.id.etCategory);
         LinearLayout llAddCategory = popup.findViewById(R.id.llAddNewCategory);
         EditText etNewCategory = popup.findViewById(R.id.etNewCategory);
         Button btnSaveCategory = popup.findViewById(R.id.btnSaveCategory);
         Button btnBackCategory = popup.findViewById(R.id.btnCancelCategory);
 
-        // Goal fields
         EditText etGoalName = popup.findViewById(R.id.etGoalName);
         EditText etGoalDescription = popup.findViewById(R.id.etGoalDescription);
         EditText etTargetAmount = popup.findViewById(R.id.etTargetAmount);
@@ -158,16 +156,11 @@ public class SavingsGoalsFragment extends Fragment {
         ImageButton btnPickDate = popup.findViewById(R.id.btnPickDate);
         Button btnSave = popup.findViewById(R.id.btnSaveGoal);
 
-        // Set character limits
         etNewCategory.setFilters(new InputFilter[]{new InputFilter.LengthFilter(14)});
-        // New limit for Category Name
         actCategory.setFilters(new InputFilter[]{new InputFilter.LengthFilter(14)});
-        // New limit for Goal Name
         etGoalName.setFilters(new InputFilter[]{new InputFilter.LengthFilter(14)});
-        // New limit for Target Amount
         etTargetAmount.setFilters(new InputFilter[]{new InputFilter.LengthFilter(7)});
 
-        // Category dropdown setup
         List<String> categoriesList = new ArrayList<>();
         Map<String, Integer> nameToId = new HashMap<>();
         categoriesList.add("Add New Category");
@@ -178,21 +171,16 @@ public class SavingsGoalsFragment extends Fragment {
                 nameToId.put(e.getValue(), e.getKey());
             }
         }
-        ArrayAdapter<String> ddAdapter = new ArrayAdapter<>(
-                requireContext(), android.R.layout.simple_dropdown_item_1line, categoriesList);
+        ArrayAdapter<String> ddAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, categoriesList);
         actCategory.setAdapter(ddAdapter);
         actCategory.setThreshold(0);
-        actCategory.setOnFocusChangeListener((v, hasFocus) -> {
-            if (hasFocus) { refreshCategories(ddAdapter, categoriesList, nameToId, actCategory); actCategory.showDropDown(); }
-        });
+        actCategory.setOnFocusChangeListener((v, hasFocus) -> { if (hasFocus) { refreshCategories(ddAdapter, categoriesList, nameToId, actCategory); actCategory.showDropDown(); } });
         actCategory.setOnClickListener(v -> { refreshCategories(ddAdapter, categoriesList, nameToId, actCategory); actCategory.showDropDown(); });
         actCategory.setOnItemClickListener((parent, v, pos, id) -> {
             String selected = ddAdapter.getItem(pos);
             if ("Add New Category".equals(selected)) {
                 llAddCategory.setVisibility(View.VISIBLE);
                 actCategory.setVisibility(View.GONE);
-
-                // ✅ Auto-focus & show keyboard
                 etNewCategory.requestFocus();
                 InputMethodManager imm = (InputMethodManager) requireContext().getSystemService(Context.INPUT_METHOD_SERVICE);
                 if (imm != null) imm.showSoftInput(etNewCategory, InputMethodManager.SHOW_IMPLICIT);
@@ -201,27 +189,18 @@ public class SavingsGoalsFragment extends Fragment {
 
         btnSaveCategory.setOnClickListener(v -> {
             String newCat = etNewCategory.getText().toString().trim();
-            if (newCat.isEmpty()) {
-                // 📝 Changed to showCustomToast and removed prefix
-                showCustomToast("Category cannot be empty");
-                return;
-            }
+            if (newCat.isEmpty()) { showCustomToast("Category cannot be empty"); return; }
+            // 1️⃣ Insert category and log sync entry via ViewModel
             viewModel.addCategoryWithSync(newCat);
-            // 📝 Changed to showCustomToast and removed prefix
             showCustomToast("New category added!");
             onCategoryAdded(newCat, ddAdapter, categoriesList, nameToId, actCategory, llAddCategory, etNewCategory);
         });
-        btnBackCategory.setOnClickListener(v -> {
-            llAddCategory.setVisibility(View.GONE);
-            actCategory.setVisibility(View.VISIBLE);
-        });
+        btnBackCategory.setOnClickListener(v -> { llAddCategory.setVisibility(View.GONE); actCategory.setVisibility(View.VISIBLE); });
 
-        // Date picker
         View.OnClickListener pickDate = v -> showDatePicker(date -> etTargetDate.setText(date));
         etTargetDate.setOnClickListener(pickDate);
         btnPickDate.setOnClickListener(pickDate);
 
-        // Save goal
         btnSave.setOnClickListener(v -> {
             String catName = actCategory.getText().toString().trim();
             String goalName = etGoalName.getText().toString().trim();
@@ -229,36 +208,18 @@ public class SavingsGoalsFragment extends Fragment {
             String amountStr = etTargetAmount.getText().toString().trim();
             String dateStr = etTargetDate.getText().toString().trim();
 
-            if (catName.isEmpty() || goalName.isEmpty() || amountStr.isEmpty() || dateStr.isEmpty()) {
-                // 📝 Changed to showCustomToast and removed prefix
-                showCustomToast("Please fill all fields");
-                return;
-            }
-            if (!nameToId.containsKey(catName)) {
-                // 📝 Changed to showCustomToast and removed prefix
-                showCustomToast("Invalid category!");
-                return;
-            }
+            if (catName.isEmpty() || goalName.isEmpty() || amountStr.isEmpty() || dateStr.isEmpty()) { showCustomToast("Please fill all fields"); return; }
+            if (!nameToId.containsKey(catName)) { showCustomToast("Invalid category!"); return; }
 
             int categoryId = nameToId.get(catName);
             double targetAmount;
-            try { targetAmount = Double.parseDouble(amountStr); }
-            catch (NumberFormatException e) {
-                // 📝 Changed to showCustomToast and removed prefix
-                showCustomToast("Invalid amount");
-                return;
-            }
+            try { targetAmount = Double.parseDouble(amountStr); } catch (NumberFormatException e) { showCustomToast("Invalid amount"); return; }
 
             long targetDateMillis = parseDateToMillis(dateStr);
-            if (targetDateMillis == -1) {
-                // 📝 Changed to showCustomToast and removed prefix
-                showCustomToast("Invalid date");
-                return;
-            }
+            if (targetDateMillis == -1) { showCustomToast("Invalid date"); return; }
 
             SavingsGoal goal = new SavingsGoal(categoryId, goalName, desc, targetAmount, targetDateMillis);
-            viewModel.insert(goal);
-            // 📝 Changed to showCustomToast and removed prefix
+            viewModel.insert(goal, null);
             showCustomToast("Goal saved!");
             dialog.dismiss();
         });
@@ -274,21 +235,13 @@ public class SavingsGoalsFragment extends Fragment {
         AlertDialog dialog = new AlertDialog.Builder(requireContext()).setView(popup).create();
 
         if (dialog.getWindow() != null) {
-            // CRITICAL FIX 1: Force Full Width and Full Height
             dialog.getWindow().setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT);
-
-            // CRITICAL FIX 2: Ensure dialog resizes when keyboard appears
             dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
-
-            // CRITICAL FIX 3: Remove default AlertDialog padding/insets for true full screen
             dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         }
 
-        // Find the title TextView and set the text
         TextView tvTitle = popup.findViewById(R.id.popupTitle);
-        if (tvTitle != null) {
-            tvTitle.setText("Edit Goal");
-        }
+        if (tvTitle != null) tvTitle.setText("Edit Goal");
 
         AutoCompleteTextView actCategory = popup.findViewById(R.id.etCategory);
         LinearLayout llAddCategory = popup.findViewById(R.id.llAddNewCategory);
@@ -303,19 +256,16 @@ public class SavingsGoalsFragment extends Fragment {
         ImageButton btnPickDate = popup.findViewById(R.id.btnPickDate);
         Button btnSave = popup.findViewById(R.id.btnSaveGoal);
 
-        // Set character limits
         etNewCategory.setFilters(new InputFilter[]{new InputFilter.LengthFilter(14)});
         actCategory.setFilters(new InputFilter[]{new InputFilter.LengthFilter(14)});
         etGoalName.setFilters(new InputFilter[]{new InputFilter.LengthFilter(14)});
         etTargetAmount.setFilters(new InputFilter[]{new InputFilter.LengthFilter(7)});
 
-        // Prefill
         etGoalName.setText(existing.getGoalName());
         etGoalDescription.setText(existing.getGoalDescription());
         etTargetAmount.setText(String.valueOf(existing.getTargetAmount()));
         etTargetDate.setText(new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(new Date(existing.getTargetDate())));
 
-        // Category dropdown
         List<String> categoriesList = new ArrayList<>();
         Map<String, Integer> nameToId = new HashMap<>();
         categoriesList.add("Add New Category");
@@ -326,25 +276,19 @@ public class SavingsGoalsFragment extends Fragment {
                 nameToId.put(e.getValue(), e.getKey());
             }
         }
-        ArrayAdapter<String> ddAdapter = new ArrayAdapter<>(
-                requireContext(), android.R.layout.simple_dropdown_item_1line, categoriesList);
+        ArrayAdapter<String> ddAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, categoriesList);
         actCategory.setAdapter(ddAdapter);
         actCategory.setThreshold(0);
 
-        // set current category name
-        actCategory.setText(categoryMap.getOrDefault(existing.getCategoryId(), ""), false);
+        actCategory.setText(viewModel.getCategoryMapLive().getValue().getOrDefault(existing.getCategoryId(), ""), false);
 
-        actCategory.setOnFocusChangeListener((v, hasFocus) -> {
-            if (hasFocus) { refreshCategories(ddAdapter, categoriesList, nameToId, actCategory); actCategory.showDropDown(); }
-        });
+        actCategory.setOnFocusChangeListener((v, hasFocus) -> { if (hasFocus) { refreshCategories(ddAdapter, categoriesList, nameToId, actCategory); actCategory.showDropDown(); } });
         actCategory.setOnClickListener(v -> { refreshCategories(ddAdapter, categoriesList, nameToId, actCategory); actCategory.showDropDown(); });
         actCategory.setOnItemClickListener((parent, v, pos, id) -> {
             String selected = ddAdapter.getItem(pos);
             if ("Add New Category".equals(selected)) {
                 llAddCategory.setVisibility(View.VISIBLE);
                 actCategory.setVisibility(View.GONE);
-
-                // ✅ Auto-focus & show keyboard
                 etNewCategory.requestFocus();
                 InputMethodManager imm = (InputMethodManager) requireContext().getSystemService(Context.INPUT_METHOD_SERVICE);
                 if (imm != null) imm.showSoftInput(etNewCategory, InputMethodManager.SHOW_IMPLICIT);
@@ -353,22 +297,14 @@ public class SavingsGoalsFragment extends Fragment {
 
         btnSaveCategory.setOnClickListener(v -> {
             String newCat = etNewCategory.getText().toString().trim();
-            if (newCat.isEmpty()) {
-                // 📝 Changed to showCustomToast and removed prefix
-                showCustomToast("Category cannot be empty");
-                return;
-            }
+            if (newCat.isEmpty()) { showCustomToast("Category cannot be empty"); return; }
+            // 1️⃣ Insert category and log sync entry via ViewModel
             viewModel.addCategoryWithSync(newCat);
-            // 📝 Changed to showCustomToast and removed prefix
             showCustomToast("New category added!");
             onCategoryAdded(newCat, ddAdapter, categoriesList, nameToId, actCategory, llAddCategory, etNewCategory);
         });
-        btnBackCategory.setOnClickListener(v -> {
-            llAddCategory.setVisibility(View.GONE);
-            actCategory.setVisibility(View.VISIBLE);
-        });
+        btnBackCategory.setOnClickListener(v -> { llAddCategory.setVisibility(View.GONE); actCategory.setVisibility(View.VISIBLE); });
 
-        // Date picker
         View.OnClickListener pickDate = v -> showDatePicker(date -> etTargetDate.setText(date));
         etTargetDate.setOnClickListener(pickDate);
         btnPickDate.setOnClickListener(pickDate);
@@ -381,60 +317,44 @@ public class SavingsGoalsFragment extends Fragment {
             String amountStr = etTargetAmount.getText().toString().trim();
             String dateStr = etTargetDate.getText().toString().trim();
 
-            if (catName.isEmpty() || goalName.isEmpty() || amountStr.isEmpty() || dateStr.isEmpty()) {
-                // 📝 Changed to showCustomToast and removed prefix
-                showCustomToast("Please fill all fields");
-                return;
-            }
-            if (!nameToId.containsKey(catName)) {
-                // 📝 Changed to showCustomToast and removed prefix
-                showCustomToast("Invalid category!");
-                return;
-            }
+            if (catName.isEmpty() || goalName.isEmpty() || amountStr.isEmpty() || dateStr.isEmpty()) { showCustomToast("Please fill all fields"); return; }
+            if (!nameToId.containsKey(catName)) { showCustomToast("Invalid category!"); return; }
 
             int categoryId = nameToId.get(catName);
             double targetAmount;
-            try { targetAmount = Double.parseDouble(amountStr); }
-            catch (NumberFormatException e) {
-                // 📝 Changed to showCustomToast and removed prefix
-                showCustomToast("Invalid amount");
-                return;
-            }
+            try { targetAmount = Double.parseDouble(amountStr); } catch (NumberFormatException e) { showCustomToast("Invalid amount"); return; }
 
             long targetDateMillis = parseDateToMillis(dateStr);
-            if (targetDateMillis == -1) {
-                // 📝 Changed to showCustomToast and removed prefix
-                showCustomToast("Invalid date");
-                return;
-            }
+            if (targetDateMillis == -1) { showCustomToast("Invalid date"); return; }
 
-            // ✅ Added validation for no changes
             boolean noChange =
                     existing.getCategoryId() == categoryId &&
                             existing.getGoalName().equals(goalName) &&
-                            ((existing.getGoalDescription() == null && desc.isEmpty()) ||
-                                    (existing.getGoalDescription() != null && existing.getGoalDescription().equals(desc))) &&
+                            ((existing.getGoalDescription() == null && desc.isEmpty()) || (existing.getGoalDescription() != null && existing.getGoalDescription().equals(desc))) &&
                             existing.getTargetAmount() == targetAmount &&
                             existing.getTargetDate() == targetDateMillis;
 
-            if (noChange) {
-                // 📝 Changed to showCustomToast and removed prefix
-                showCustomToast("No changes detected");
-                return;
-            }
+            if (noChange) { showCustomToast("No changes detected"); return; }
 
-            // Build updated goal with same primary key
-            SavingsGoal updated = new SavingsGoal(categoryId, goalName, desc, targetAmount, targetDateMillis);
-            updated.setId(existing.getId());
+            // 🟢 FIX: Update the EXISTING 'existing' object's fields directly.
+            // This preserves the crucial localId and server Id (id).
+            existing.setCategoryId(categoryId);
+            existing.setGoalName(goalName);
+            existing.setGoalDescription(desc);
+            existing.setTargetAmount(targetAmount);
+            existing.setTargetDate(targetDateMillis);
 
-            viewModel.update(updated);
-            // 📝 Changed to showCustomToast and removed prefix
+            // 🟢 Pass the modified 'existing' object to the update method.
+            viewModel.update(existing, null);
+
             showCustomToast("Goal updated!");
             dialog.dismiss();
         });
 
         dialog.show();
     }
+
+
 
     // ------------------------------------------------------------
     // CONFIRM DELETE
@@ -444,15 +364,11 @@ public class SavingsGoalsFragment extends Fragment {
                 .inflate(R.layout.delete_confirmation_popup, null, false);
 
         TextView tvMessage = v.findViewById(R.id.deleteMessage);
-        // You should also set the typeface here, as discussed previously:
-        // tvMessage.setTypeface(Typeface.MONOSPACE);
-
         Button btnCancel = v.findViewById(R.id.cancelDeleteBtn);
         Button btnDelete = v.findViewById(R.id.confirmDeleteBtn);
 
         String amount = String.format(Locale.getDefault(), "Rs. %,.0f", goal.getTargetAmount());
         String goalName = goal.getGoalName() == null ? "" : goal.getGoalName();
-
         tvMessage.setText("Are you sure you want to delete the goal of " + amount + " for '" + goalName + "'?");
 
         AlertDialog dialog = new AlertDialog.Builder(requireContext())
@@ -460,33 +376,22 @@ public class SavingsGoalsFragment extends Fragment {
                 .setCancelable(true)
                 .create();
 
-        // The dialog MUST be shown before setting window properties to ensure the Window object is active
-        dialog.show(); // 👈 MOVED show() HERE
+        dialog.show();
 
-        // --- Window Customization Block (Now runs AFTER show()) ---
         Window window = dialog.getWindow();
         if (window != null) {
-            // Set transparent background
             window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-
-            // Set width to 70% of screen
             int dialogWidth = (int)(requireActivity().getResources().getDisplayMetrics().widthPixels * 0.8);
             window.setLayout(dialogWidth, WindowManager.LayoutParams.WRAP_CONTENT);
         }
-        // -----------------------------------------------------------
 
         btnCancel.setOnClickListener(x -> dialog.dismiss());
         btnDelete.setOnClickListener(x -> {
-            // 1. Delete the goal
-            viewModel.delete(goal);
-
-            // 2. Show toast
-            showCustomToast("Goal deleted");
-
-            // 3. Dismiss dialog
+            viewModel.delete(goal, () -> requireActivity().runOnUiThread(() -> showCustomToast("Goal deleted")));
             dialog.dismiss();
         });
     }
+
 
     @SuppressLint("NotifyDataSetChanged")
     private void refreshData() {

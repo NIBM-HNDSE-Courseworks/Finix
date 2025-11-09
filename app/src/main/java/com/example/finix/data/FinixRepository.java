@@ -36,18 +36,30 @@ class BudgetResponse {
     public Budget data; // the actual budget object
 }
 
+// --- Wrapper class for ORDS JSON response ---
+class SavingsGoalResponse {
+    public String status;
+    public String message;
+    public SavingsGoal data; // the actual savings goal object
+}
+
+
 public class FinixRepository {
 
     private static final String TAG = "FinixRepository_LOG";
-    private static final String BASE_URL = "http://10.219.24.245:8080/ords/";
+    private static final String BASE_URL = "http://192.168.8.182:8080/ords/";
 
     private final CategoryDAO categoryDAO;
     private final TransactionDAO transactionDAO; // NEW
     private final BudgetDAO budgetDAO; // NEW
+    private final SavingsGoalDAO savingsGoalDAO; // NEW
+
     private final SynchronizationLogDAO syncLogDAO;
     private final CategoryService categoryService;
     private final TransactionService transactionService; // NEW
     private final BudgetService budgetService; // NEW
+    private final SavingsGoalService savingsGoalService; // NEW
+
     private final ExecutorService executorService;
     private final Gson gson;
 
@@ -63,6 +75,8 @@ public class FinixRepository {
         FinixDatabase db = FinixDatabase.getDatabase(context);
         categoryDAO = db.categoryDao();
         transactionDAO = db.transactionDao(); // NEW
+        savingsGoalDAO = db.savingsGoalDao(); // NEW
+
         budgetDAO = db.budgetDao(); // NEW
         syncLogDAO = db.synchronizationLogDao();
         Log.d(TAG, "Database and DAOs initialized.");
@@ -80,6 +94,8 @@ public class FinixRepository {
         categoryService = retrofit.create(CategoryService.class);
         transactionService = retrofit.create(TransactionService.class); // NEW
         budgetService = retrofit.create(BudgetService.class); // NEW
+        savingsGoalService = retrofit.create(SavingsGoalService.class); // NEW
+
         Log.d(TAG, "Retrofit initialized with BASE_URL: " + BASE_URL);
 
         syncStatusLive.setValue(SynchronizationState.IDLE);
@@ -717,14 +733,9 @@ public class FinixRepository {
                 }
 
                 if (budgetLogs.isEmpty()) {
-                    // If no budget logs, check if there are other pending logs.
-                    // If only SYNCED logs remain, post NO_CHANGES.
-                    if (logsToSync.stream().allMatch(log -> log.getStatus().startsWith("SYNCED"))) {
-                        syncStatusLive.postValue(SynchronizationState.NO_CHANGES);
-                    } else {
-                        syncStatusLive.postValue(SynchronizationState.SUCCESS);
-                    }
-                    Log.i(TAG, "No pending budget logs. Sync complete (SUCCESS/NO_CHANGES posted).");
+                    // ❌ REMOVE the final status posts from here
+                    Log.i(TAG, "No pending budget logs. Proceeding to Savings Goals..."); // Updated log message
+                    synchronizeSavingsGoals(); // <-- CHAIN NEXT STEP
                     return;
                 }
 
@@ -747,8 +758,10 @@ public class FinixRepository {
                     }
                 }
 
-                // Post overall SUCCESS once budgets are complete
-                syncStatusLive.postValue(SynchronizationState.SUCCESS);
+                // ❌ REMOVE the final SUCCESS post from here
+                Log.i(TAG, "Budget sync completed successfully. Starting Savings Goals sync..."); // New log message
+                synchronizeSavingsGoals(); // <-- NEW CHAIN STEP
+
 
             } catch (Exception e) {
                 Log.e(TAG, "FATAL: Error during budget sync.", e);
@@ -934,6 +947,274 @@ public class FinixRepository {
             log.setMessage("DELETE FAILED for Budget ID " + serverRecordId + ". Network error: " + e.getMessage());
             syncLogDAO.update(log);
             Log.e(TAG, "Network error deleting budget", e);
+            return false;
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    /**
+     * Synchronize all savings goal logs.
+     * This is the final step in the chained sync process before posting final status.
+     */
+    public void synchronizeSavingsGoals() {
+        Log.i(TAG, "--- Starting synchronizeSavingsGoals() ---");
+
+        executorService.execute(() -> {
+            try {
+                List<SynchronizationLog> logsToSync = syncLogDAO.getAllLogs();
+
+                // Filter only savings_goals logs for processing
+                List<SynchronizationLog> goalLogs = new java.util.ArrayList<>();
+                for (SynchronizationLog log : logsToSync) {
+                    if ("savings_goals".equals(log.getTableName())) {
+                        goalLogs.add(log);
+                    }
+                }
+
+                if (goalLogs.isEmpty()) {
+                    Log.i(TAG, "No pending savings goal logs. Synchronization complete.");
+                    syncStatusLive.postValue(SynchronizationState.NO_CHANGES); // Post final status
+                    return;
+                }
+
+                // ✅ Sort savings goal logs by local_id (similar to other entities)
+                goalLogs.sort((l1, l2) -> {
+                    SavingsGoal g1 = savingsGoalDAO.getSavingsGoalById(l1.getRecordId());
+                    SavingsGoal g2 = savingsGoalDAO.getSavingsGoalById(l2.getRecordId());
+                    int id1 = g1 != null ? g1.getLocalId() : Integer.MAX_VALUE;
+                    int id2 = g2 != null ? g2.getLocalId() : Integer.MAX_VALUE;
+                    return Integer.compare(id1, id2);
+                });
+
+                syncStatusLive.postValue(SynchronizationState.PROCESSING);
+
+                for (SynchronizationLog log : goalLogs) {
+                    boolean result = handleSavingsGoalSync(log);
+                    if (!result) {
+                        syncStatusLive.postValue(SynchronizationState.ERROR); // Post final status
+                        return;
+                    }
+                }
+
+                Log.i(TAG, "Savings Goal sync completed successfully. Synchronization complete.");
+                syncStatusLive.postValue(SynchronizationState.SUCCESS); // Post final status
+
+            } catch (Exception e) {
+                Log.e(TAG, "FATAL: Error during savings goal sync.", e);
+                syncStatusLive.postValue(SynchronizationState.ERROR);
+            }
+        });
+    }
+
+    /**
+     * Handles all savings goal synchronization logic
+     */
+    private boolean handleSavingsGoalSync(SynchronizationLog log) {
+        try {
+            int localRecordId = log.getRecordId();
+            SavingsGoal goal = savingsGoalDAO.getSavingsGoalById(localRecordId);
+
+            String goalInfo = goal != null
+                    ? "SavingsGoal (Name: " + goal.getGoalName() + ", Amount: " + goal.getTargetAmount() + ")"
+                    : "Unknown SavingsGoal (ID: " + localRecordId + ")";
+
+            switch (log.getStatus()) {
+                case "PENDING":
+                    if (goal != null)
+                        return addSavingsGoalToServer(goal, log, goalInfo);
+
+                    // Goal deleted locally before sync
+                    log.setStatus("SYNCED - STALE");
+                    log.setMessage("Savings Goal not found locally (ID: " + localRecordId + "). Log cleared.");
+                    syncLogDAO.update(log);
+                    return true;
+
+                case "UPDATED":
+                    if (goal != null && goal.getId() != 0)
+                        return updateSavingsGoalOnServer(goal, log, goalInfo);
+
+                    // Update skipped due to missing server ID
+                    log.setStatus("SYNCED - STALE");
+                    log.setMessage("Update skipped: Savings Goal missing server ID (local ID: " + localRecordId + ").");
+                    syncLogDAO.update(log);
+                    return true;
+
+                case "DELETED":
+                    // For DELETED, we use the ID stored in the log (which should be the Server ID)
+                    return deleteSavingsGoalFromServer(log, goalInfo);
+
+                default:
+                    log.setStatus("SYNCED - STALE");
+                    log.setMessage("Unknown status '" + log.getStatus() + "'. Log cleared.");
+                    syncLogDAO.update(log);
+                    return true;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error in handleSavingsGoalSync for log ID: " + log.getId(), e);
+            log.setStatus("ERROR");
+            log.setMessage("Internal error processing sync for savings goal: " + e.getMessage());
+            syncLogDAO.update(log);
+            return false;
+        }
+    }
+
+    /**
+     * Add a savings goal to the server (PENDING status).
+     */
+    private boolean addSavingsGoalToServer(SavingsGoal localGoal, SynchronizationLog log, String goalInfo) {
+        Log.i(TAG, "-> addSavingsGoalToServer. Local JSON: " + gson.toJson(localGoal));
+
+        try {
+            Call<ResponseBody> call = savingsGoalService.createSavingsGoal(localGoal);
+            Response<ResponseBody> response = call.execute();
+
+            if (!response.isSuccessful()) {
+                String errorBody = response.errorBody() != null ? response.errorBody().string() : "No error body";
+                Log.e(TAG, "Server error adding savings goal. Code: " + response.code() + " | Error: " + errorBody);
+
+                log.setStatus("ERROR - SERVER");
+                log.setMessage("ADD FAILED for " + goalInfo + ". Code: " + response.code());
+                syncLogDAO.update(log);
+                return false;
+            }
+
+            // 🟢 FIX: Use try-with-resources to ensure the ResponseBody is closed
+            try (ResponseBody body = response.body()) {
+                if (body == null) {
+                    log.setStatus("ERROR - DATA");
+                    log.setMessage("ADD FAILED for " + goalInfo + ". Empty response body.");
+                    syncLogDAO.update(log);
+                    return false;
+                }
+
+                String rawJsonBody = body.string();
+                Log.i(TAG, "SUCCESSFUL RESPONSE BODY (RAW): " + rawJsonBody);
+
+                SavingsGoalResponse goalResponse = gson.fromJson(rawJsonBody, SavingsGoalResponse.class);
+
+                if (goalResponse == null || goalResponse.data == null) {
+                    log.setStatus("ERROR - DATA");
+                    log.setMessage("ADD FAILED for " + goalInfo + ". Invalid JSON/data.");
+                    syncLogDAO.update(log);
+                    return false;
+                }
+
+                SavingsGoal serverGoal = goalResponse.data;
+
+                // 1. Update local goal object with the server ID
+                localGoal.setId(serverGoal.getId());
+
+                // 2. CRITICAL PERSISTENCE STEP: Commit the change to the local Room database
+                // This line now runs after the network stream is guaranteed to be closed.
+                savingsGoalDAO.update(localGoal);
+
+                // 3. Update the sync log
+                log.setStatus("SYNCED - ADDED");
+                log.setMessage(goalInfo + " added successfully. Server ID: " + serverGoal.getId());
+                log.setRecordId(serverGoal.getId());
+                syncLogDAO.update(log);
+
+                Log.i(TAG, "Savings Goal synced. Server ID: " + serverGoal.getId() +
+                        ", local_id remains: " + localGoal.getLocalId());
+                return true;
+            }
+
+        } catch (Exception e) {
+            Log.e(TAG, "Network error adding savings goal or persistence failed.", e);
+            log.setStatus("ERROR - NETWORK");
+            log.setMessage("ADD FAILED for " + goalInfo + ". Network/Persistence error: " + e.getMessage());
+            syncLogDAO.update(log);
+            return false;
+        }
+    }
+
+    /**
+     * Updates an existing savings goal on the server (UPDATED status).
+     */
+    private boolean updateSavingsGoalOnServer(SavingsGoal localGoal, SynchronizationLog log, String goalInfo) {
+        Log.i(TAG, "-> updateSavingsGoalOnServer. Server ID: " + localGoal.getId() +
+                " | JSON: " + gson.toJson(localGoal));
+
+        try {
+            Call<ResponseBody> call = savingsGoalService.updateSavingsGoal(localGoal.getId(), localGoal);
+            Response<ResponseBody> response = call.execute();
+
+            String rawJsonBody = response.body() != null ? response.body().string() : "";
+            if (!rawJsonBody.isEmpty()) Log.i(TAG, "UPDATE RESPONSE BODY (RAW): " + rawJsonBody);
+
+            if (response.isSuccessful()) {
+                log.setStatus("SYNCED - UPDATED");
+                log.setMessage(goalInfo + " updated successfully.");
+                syncLogDAO.update(log);
+                return true;
+            } else {
+                String errorBody = response.errorBody() != null ? response.errorBody().string() : "No error body";
+                Log.e(TAG, "Server error updating savings goal. Code: " + response.code() + " | Error: " + errorBody);
+
+                log.setStatus("ERROR - SERVER");
+                log.setMessage("UPDATE FAILED for " + goalInfo + ". Code: " + response.code());
+                syncLogDAO.update(log);
+                return false;
+            }
+
+        } catch (Exception e) {
+            Log.e(TAG, "Network error updating savings goal.", e);
+            log.setStatus("ERROR - NETWORK");
+            log.setMessage("UPDATE FAILED for " + goalInfo + ". Network: " + e.getMessage());
+            syncLogDAO.update(log);
+            return false;
+        }
+    }
+
+    /**
+     * Deletes a savings goal from the server (DELETED status).
+     */
+    private boolean deleteSavingsGoalFromServer(SynchronizationLog log, String goalInfo) {
+        int serverRecordId = log.getRecordId();
+        Log.i(TAG, "-> deleteSavingsGoalFromServer. Deleting record ID: " + serverRecordId);
+
+        try {
+            Call<ResponseBody> call = savingsGoalService.deleteSavingsGoal(serverRecordId);
+            Response<ResponseBody> response = call.execute();
+
+            String rawJsonBody = response.body() != null ? response.body().string() : "";
+            if (!rawJsonBody.isEmpty()) Log.i(TAG, "DELETE RESPONSE BODY (RAW): " + rawJsonBody);
+
+            if (response.isSuccessful() || response.code() == 404) {
+                log.setStatus("SYNCED - DELETED");
+                log.setMessage("Savings Goal deleted successfully (or already gone). ID: " + serverRecordId);
+                syncLogDAO.update(log);
+                Log.i(TAG, "Savings Goal deleted successfully.");
+                return true;
+            } else {
+                String errorBody = response.errorBody() != null ? response.errorBody().string() : "No error body";
+                log.setStatus("ERROR - SERVER");
+                log.setMessage("DELETE FAILED for Savings Goal ID " + serverRecordId + ". Code: " + response.code() + ". " + errorBody);
+                syncLogDAO.update(log);
+                return false;
+            }
+        } catch (Exception e) {
+            log.setStatus("ERROR - NETWORK");
+            log.setMessage("DELETE FAILED for Savings Goal ID " + serverRecordId + ". Network error: " + e.getMessage());
+            syncLogDAO.update(log);
+            Log.e(TAG, "Network error deleting savings goal", e);
             return false;
         }
     }

@@ -720,7 +720,7 @@ public class MainActivity extends AppCompatActivity {
                     categoryNames.add("+ Add New Category");
                     for (Category c : categoryList) {
                         categoryNames.add(c.getName());
-                        nameToId.put(c.getName(), c.getId());
+                        nameToId.put(c.getName(), c.getLocalId());
                     }
 
                     runOnUiThread(() -> {
@@ -779,7 +779,7 @@ public class MainActivity extends AppCompatActivity {
                             categoryNames.add("+ Add New Category");
                             for (Category c : updatedList) {
                                 categoryNames.add(c.getName());
-                                nameToId.put(c.getName(), c.getId());
+                                nameToId.put(c.getName(), c.getLocalId());
                             }
 
                             // 4️⃣ Update UI
@@ -839,7 +839,9 @@ public class MainActivity extends AppCompatActivity {
                 new Thread(() -> {
                     try {
                         SavingsGoal goal = new SavingsGoal(categoryId, goalName, desc, targetAmount, targetDateMillis);
-                        new SavingsGoalsViewModel(getApplication()).insert(goal);
+                        new SavingsGoalsViewModel(getApplication()).insert(goal, () -> {
+                            runOnUiThread(() -> showCustomToast("Goal Added Successfully"));
+                        });
 
                         runOnUiThread(() -> {
                             dialog.dismiss();
