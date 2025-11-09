@@ -32,6 +32,11 @@ public class SynchronizationLog {
     @ColumnInfo(name = "message")
     private String message;
 
+    // Must be present for serialization/deserialization by Room/Gson/etc.
+    public SynchronizationLog() {
+        // Default constructor logic
+    }
+
     // Constructor (Updated to include message, which should typically be initialized as empty)
     public SynchronizationLog(String tableName, int recordId, long lastSyncedTimestamp, String status) {
         this.tableName = tableName;

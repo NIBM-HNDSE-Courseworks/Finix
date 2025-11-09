@@ -5,6 +5,7 @@ import android.util.Log;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -43,7 +44,19 @@ class SavingsGoalResponse {
     public SavingsGoal data; // the actual savings goal object
 }
 
+// --- Wrapper class for ORDS JSON collection response (List of Synchronization Logs) ---
+class SynchronizationLogsResponse {
+    // The "items" field holds the array of logs returned by the ORDS collection handler
+    public List<SynchronizationLog> items;
+}
 
+// Wrapper class for ORDS JSON response when creating a single SynchronizationLog
+class SynchronizationLogResponse {
+    public String status;
+    public String message;
+    // 'data' holds the actual SynchronizationLog object with the new server ID
+    public SynchronizationLog data;
+}
 public class FinixRepository {
 
     private static final String TAG = "FinixRepository_LOG";
@@ -53,6 +66,7 @@ public class FinixRepository {
     private final TransactionDAO transactionDAO; // NEW
     private final BudgetDAO budgetDAO; // NEW
     private final SavingsGoalDAO savingsGoalDAO; // NEW
+    private final SynchronizationLogService synchronizationLogService; // NEW
 
     private final SynchronizationLogDAO syncLogDAO;
     private final CategoryService categoryService;
@@ -95,6 +109,7 @@ public class FinixRepository {
         transactionService = retrofit.create(TransactionService.class); // NEW
         budgetService = retrofit.create(BudgetService.class); // NEW
         savingsGoalService = retrofit.create(SavingsGoalService.class); // NEW
+        synchronizationLogService = retrofit.create(SynchronizationLogService.class); // NEW LOG SERVICE
 
         Log.d(TAG, "Retrofit initialized with BASE_URL: " + BASE_URL);
 
@@ -989,8 +1004,8 @@ public class FinixRepository {
                 }
 
                 if (goalLogs.isEmpty()) {
-                    Log.i(TAG, "No pending savings goal logs. Synchronization complete.");
-                    syncStatusLive.postValue(SynchronizationState.NO_CHANGES); // Post final status
+                    Log.i(TAG, "No pending savings goal logs. Proceeding to Synchronization Logs..."); // Updated log message
+                    synchronizeSyncLogs(); // <-- CHAIN NEXT STEP
                     return;
                 }
 
@@ -1013,8 +1028,8 @@ public class FinixRepository {
                     }
                 }
 
-                Log.i(TAG, "Savings Goal sync completed successfully. Synchronization complete.");
-                syncStatusLive.postValue(SynchronizationState.SUCCESS); // Post final status
+                Log.i(TAG, "Savings Goal sync completed successfully. Starting Synchronization Log sync...");
+                synchronizeSyncLogs(); // <-- CHAIN NEXT STEP
 
             } catch (Exception e) {
                 Log.e(TAG, "FATAL: Error during savings goal sync.", e);
@@ -1216,6 +1231,140 @@ public class FinixRepository {
             syncLogDAO.update(log);
             Log.e(TAG, "Network error deleting savings goal", e);
             return false;
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public void synchronizeSyncLogs() {
+        Log.i(TAG, "--- Starting synchronizeSyncLogs() (FULL MIRROR MODE) ---");
+
+        executorService.execute(() -> {
+            try {
+                syncStatusLive.postValue(SynchronizationState.PROCESSING);
+
+                // 1. Fetch all local logs
+                List<SynchronizationLog> localLogs = syncLogDAO.getAllLogs();
+                if (localLogs.isEmpty()) {
+                    Log.i(TAG, "Local sync log is empty. Synchronization complete.");
+                    syncStatusLive.postValue(SynchronizationState.NO_CHANGES);
+                    return;
+                }
+
+                // Print all logs to logcat for debugging (kept for visibility)
+                Log.d(TAG, "Local Logs found (" + localLogs.size() + "):");
+                for (SynchronizationLog log : localLogs) {
+                    // Assuming Log model has getters:
+                    Log.d(TAG, "  Log ID: " + log.getId() + ", Table: " + log.getTableName() +
+                            ", Record ID: " + log.getRecordId() + ", Status: " + log.getStatus());
+                }
+
+                // 2. CRITICAL STEP: DELETE ALL EXISTING LOGS ON THE SERVER
+                // NOTE: This assumes your Retrofit service (synchronizationLogService) has a method:
+                // Call<ResponseBody> deleteAllLogs();
+                Log.w(TAG, "Executing full server wipe of synchronization logs...");
+                Response<ResponseBody> deleteResponse = synchronizationLogService.deleteAllLogs().execute();
+
+                if (!deleteResponse.isSuccessful()) {
+                    String errorBody = deleteResponse.errorBody() != null ? deleteResponse.errorBody().string() : "No error body";
+                    Log.e(TAG, "FATAL: Failed to wipe server sync logs. Aborting sync. Code: " + deleteResponse.code() + ". Error: " + errorBody);
+                    syncStatusLive.postValue(SynchronizationState.ERROR);
+                    return;
+                }
+                Log.i(TAG, "Server sync logs successfully wiped. Proceeding to re-POST all local logs.");
+
+                int logsSynced = 0;
+
+                // 3. Iterate over ALL local logs and POST them to the clean server
+                for (SynchronizationLog localLog : localLogs) {
+                    // We always treat it as a new record on the server now
+                    int newServerId = postLogEntryToServer(localLog);
+
+                    if (newServerId != -1) {
+                        logsSynced++;
+                        // The postLogEntryToServer method already handles updating the local DAO status.
+                    } else {
+                        Log.e(TAG, "Failed to re-POST log for table " + localLog.getTableName() + ". This log entry was not mirrored to the server.");
+                        // Non-critical fail, continue loop, but log the error
+                    }
+                }
+
+                Log.i(TAG, "Synchronization Log sync completed. Logs processed: " + localLogs.size() + ", Logs synced: " + logsSynced + ", Logs failed: " + (localLogs.size() - logsSynced));
+                syncStatusLive.postValue(SynchronizationState.SUCCESS);
+
+            } catch (Exception e) {
+                Log.e(TAG, "FATAL: Error during synchronization log sync.", e);
+                syncStatusLive.postValue(SynchronizationState.ERROR);
+            }
+        });
+    }
+
+    /**
+     * Handles the network operation to POST a single SynchronizationLog entry to the server.
+     * It is assumed the server logs are empty when this is called (Full Mirror Mode).
+     * @param log The local log entry to be sent.
+     * @return The new server ID (int) if a POST is successful, or -1 if the operation fails.
+     */
+    private int postLogEntryToServer(SynchronizationLog log) {
+        String logInfo = log.getTableName() + " (Record ID: " + log.getRecordId() + ")";
+
+        Log.i(TAG, "-> POST Synchronization Log for " + logInfo);
+
+        try {
+            Call<ResponseBody> call = synchronizationLogService.createLog(log);
+            Response<ResponseBody> response = call.execute();
+
+            if (response.isSuccessful()) {
+                Log.i(TAG, "Synchronization Log POST successful for " + logInfo);
+
+                String jsonBody = response.body() != null ? response.body().string() : null;
+                int newServerId = -1;
+
+                if (jsonBody != null) {
+                    // Manually parse the JSON to get the server-assigned ID
+                    Gson gson = new Gson();
+                    // Assuming SynchronizationLogResponse is a class accessible here
+                    // Note: The structure must match your ORDS response for a successful POST.
+                    SynchronizationLogResponse logResponse = gson.fromJson(jsonBody, SynchronizationLogResponse.class);
+
+                    if (logResponse != null && logResponse.data != null) {
+                        newServerId = logResponse.data.getId();
+                    }
+                }
+
+                if (newServerId != -1) {
+                    // Update local status with the newly assigned server ID
+                    syncLogDAO.updateLogStatusToSynced(log.getId(), newServerId, System.currentTimeMillis());
+                    Log.i(TAG, "Local log (ID: " + log.getId() + ") status updated to SYNCED with Server ID: " + newServerId);
+                    return newServerId; // Success: Return the new Server ID
+                } else {
+                    Log.e(TAG, "POST successful, but failed to parse server ID from response for: " + logInfo);
+                    return -1; // Fail: Parsing error
+                }
+            } else {
+                String errorBody = response.errorBody() != null ? response.errorBody().string() : "No error body";
+                Log.e(TAG, "Server error during POST of log " + logInfo + ". Code: " + response.code() + ". Error: " + errorBody);
+                return -1; // Fail: Server error
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Network error during POST of log " + logInfo, e);
+            return -1; // Fail: Network/other exception
         }
     }
 }

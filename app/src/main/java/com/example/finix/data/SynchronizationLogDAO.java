@@ -29,4 +29,13 @@ public interface SynchronizationLogDAO {
     // Optional: get logs for a specific table
     @Query("SELECT * FROM sync_log WHERE table_name = :tableName ORDER BY last_synced_timestamp DESC")
     List<SynchronizationLog> getLogsByTable(String tableName);
+
+    // 🆕 NEW: Get synchronization log by its primary key (log_id)
+    @Query("SELECT * FROM sync_log WHERE log_id = :logId LIMIT 1")
+    SynchronizationLog getLogById(int logId);
+
+    @Query("UPDATE sync_log SET status = 'SYNCED', message = 'Successfully synced to server (Server ID: ' || :serverId || ')', last_synced_timestamp = :currentTime WHERE log_id = :localLogId")
+    void updateLogStatusToSynced(int localLogId, int serverId, long currentTime);
+    
+    
 }
