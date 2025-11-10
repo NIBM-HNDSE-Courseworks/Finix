@@ -1,12 +1,13 @@
 package com.example.finix.ui.Reports;
 
-import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.pdf.PdfDocument;
 import android.net.Uri;
 import android.os.Bundle;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -18,6 +19,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.finix.R;
+import com.example.finix.data.BudgetAdherence;
 import com.example.finix.data.MonthlyExpenditure;
 import com.example.finix.data.ReportsService;
 
@@ -34,132 +36,136 @@ import retrofit2.converter.gson.GsonConverterFactory;
 public class ReportsFragment extends Fragment {
 
     private static final String TAG = "ReportsFragment";
-    private static final int CREATE_PDF_REQUEST_CODE = 1001;
-    private List<MonthlyExpenditure> latestData; // Holds fetched data
 
-    // 🔹 Wrapper class matching JSON response from server
+    private List<MonthlyExpenditure> latestData; // Monthly Expenditure
+    private List<BudgetAdherence> latestBudgetData; // Budget Adherence
+
+    private ActivityResultLauncher<String> createMonthlyPdfLauncher;
+    private ActivityResultLauncher<String> createBudgetPdfLauncher;
+
+    // Response wrapper classes
     public static class MonthlyExpenditureResponse {
         public String status;
         public String message;
         public List<MonthlyExpenditure> items;
     }
 
+    public static class BudgetAdherenceResponse {
+        public String status;
+        public String message;
+        public List<BudgetAdherence> items;
+    }
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
+
         View view = inflater.inflate(R.layout.fragment_reports, container, false);
 
         TextView textReport1 = view.findViewById(R.id.text_report1);
-        textReport1.setOnClickListener(v -> {
-            Log.d(TAG, "Report 1 clicked");
-            fetchMonthlyExpenditure();
-        });
+        textReport1.setOnClickListener(v -> fetchMonthlyExpenditure());
+
+        TextView textReport2 = view.findViewById(R.id.text_report2);
+        textReport2.setOnClickListener(v -> fetchBudgetAdherence());
+
+        // Initialize Activity Result Launchers
+        createMonthlyPdfLauncher = registerForActivityResult(
+                new ActivityResultContracts.CreateDocument("application/pdf"),
+                uri -> {
+                    if (uri != null && latestData != null) {
+                        createMonthlyPdf(uri, latestData);
+                    }
+                });
+
+        createBudgetPdfLauncher = registerForActivityResult(
+                new ActivityResultContracts.CreateDocument("application/pdf"),
+                uri -> {
+                    if (uri != null && latestBudgetData != null) {
+                        createBudgetPdf(uri, latestBudgetData);
+                    }
+                });
 
         return view;
     }
 
+    // -------------------- Fetch Monthly Expenditure --------------------
     private void fetchMonthlyExpenditure() {
-        Log.d(TAG, "Fetching Monthly Expenditure from server...");
+        Log.d(TAG, "Fetching Monthly Expenditure...");
         Toast.makeText(getContext(), "Fetching report...", Toast.LENGTH_SHORT).show();
 
         Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://172.16.100.204:8080/ords/finix/api/")  // your ORDS URL
+                .baseUrl("http://172.16.100.204:8080/ords/finix/api/")
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
 
         ReportsService api = retrofit.create(ReportsService.class);
-        Call<MonthlyExpenditureResponse> call = api.getMonthlyExpenditureWrapper(); // Note: wrapper call
+        Call<MonthlyExpenditureResponse> call = api.getMonthlyExpenditureWrapper();
         call.enqueue(new Callback<MonthlyExpenditureResponse>() {
             @Override
             public void onResponse(Call<MonthlyExpenditureResponse> call, Response<MonthlyExpenditureResponse> response) {
-                Log.d(TAG, "Response received. Code: " + response.code());
-
                 if (response.isSuccessful() && response.body() != null) {
                     MonthlyExpenditureResponse body = response.body();
-                    Log.d(TAG, "Response status: " + body.status + ", message: " + body.message);
-
                     if (body.items != null && !body.items.isEmpty()) {
                         latestData = body.items;
-                        Log.d(TAG, "Fetched " + latestData.size() + " items.");
-                        for (MonthlyExpenditure item : latestData) {
-                            Log.d(TAG, "Item: month=" + item.getMonth_year() +
-                                    ", category=" + item.getCategory_id() +
-                                    ", total=" + item.getTotal_spent());
-                        }
-                        openFilePicker();
+                        openMonthlyFilePicker();
                     } else {
-                        Log.e(TAG, "No items in response");
                         Toast.makeText(getContext(), "No report data available.", Toast.LENGTH_SHORT).show();
                     }
                 } else {
-                    Log.e(TAG, "Failed to get data. Response code: " + response.code());
-                    Toast.makeText(getContext(), "Failed to get data! Check logs.", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getContext(), "Failed to fetch data!", Toast.LENGTH_SHORT).show();
                 }
             }
 
             @Override
             public void onFailure(Call<MonthlyExpenditureResponse> call, Throwable t) {
                 Log.e(TAG, "Network request failed", t);
-                Toast.makeText(getContext(), "Error fetching data! Check logs.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getContext(), "Error fetching data!", Toast.LENGTH_SHORT).show();
             }
         });
     }
 
-    private void openFilePicker() {
-        Log.d(TAG, "Opening file picker to save PDF...");
-        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
-        intent.setType("application/pdf");
-        intent.putExtra(Intent.EXTRA_TITLE, "Monthly_Expenditure_Report.pdf");
-        startActivityForResult(intent, CREATE_PDF_REQUEST_CODE);
+    private void openMonthlyFilePicker() {
+        createMonthlyPdfLauncher.launch("Monthly_Expenditure_Report.pdf");
     }
 
-    @Override
-    public void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        Log.d(TAG, "onActivityResult: requestCode=" + requestCode + ", resultCode=" + resultCode);
-        if (requestCode == CREATE_PDF_REQUEST_CODE && resultCode == Activity.RESULT_OK && data != null) {
-            Uri uri = data.getData();
-            if (uri != null && latestData != null) {
-                Log.d(TAG, "Creating PDF at URI: " + uri.toString());
-                createPdf(uri, latestData);
-            } else {
-                Log.e(TAG, "No data to save or URI is null");
-                Toast.makeText(getContext(), "No data to save!", Toast.LENGTH_SHORT).show();
-            }
-        }
-    }
-
-    private void createPdf(Uri uri, List<MonthlyExpenditure> data) {
-        Log.d(TAG, "Start creating PDF with " + data.size() + " items");
+    private void createMonthlyPdf(Uri uri, List<MonthlyExpenditure> data) {
         try (OutputStream outputStream = requireContext().getContentResolver().openOutputStream(uri)) {
 
             PdfDocument pdf = new PdfDocument();
             Paint paint = new Paint();
             Paint titlePaint = new Paint();
+            Paint linePaint = new Paint();
 
             PdfDocument.PageInfo pageInfo = new PdfDocument.PageInfo.Builder(595, 842, 1).create();
             PdfDocument.Page page = pdf.startPage(pageInfo);
             Canvas canvas = page.getCanvas();
 
+            // Title
             titlePaint.setTextAlign(Paint.Align.CENTER);
             titlePaint.setTextSize(20f);
             titlePaint.setFakeBoldText(true);
             canvas.drawText("Monthly Expenditure Report", pageInfo.getPageWidth() / 2, 60, titlePaint);
 
+            // Table header
             paint.setTextSize(12f);
+            paint.setFakeBoldText(true);
             int y = 100;
-            canvas.drawText("Month-Year      Category                Total Spent", 40, y, paint);
+            int startX = 40;
+            int colCategory = startX;
+            int colTotal = startX + 300;
+
+            canvas.drawText("Category", colCategory, y, paint);
+            canvas.drawText("Total Spent", colTotal, y, paint);
+            y += 10;
+            linePaint.setStrokeWidth(1f);
+            canvas.drawLine(startX, y, pageInfo.getPageWidth() - startX, y, linePaint);
             y += 20;
-            canvas.drawLine(40, y, pageInfo.getPageWidth() - 40, y, paint);
-            y += 20;
+            paint.setFakeBoldText(false);
 
             for (MonthlyExpenditure item : data) {
-                String line = String.format("%-12s %-20s %.2f",
-                        item.getMonth_year(), item.getCategory_id(), item.getTotal_spent());
-                canvas.drawText(line, 40, y, paint);
-                Log.d(TAG, "Writing PDF line: " + line);
+                canvas.drawText(String.valueOf(item.getCategory_id()), colCategory, y, paint);
+                canvas.drawText(String.format("%.2f", item.getTotal_spent()), colTotal, y, paint);
                 y += 20;
 
                 if (y > 780) {
@@ -174,13 +180,119 @@ public class ReportsFragment extends Fragment {
             pdf.finishPage(page);
             pdf.writeTo(outputStream);
             pdf.close();
-
-            Log.d(TAG, "PDF created successfully at URI: " + uri.toString());
-            Toast.makeText(getContext(), "PDF downloaded successfully!", Toast.LENGTH_LONG).show();
+            Toast.makeText(getContext(), "Monthly PDF created!", Toast.LENGTH_LONG).show();
 
         } catch (IOException e) {
-            Log.e(TAG, "Error creating PDF", e);
-            Toast.makeText(getContext(), "Error creating PDF! Check logs.", Toast.LENGTH_SHORT).show();
+            Log.e(TAG, "Error creating Monthly PDF", e);
+            Toast.makeText(getContext(), "Error creating PDF!", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    // -------------------- Fetch Budget Adherence --------------------
+    private void fetchBudgetAdherence() {
+        Log.d(TAG, "Fetching Budget Adherence...");
+        Toast.makeText(getContext(), "Fetching report...", Toast.LENGTH_SHORT).show();
+
+        Retrofit retrofit = new Retrofit.Builder()
+                .baseUrl("http://172.16.100.204:8080/ords/finix/api/")
+                .addConverterFactory(GsonConverterFactory.create())
+                .build();
+
+        ReportsService api = retrofit.create(ReportsService.class);
+        Call<BudgetAdherenceResponse> call = api.getBudgetAdherence();
+        call.enqueue(new Callback<BudgetAdherenceResponse>() {
+            @Override
+            public void onResponse(Call<BudgetAdherenceResponse> call, Response<BudgetAdherenceResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    BudgetAdherenceResponse body = response.body();
+                    if (body.items != null && !body.items.isEmpty()) {
+                        latestBudgetData = body.items;
+                        openBudgetFilePicker();
+                    } else {
+                        Toast.makeText(getContext(), "No Budget data available.", Toast.LENGTH_SHORT).show();
+                    }
+                } else {
+                    Toast.makeText(getContext(), "Failed to fetch Budget Adherence!", Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<BudgetAdherenceResponse> call, Throwable t) {
+                Log.e(TAG, "Network request failed", t);
+                Toast.makeText(getContext(), "Error fetching data!", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void openBudgetFilePicker() {
+        createBudgetPdfLauncher.launch("Budget_Adherence_Report.pdf");
+    }
+
+    private void createBudgetPdf(Uri uri, List<BudgetAdherence> data) {
+        try (OutputStream outputStream = requireContext().getContentResolver().openOutputStream(uri)) {
+
+            PdfDocument pdf = new PdfDocument();
+            Paint paint = new Paint();
+            Paint titlePaint = new Paint();
+            Paint linePaint = new Paint();
+
+            PdfDocument.PageInfo pageInfo = new PdfDocument.PageInfo.Builder(595, 842, 1).create();
+            PdfDocument.Page page = pdf.startPage(pageInfo);
+            Canvas canvas = page.getCanvas();
+
+            // Title
+            titlePaint.setTextAlign(Paint.Align.CENTER);
+            titlePaint.setTextSize(20f);
+            titlePaint.setFakeBoldText(true);
+            canvas.drawText("Budget Adherence Report", pageInfo.getPageWidth() / 2, 60, titlePaint);
+
+            // Table header
+            paint.setTextSize(12f);
+            paint.setFakeBoldText(true);
+            int y = 100;
+            int startX = 40;
+            int colCategory = startX;
+            int colBudgeted = startX + 150;
+            int colActual = startX + 250;
+            int colPct = startX + 350;
+            int colStatus = startX + 450;
+
+            canvas.drawText("Category", colCategory, y, paint);
+            canvas.drawText("Budgeted", colBudgeted, y, paint);
+            canvas.drawText("Spent", colActual, y, paint);
+            canvas.drawText("% of Budget", colPct, y, paint);
+            canvas.drawText("Status", colStatus, y, paint);
+            y += 10;
+            linePaint.setStrokeWidth(1f);
+            canvas.drawLine(startX, y, pageInfo.getPageWidth() - startX, y, linePaint);
+            y += 20;
+            paint.setFakeBoldText(false);
+
+            for (BudgetAdherence item : data) {
+                canvas.drawText(item.getCategory() != null ? item.getCategory() : "", colCategory, y, paint);
+                canvas.drawText(String.format("%.2f", item.getBudgetedAmount()), colBudgeted, y, paint);
+                canvas.drawText(String.format("%.2f", item.getActualSpent()), colActual, y, paint);
+                canvas.drawText(String.format("%.2f", item.getPctOfBudget()), colPct, y, paint);
+                canvas.drawText(item.getAdherenceStatus() != null ? item.getAdherenceStatus() : "", colStatus, y, paint);
+
+                y += 20;
+                if (y > 780) {
+                    pdf.finishPage(page);
+                    pageInfo = new PdfDocument.PageInfo.Builder(595, 842, pdf.getPages().size() + 1).create();
+                    page = pdf.startPage(pageInfo);
+                    canvas = page.getCanvas();
+                    y = 60;
+                }
+            }
+
+            pdf.finishPage(page);
+            pdf.writeTo(outputStream);
+            pdf.close();
+            Toast.makeText(getContext(), "Budget PDF created!", Toast.LENGTH_LONG).show();
+
+        } catch (IOException e) {
+            Log.e(TAG, "Error creating Budget PDF", e);
+            Toast.makeText(getContext(), "Error creating PDF!", Toast.LENGTH_SHORT).show();
         }
     }
 }
