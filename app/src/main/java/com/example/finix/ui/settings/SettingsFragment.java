@@ -90,7 +90,7 @@ public class SettingsFragment extends Fragment {
     // Member variable to hold the URI selected for backup/restore
     private Uri selectedUri = null;
 
-    private MaterialButton buttonOpenReports;
+    private MaterialCardView buttonOpenReports;
 
     // ----------------------------------------------------
     // NEW: Activity Result Launchers for Storage Access Framework (SAF)
@@ -144,7 +144,7 @@ public class SettingsFragment extends Fragment {
         buttonSelectFolder = view.findViewById(R.id.button_select_folder);
 
 
-        buttonOpenReports = view.findViewById(R.id.button_open_reports);
+        buttonOpenReports = view.findViewById(R.id.card_reports);
 
         buttonOpenReports.setOnClickListener(v -> {
             try {
