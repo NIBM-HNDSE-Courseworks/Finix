@@ -27,8 +27,10 @@ public interface TransactionDAO {
     @Query("SELECT * FROM transactions ORDER BY date_time DESC")
     List<Transaction> getAllTransactions();
 
-    // 💰 Get all transactions by type (Income/Expense)
-    @Query("SELECT * FROM transactions WHERE type = :type ORDER BY date_time DESC")
+    // 💰 Get all transactions by type (income/expense)
+    @Query("SELECT * FROM transactions " +
+            "WHERE LOWER(type) = LOWER(:type) " +
+            "ORDER BY date_time DESC")
     List<Transaction> getTransactionsByType(String type);
 
     // 🔍 Get transactions by category_id and type
