@@ -12,6 +12,8 @@ public interface ReportsService {
     @GET("reports/monthly_expenditure") // Replace with your actual endpoint path
     Call<ReportsFragment.MonthlyExpenditureResponse> getMonthlyExpenditureWrapper();
 
-    @GET("reports/budget_adherence/")  // matches your ORDS pattern
+    @GET("reports/budget_adherence")
     Call<ReportsFragment.BudgetAdherenceResponse> getBudgetAdherence();
+
+
 }

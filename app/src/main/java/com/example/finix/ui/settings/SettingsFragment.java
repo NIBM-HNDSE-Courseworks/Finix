@@ -460,7 +460,7 @@ public class SettingsFragment extends Fragment {
             };
 
             // Post the runnable with a 10-second delay (10000 milliseconds)
-            handler.postDelayed(hideSyncUIRunnable, 10000);
+            handler.postDelayed(hideSyncUIRunnable, 5000);
         }
     }
 

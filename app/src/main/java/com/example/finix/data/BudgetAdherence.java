@@ -7,6 +7,7 @@ public class BudgetAdherence {
     @SerializedName("budget_id")
     private int budgetId;
 
+    @SerializedName("category")
     private String category;
 
     @SerializedName("budgeted_amount")

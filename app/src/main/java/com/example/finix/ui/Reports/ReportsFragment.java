@@ -95,7 +95,7 @@ public class ReportsFragment extends Fragment {
         Toast.makeText(getContext(), "Fetching report...", Toast.LENGTH_SHORT).show();
 
         Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://172.16.100.204:8080/ords/finix/api/")
+                .baseUrl("http://192.168.32.1:8080/ords/finix/api/")
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
 
@@ -186,6 +186,7 @@ public class ReportsFragment extends Fragment {
             Log.e(TAG, "Error creating Monthly PDF", e);
             Toast.makeText(getContext(), "Error creating PDF!", Toast.LENGTH_SHORT).show();
         }
+
     }
 
     // -------------------- Fetch Budget Adherence --------------------
@@ -194,17 +195,20 @@ public class ReportsFragment extends Fragment {
         Toast.makeText(getContext(), "Fetching report...", Toast.LENGTH_SHORT).show();
 
         Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://172.16.100.204:8080/ords/finix/api/")
+                .baseUrl("http://192.168.32.1:8080/ords/finix/api/")
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
 
         ReportsService api = retrofit.create(ReportsService.class);
         Call<BudgetAdherenceResponse> call = api.getBudgetAdherence();
+
+
         call.enqueue(new Callback<BudgetAdherenceResponse>() {
             @Override
             public void onResponse(Call<BudgetAdherenceResponse> call, Response<BudgetAdherenceResponse> response) {
                 if (response.isSuccessful() && response.body() != null) {
                     BudgetAdherenceResponse body = response.body();
+
                     if (body.items != null && !body.items.isEmpty()) {
                         latestBudgetData = body.items;
                         openBudgetFilePicker();
