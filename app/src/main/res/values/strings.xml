@@ -16,10 +16,6 @@
     <string name="select_month_year">Select Month/Year</string>
 
 
-
-
-
-
     <string name="selected_backup_folder_label">Selected Backup Folder</string>
     <string name="default_backup_path">/path/to/default/backup</string>
     <string name="select_folder_button">Select Folder</string>
