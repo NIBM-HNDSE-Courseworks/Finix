@@ -1,9 +1,15 @@
 package com.example.finix.data;
 
+import android.content.ContentResolver;
 import android.content.Context;
+import android.net.Uri;
+import android.provider.DocumentsContract;
 import android.util.Log;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
+
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Callable;
@@ -16,6 +22,17 @@ import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 import com.google.gson.Gson;
+
+
+
+// ADD these imports at the top of the file
+import java.io.File;
+import java.io.FileWriter;
+import java.io.FileReader;
+import java.io.BufferedReader;
+import java.io.IOException;
+import com.google.gson.reflect.TypeToken; // Needed for Gson to deserialize Lists
+import java.lang.reflect.Type; // Needed for TypeToken
 
 // --- Wrapper class for ORDS JSON response ---
 class CategoryResponse {
@@ -62,6 +79,9 @@ public class FinixRepository {
     private static final String TAG = "FinixRepository_LOG";
     private static final String BASE_URL = "http://192.168.8.182:8080/ords/";
 
+    private final Context context; // <--- ADD THIS LINE
+    private final ContentResolver contentResolver; // NEW: ContentResolver instance
+
     private final CategoryDAO categoryDAO;
     private final TransactionDAO transactionDAO; // NEW
     private final BudgetDAO budgetDAO; // NEW
@@ -79,6 +99,222 @@ public class FinixRepository {
 
     private final MutableLiveData<SynchronizationState> syncStatusLive = new MutableLiveData<>();
 
+
+
+
+
+
+
+
+    /**
+     * Public entry point to export all database data to a file selected via SAF folder URI.
+     * @param folderUriString The URI of the folder where the backup should be saved.
+     * @param fileName The desired name for the backup file.
+     * @return true if the backup was created successfully, false otherwise.
+     */
+    public boolean exportDataToBackup(String folderUriString, String fileName) {
+        Log.i(TAG, "Starting database export to folder URI: " + folderUriString + ", file: " + fileName);
+        Uri folderUri = Uri.parse(folderUriString);
+
+        Callable<Boolean> callable = () -> {
+            return createBackupFile(folderUri, fileName);
+        };
+
+        Future<Boolean> future = executorService.submit(callable);
+        try {
+            return future.get(); // Wait for the result
+        } catch (Exception e) {
+            Log.e(TAG, "Error waiting for backup result.", e);
+            return false;
+        }
+    }
+
+    /**
+     * Public entry point to import all database data from a file selected via SAF file URI.
+     * @param fileUriString The URI of the backup file.
+     * @return true if the data was restored successfully, false otherwise.
+     */
+    public boolean importDataFromBackup(String fileUriString) {
+        Log.i(TAG, "Starting database import from file URI: " + fileUriString);
+        Uri fileUri = Uri.parse(fileUriString);
+
+        Callable<Boolean> callable = () -> {
+            return restoreDataFromFile(fileUri);
+        };
+
+        Future<Boolean> future = executorService.submit(callable);
+        try {
+            return future.get(); // Wait for the result
+        } catch (Exception e) {
+            Log.e(TAG, "Error waiting for restore result.", e);
+            return false;
+        }
+    }
+
+
+    /**
+     * Private method to serialize all tables and write to a new file using ContentResolver/SAF.
+     *
+     * @param folderUri The URI of the folder to create the file in. (This is a Tree URI)
+     * @param fileName The name of the new file.
+     */
+    private boolean createBackupFile(Uri folderUri, String fileName) {
+        Uri fileUri = null;
+        try {
+            // 1. Fetch all data from DAOs
+            List<Category> categories = categoryDAO.getAllCategoriesForBackup();
+            List<Transaction> transactions = transactionDAO.getAllTransactionsForBackup();
+            List<Budget> budgets = budgetDAO.getAllBudgetsForBackup();
+            List<SavingsGoal> savingsGoals = savingsGoalDAO.getAllGoalsForBackup();
+            List<SynchronizationLog> syncLogs = syncLogDAO.getAllLogs();
+
+            // 2. Create the data structure
+            java.util.Map<String, Object> backupData = new java.util.HashMap<>();
+            backupData.put("categories", categories);
+            backupData.put("transactions", transactions);
+            backupData.put("budgets", budgets);
+            backupData.put("savings_goals", savingsGoals);
+            backupData.put("sync_logs", syncLogs);
+
+            // 3. Serialize the entire structure to JSON
+            String jsonString = gson.toJson(backupData);
+
+            // 4. CRITICAL: Use DocumentsContract and ContentResolver to create and write the file
+
+            // FIX START: Convert the Tree URI into the Document URI required by createDocument()
+            // 4a. Get the Document ID from the Tree URI (e.g., "primary:Finix")
+            final String documentId = DocumentsContract.getTreeDocumentId(folderUri);
+
+            // 4b. Build the actual Document URI for the parent folder using the ID
+            final Uri parentDocumentUri = DocumentsContract.buildDocumentUriUsingTree(folderUri, documentId);
+            // FIX END
+
+            // Create a new document in the selected folder URI with MIME type "application/json"
+            fileUri = DocumentsContract.createDocument(contentResolver, parentDocumentUri, "application/json", fileName);
+
+            if (fileUri == null) {
+                Log.e(TAG, "Failed to create document in selected folder.");
+                return false;
+            }
+
+            try (OutputStream outputStream = contentResolver.openOutputStream(fileUri)) {
+                if (outputStream == null) {
+                    Log.e(TAG, "Could not open output stream for file URI: " + fileUri);
+                    return false;
+                }
+                outputStream.write(jsonString.getBytes());
+            }
+
+            Log.i(TAG, "Backup successfully created at URI: " + fileUri);
+            return true;
+
+        } catch (Exception e) {
+            Log.e(TAG, "FATAL: Error creating backup file via SAF.", e);
+            return false;
+        }
+    }
+
+    /**
+     * Private method to read data from a file URI and restore it to the database.
+     *
+     * @param fileUri The URI of the backup file.
+     */
+    private boolean restoreDataFromFile(Uri fileUri) {
+        try {
+            // 1. CRITICAL: Use ContentResolver to read file content from URI
+            StringBuilder jsonContent = new StringBuilder();
+            try (InputStream inputStream = contentResolver.openInputStream(fileUri);
+                 // Use InputStreamReader and BufferedReader to read the content efficiently
+                 BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(inputStream))) {
+
+                if (inputStream == null) {
+                    Log.e(TAG, "Restore failed: Could not open input stream for URI: " + fileUri);
+                    return false;
+                }
+
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    jsonContent.append(line);
+                }
+            }
+
+            // 2. Deserialize the JSON string back into the Map structure
+            Type type = new TypeToken<java.util.Map<String, List<Object>>>() {}.getType();
+            java.util.Map<String, List<Object>> dataMap = gson.fromJson(jsonContent.toString(), type);
+
+            if (dataMap == null) {
+                Log.e(TAG, "Restore failed: Could not parse JSON data.");
+                return false;
+            }
+
+            // 3. CRITICAL: Delete existing data and insert new data within a transaction
+            FinixDatabase.getDatabase(context).runInTransaction(() -> {
+                Log.w(TAG, "Starting destructive database import transaction...");
+
+                // --- FIX: Delete ALL current data in REVERSE dependency order ---
+                // Tables with foreign keys must be deleted first (e.g., Transaction -> Category)
+                transactionDAO.deleteAll();
+                budgetDAO.deleteAll();
+                savingsGoalDAO.deleteAll();
+                syncLogDAO.deleteAll();
+                // Parent tables are deleted last
+                categoryDAO.deleteAll();
+                // --- END FIX ---
+
+
+                // Insert restored data (Deserialization requires a second pass with the correct Type)
+
+                // --- FIX: Insert restored data in CORRECT dependency order ---
+
+                // Categories (Parent table - must be inserted first)
+                Type catListType = new TypeToken<List<Category>>() {}.getType();
+                List<Category> categories = gson.fromJson(gson.toJson(dataMap.get("categories")), catListType);
+                if (categories != null) categoryDAO.insertAll(categories);
+
+                // Transactions (Child table, depends on Category)
+                Type tranListType = new TypeToken<List<Transaction>>() {}.getType();
+                List<Transaction> transactions = gson.fromJson(gson.toJson(dataMap.get("transactions")), tranListType);
+                if (transactions != null) transactionDAO.insertAll(transactions);
+
+                // Budgets (Child table, likely depends on Category/Transaction)
+                Type budListType = new TypeToken<List<Budget>>() {}.getType();
+                List<Budget> budgets = gson.fromJson(gson.toJson(dataMap.get("budgets")), budListType);
+                if (budgets != null) budgetDAO.insertAll(budgets);
+
+                // SavingsGoals (Order depends on schema, usually independent or child)
+                Type goalListType = new TypeToken<List<SavingsGoal>>() {}.getType();
+                List<SavingsGoal> savingsGoals = gson.fromJson(gson.toJson(dataMap.get("savings_goals")), goalListType);
+                if (savingsGoals != null) savingsGoalDAO.insertAll(savingsGoals);
+
+                // SyncLogs (Generally independent)
+                Type logListType = new TypeToken<List<SynchronizationLog>>() {}.getType();
+                List<SynchronizationLog> syncLogs = gson.fromJson(gson.toJson(dataMap.get("sync_logs")), logListType);
+                if (syncLogs != null) syncLogDAO.insertAll(syncLogs);
+
+                // --- END FIX ---
+
+                Log.i(TAG, "Database import transaction successfully completed.");
+            });
+
+            Log.i(TAG, "Restore completed successfully from URI: " + fileUri);
+            return true;
+
+        } catch (IOException e) {
+            Log.e(TAG, "Restore failed: File I/O error using ContentResolver.", e);
+            return false;
+        } catch (Exception e) {
+            // Log the exception fully to understand the error, especially SQLiteConstraintException
+            Log.e(TAG, "FATAL: Error during database restore transaction.", e);
+            return false;
+        }
+    }
+
+
+
+
+
+
+
     public enum SynchronizationState {
         IDLE, CHECKING, PROCESSING, SUCCESS, ERROR, NO_CHANGES
     }
@@ -86,7 +322,12 @@ public class FinixRepository {
     public FinixRepository(Context context) {
         Log.i(TAG, "FinixRepository initializing...");
 
+        this.context = context; // <--- FIX: Store the context here
+        this.contentResolver = context.getContentResolver(); // NEW: Initialize ContentResolver
+
         FinixDatabase db = FinixDatabase.getDatabase(context);
+
+
         categoryDAO = db.categoryDao();
         transactionDAO = db.transactionDao(); // NEW
         savingsGoalDAO = db.savingsGoalDao(); // NEW

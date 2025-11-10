@@ -3,6 +3,7 @@ package com.example.finix.data;
 import androidx.lifecycle.LiveData;
 import androidx.room.Dao;
 import androidx.room.Insert;
+import androidx.room.OnConflictStrategy;
 import androidx.room.Query;
 import androidx.room.Update;
 import androidx.room.Delete;
@@ -57,4 +58,25 @@ public interface TransactionDAO {
     // 🆕 NEW: Get transaction by local ID
     @Query("SELECT * FROM transactions WHERE local_id = :localId LIMIT 1")
     Transaction getTransactionById(int localId);
+
+
+
+
+
+
+
+
+
+
+    // 1. Retrieve All data (for backup)
+    @Query("SELECT * FROM transactions")
+    List<Transaction> getAllTransactionsForBackup();
+
+    // 2. Delete All data (for restore prep)
+    @Query("DELETE FROM transactions")
+    void deleteAll();
+
+    // 3. Insert All data (for restore)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    void insertAll(List<Transaction> transactions);
 }

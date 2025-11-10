@@ -3,6 +3,7 @@ package com.example.finix.data;
 import androidx.lifecycle.LiveData;
 import androidx.room.Dao;
 import androidx.room.Insert;
+import androidx.room.OnConflictStrategy;
 import androidx.room.Query;
 import androidx.room.Delete;
 import androidx.room.Update; // Needed for the update method
@@ -42,4 +43,26 @@ public interface CategoryDAO {
     // Search categories by name
     @Query("SELECT * FROM categories WHERE name LIKE :query ORDER BY name ASC")
     List<Category> searchCategories(String query);
+
+
+
+
+
+
+
+
+
+
+
+    // 1. Retrieve All data (for backup)
+    @Query("SELECT * FROM categories")
+    List<Category> getAllCategoriesForBackup();
+
+    // 2. Delete All data (for restore prep)
+    @Query("DELETE FROM categories")
+    void deleteAll();
+
+    // 3. Insert All data (for restore) - REPLACE handles potential ID conflicts during restore
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    void insertAll(List<Category> categories);
 }

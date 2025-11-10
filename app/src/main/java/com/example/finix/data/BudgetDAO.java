@@ -3,6 +3,7 @@
     import androidx.room.Dao;
     import androidx.room.Insert;
     import androidx.room.Delete;
+    import androidx.room.OnConflictStrategy;
     import androidx.room.Query;
     import androidx.room.Update;
 
@@ -35,4 +36,23 @@
         @Query("SELECT * FROM budgets WHERE local_id = :localId")
         Budget getBudgetById(int localId);
 
+
+
+
+
+
+
+
+
+        // 1. Retrieve All data (for backup)
+        @Query("SELECT * FROM budgets")
+        List<Budget> getAllBudgetsForBackup();
+
+        // 2. Delete All data (for restore prep)
+        @Query("DELETE FROM budgets")
+        void deleteAll();
+
+        // 3. Insert All data (for restore)
+        @Insert(onConflict = OnConflictStrategy.REPLACE)
+        void insertAll(List<Budget> budgets);
     }
