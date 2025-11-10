@@ -90,6 +90,7 @@ public class SettingsFragment extends Fragment {
     // Member variable to hold the URI selected for backup/restore
     private Uri selectedUri = null;
 
+    private MaterialButton buttonOpenReports;
 
     // ----------------------------------------------------
     // NEW: Activity Result Launchers for Storage Access Framework (SAF)
@@ -141,6 +142,18 @@ public class SettingsFragment extends Fragment {
         textFolderLabel = view.findViewById(R.id.text_folder_label);
         textSelectedFolder = view.findViewById(R.id.text_selected_folder);
         buttonSelectFolder = view.findViewById(R.id.button_select_folder);
+
+
+        buttonOpenReports = view.findViewById(R.id.button_open_reports);
+
+        buttonOpenReports.setOnClickListener(v -> {
+            try {
+                Navigation.findNavController(view).navigate(R.id.action_SettingsFragment_to_ReportsFragment);
+            } catch (Exception e) {
+                e.printStackTrace();
+                Toast.makeText(getContext(), "Navigation error!", Toast.LENGTH_SHORT).show();
+            }
+        });
 
         // 1. Set the initial visibility based on the switch state
         updateSyncOptionsVisibility(switchSyncProject.isChecked());

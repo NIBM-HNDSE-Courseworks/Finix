@@ -43,6 +43,14 @@
             app:exitAnim="@anim/slide_out_left"
             app:popEnterAnim="@anim/slide_in_left"
             app:popExitAnim="@anim/slide_out_right" />
+
+        <action
+            android:id="@+id/action_SettingsFragment_to_ReportsFragment"
+            app:destination="@id/nav_reports"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
     </fragment>
 
     <fragment
@@ -50,6 +58,13 @@
         android:name="com.example.finix.ui.settings.EditCategoriesFragment"
         android:label="Manage Categories"
         tools:layout="@layout/fragment_edit_categories" />
+
+    <fragment
+        android:id="@+id/nav_reports"
+        android:name="com.example.finix.ui.Reports.ReportsFragment"
+        android:label="Reports"
+        tools:layout="@layout/fragment_reports" />
+
 
 </navigation>
 

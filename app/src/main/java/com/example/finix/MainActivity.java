@@ -39,6 +39,7 @@ import com.example.finix.data.FinixDatabase;
 import com.example.finix.data.SynchronizationLog;
 import com.example.finix.data.Transaction;
 import com.example.finix.databinding.ActivityMainBinding;
+import com.example.finix.ui.Reports.ReportsFragment;
 import com.example.finix.ui.budget.BudgetViewModel;
 import com.example.finix.ui.transactions.TransactionsViewModel;
 import com.example.finix.data.SavingsGoal;
@@ -78,6 +79,7 @@ public class MainActivity extends AppCompatActivity {
         ).setOpenableLayout(drawer).build();
         NavigationUI.setupActionBarWithNavController(this, navController, mAppBarConfiguration);
         NavigationUI.setupWithNavController(binding.navView, navController);
+
     }
 
     private void showQuickAddPopup(View anchor) {

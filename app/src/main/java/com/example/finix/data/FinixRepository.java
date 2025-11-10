@@ -77,7 +77,7 @@ class SynchronizationLogResponse {
 public class FinixRepository {
 
     private static final String TAG = "FinixRepository_LOG";
-    private static final String BASE_URL = "http://192.168.8.182:8080/ords/";
+    private static final String BASE_URL = "http://172.16.100.204:8080/ords/";
 
     private final Context context; // <--- ADD THIS LINE
     private final ContentResolver contentResolver; // NEW: ContentResolver instance

@@ -1,0 +1,603 @@
+Index: .idea/shelf/Uncommitted_changes_before_Update_at_10_29_2025_1_35_PM_[Changes]/shelved.patch
+===================================================================
+diff --git a/.idea/shelf/Uncommitted_changes_before_Update_at_10_29_2025_1_35_PM_[Changes]/shelved.patch b/.idea/shelf/Uncommitted_changes_before_Update_at_10_29_2025_1_35_PM_[Changes]/shelved.patch
+deleted file mode 100644
+--- a/.idea/shelf/Uncommitted_changes_before_Update_at_10_29_2025_1_35_PM_[Changes]/shelved.patch	(revision ddd364270570d6c61e0b676b3f6243483bfbefbc)
++++ /dev/null	(revision ddd364270570d6c61e0b676b3f6243483bfbefbc)
+@@ -1,394 +0,0 @@
+-Index: app/src/main/res/layout/item_goal.xml
+-===================================================================
+-diff --git a/app/src/main/res/layout/item_goal.xml b/app/src/main/res/layout/item_goal.xml
+-deleted file mode 100644
+---- a/app/src/main/res/layout/item_goal.xml	(revision 231e3d8ab527dcd3cc2eeb94242103cb46abbe37)
+-+++ /dev/null	(revision 231e3d8ab527dcd3cc2eeb94242103cb46abbe37)
+-@@ -1,79 +0,0 @@
+--<?xml version="1.0" encoding="utf-8"?>
+--<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+--    android:layout_width="match_parent"
+--    android:layout_height="wrap_content"
+--    android:orientation="vertical"
+--    android:background="#4DB6AC"
+--    android:padding="12dp"
+--    android:layout_marginBottom="8dp"
+--    android:elevation="2dp"
+--    android:clipToPadding="false"
+--    android:layout_marginHorizontal="8dp">
+--
+--    <!-- Top Row: Goal name + info icon + category name -->
+--    <LinearLayout
+--        android:layout_width="match_parent"
+--        android:layout_height="wrap_content"
+--        android:orientation="horizontal"
+--        android:gravity="center_vertical"
+--        android:layout_marginBottom="4dp">
+--
+--        <!-- Goal name -->
+--        <TextView
+--            android:id="@+id/tvGoalName"
+--            android:layout_width="wrap_content"
+--            android:layout_height="wrap_content"
+--            android:text="Goal Name"
+--            android:textStyle="bold"
+--            android:textColor="#FFFFFF"
+--            android:textSize="16sp"
+--            android:layout_weight="1" />
+--
+--        <!-- Info icon -->
+--        <ImageView
+--            android:id="@+id/ivInfo"
+--            android:layout_width="20dp"
+--            android:layout_height="20dp"
+--            android:src="@android:drawable/ic_menu_info_details"
+--            android:tint="#FFFFFF"
+--            android:layout_marginEnd="8dp" />
+--
+--        <!-- Category name -->
+--        <TextView
+--            android:id="@+id/tvCategoryName"
+--            android:layout_width="wrap_content"
+--            android:layout_height="wrap_content"
+--            android:text="Category"
+--            android:textColor="#E0F2F1"
+--            android:textStyle="italic"
+--            android:textSize="13sp" />
+--    </LinearLayout>
+--
+--    <!-- Bottom Row: Target Amount + Target Date -->
+--    <LinearLayout
+--        android:layout_width="match_parent"
+--        android:layout_height="wrap_content"
+--        android:orientation="horizontal"
+--        android:gravity="center_vertical"
+--        android:layout_gravity="fill_horizontal"
+--
+--        android:layout_marginTop="2dp">
+--
+--        <TextView
+--            android:id="@+id/tvTargetAmount"
+--            android:layout_width="wrap_content"
+--            android:layout_height="wrap_content"
+--            android:text="Target: $2500"
+--            android:textColor="#FFFFFF"
+--            android:textSize="14sp"
+--            android:layout_weight="1" />
+--
+--        <TextView
+--            android:id="@+id/tvTargetDate"
+--            android:layout_width="wrap_content"
+--            android:layout_height="wrap_content"
+--            android:text="2025-12-30"
+--            android:textColor="#E0F2F1"
+--            android:textSize="13sp" />
+--    </LinearLayout>
+--</LinearLayout>
+-Index: app/src/main/java/com/example/finix/data/SavingsGoalScreen.java
+-===================================================================
+-diff --git a/app/src/main/java/com/example/finix/data/SavingsGoalScreen.java b/app/src/main/java/com/example/finix/data/SavingsGoalScreen.java
+-deleted file mode 100644
+---- a/app/src/main/java/com/example/finix/data/SavingsGoalScreen.java	(revision 231e3d8ab527dcd3cc2eeb94242103cb46abbe37)
+-+++ /dev/null	(revision 231e3d8ab527dcd3cc2eeb94242103cb46abbe37)
+-@@ -1,106 +0,0 @@
+--package com.example.finix.ui.savings;
+--
+--import android.app.AlertDialog;
+--import android.os.Bundle;
+--import android.view.LayoutInflater;
+--import android.view.View;
+--import android.view.ViewGroup;
+--import android.widget.Button;
+--import android.widget.EditText;
+--import android.widget.Toast;
+--
+--import androidx.annotation.NonNull;
+--import androidx.annotation.Nullable;
+--import androidx.fragment.app.Fragment;
+--import androidx.recyclerview.widget.LinearLayoutManager;
+--import androidx.recyclerview.widget.RecyclerView;
+--import androidx.room.Room;
+--
+--import com.example.finix.R;
+--import com.example.finix.data.FinixDatabase;
+--import com.example.finix.data.SavingsGoal;
+--
+--import java.text.ParseException;
+--import java.text.SimpleDateFormat;
+--import java.util.Date;
+--import java.util.List;
+--
+--public class SavingsGoalScreen extends Fragment {
+--
+--    private RecyclerView rvGoals;
+--    private Button btnAddGoal;
+--    private FinixDatabase db;
+--    private GoalsAdapter adapter;
+--
+--    @Nullable
+--    @Override
+--    public View onCreateView(@NonNull LayoutInflater inflater,
+--                             @Nullable ViewGroup container,
+--                             @Nullable Bundle savedInstanceState) {
+--
+--        View view = inflater.inflate(R.layout.fragment_savings_goals, container, false);
+--
+--        rvGoals = view.findViewById(R.id.rvGoals);
+--        btnAddGoal = view.findViewById(R.id.btnAddGoal);
+--
+--        db = Room.databaseBuilder(requireContext(),
+--                        FinixDatabase.class, "finix-db")
+--                .allowMainThreadQueries()
+--                .build();
+--
+--        loadGoals();
+--
+--        btnAddGoal.setOnClickListener(v -> showAddGoalDialog());
+--
+--        return view;
+--    }
+--
+--    private void loadGoals() {
+--        List<SavingsGoal> goalList = db.savingsGoalDao().getAllGoals();
+--        rvGoals.setLayoutManager(new LinearLayoutManager(getContext()));
+--        adapter = new GoalsAdapter(goalList);
+--        rvGoals.setAdapter(adapter);
+--    }
+--
+--    private void showAddGoalDialog() {
+--        LayoutInflater inflater = LayoutInflater.from(getContext());
+--        View dialogView = inflater.inflate(R.layout.dialog_add_goal, null);
+--
+--        EditText etCategoryId = dialogView.findViewById(R.id.etCategoryId);
+--        EditText etGoalName = dialogView.findViewById(R.id.etGoalName);
+--        EditText etGoalDescription = dialogView.findViewById(R.id.etGoalDescription);
+--        EditText etTargetAmount = dialogView.findViewById(R.id.etTargetAmount);
+--        EditText etTargetDate = dialogView.findViewById(R.id.etTargetDate);
+--        Button btnSaveGoal = dialogView.findViewById(R.id.btnSaveGoal);
+--
+--        AlertDialog dialog = new AlertDialog.Builder(getContext())
+--                .setView(dialogView)
+--                .create();
+--
+--        btnSaveGoal.setOnClickListener(v -> {
+--            try {
+--                int categoryId = Integer.parseInt(etCategoryId.getText().toString());
+--                String name = etGoalName.getText().toString();
+--                String desc = etGoalDescription.getText().toString();
+--                double amount = Double.parseDouble(etTargetAmount.getText().toString());
+--                String dateStr = etTargetDate.getText().toString();
+--
+--                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+--                Date parsedDate = sdf.parse(dateStr);
+--                long dateMillis = parsedDate != null ? parsedDate.getTime() : 0;
+--
+--                SavingsGoal goal = new SavingsGoal(categoryId, name, desc, amount, dateMillis);
+--                db.savingsGoalDao().insert(goal);
+--                Toast.makeText(getContext(), "Goal added successfully!", Toast.LENGTH_SHORT).show();
+--
+--                dialog.dismiss();
+--                loadGoals();
+--
+--            } catch (NumberFormatException | ParseException e) {
+--                Toast.makeText(getContext(), "Invalid input format!", Toast.LENGTH_SHORT).show();
+--            }
+--        });
+--
+--        dialog.show();
+--    }
+--}
+-Index: app/src/main/res/layout/dialog_add_goal.xml
+-===================================================================
+-diff --git a/app/src/main/res/layout/dialog_add_goal.xml b/app/src/main/res/layout/dialog_add_goal.xml
+-deleted file mode 100644
+---- a/app/src/main/res/layout/dialog_add_goal.xml	(revision 231e3d8ab527dcd3cc2eeb94242103cb46abbe37)
+-+++ /dev/null	(revision 231e3d8ab527dcd3cc2eeb94242103cb46abbe37)
+-@@ -1,62 +0,0 @@
+--<?xml version="1.0" encoding="utf-8"?>
+--<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+--    android:layout_width="match_parent"
+--    android:layout_height="wrap_content"
+--    android:padding="16dp">
+--
+--    <LinearLayout
+--        android:layout_width="match_parent"
+--        android:layout_height="wrap_content"
+--        android:orientation="vertical">
+--
+--        <TextView
+--            android:text="Add Savings Goal"
+--            android:textSize="18sp"
+--            android:textStyle="bold"
+--            android:gravity="center"
+--            android:layout_width="match_parent"
+--            android:layout_height="wrap_content"
+--            android:paddingBottom="12dp" />
+--
+--        <EditText
+--            android:id="@+id/etCategoryId"
+--            android:hint="Category ID"
+--            android:inputType="number"
+--            android:layout_width="match_parent"
+--            android:layout_height="wrap_content" />
+--
+--        <EditText
+--            android:id="@+id/etGoalName"
+--            android:hint="Goal Name"
+--            android:layout_width="match_parent"
+--            android:layout_height="wrap_content" />
+--
+--        <EditText
+--            android:id="@+id/etGoalDescription"
+--            android:hint="Goal Description"
+--            android:layout_width="match_parent"
+--            android:layout_height="wrap_content" />
+--
+--        <EditText
+--            android:id="@+id/etTargetAmount"
+--            android:hint="Target Amount"
+--            android:inputType="numberDecimal"
+--            android:layout_width="match_parent"
+--            android:layout_height="wrap_content" />
+--
+--        <EditText
+--            android:id="@+id/etTargetDate"
+--            android:hint="Target Date (yyyy-mm-dd)"
+--            android:layout_width="match_parent"
+--            android:layout_height="wrap_content" />
+--
+--        <Button
+--            android:id="@+id/btnSaveGoal"
+--            android:text="Save"
+--            android:layout_width="match_parent"
+--            android:layout_height="wrap_content"
+--            android:backgroundTint="#009688"
+--            android:textColor="#FFFFFF"
+--            android:layout_marginTop="12dp" />
+--    </LinearLayout>
+--</ScrollView>
+-Index: app/src/main/java/com/example/finix/ui/savings/GoalsAdapter.java
+-===================================================================
+-diff --git a/app/src/main/java/com/example/finix/ui/savings/GoalsAdapter.java b/app/src/main/java/com/example/finix/ui/savings/GoalsAdapter.java
+-deleted file mode 100644
+---- a/app/src/main/java/com/example/finix/ui/savings/GoalsAdapter.java	(revision 231e3d8ab527dcd3cc2eeb94242103cb46abbe37)
+-+++ /dev/null	(revision 231e3d8ab527dcd3cc2eeb94242103cb46abbe37)
+-@@ -1,81 +0,0 @@
+--package com.example.finix.ui.savings;
+--
+--import android.app.AlertDialog;
+--import android.view.LayoutInflater;
+--import android.view.View;
+--import android.view.ViewGroup;
+--import android.widget.ImageView;
+--import android.widget.TextView;
+--
+--import androidx.annotation.NonNull;
+--import androidx.recyclerview.widget.RecyclerView;
+--
+--import com.example.finix.R;
+--import com.example.finix.data.SavingsGoal;
+--
+--import java.text.SimpleDateFormat;
+--import java.util.List;
+--import java.util.Locale;
+--
+--public class GoalsAdapter extends RecyclerView.Adapter<GoalsAdapter.GoalViewHolder> {
+--
+--    private final List<SavingsGoal> goals;
+--
+--    public GoalsAdapter(List<SavingsGoal> goals) {
+--        this.goals = goals;
+--    }
+--
+--    @NonNull
+--    @Override
+--    public GoalViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+--        View view = LayoutInflater.from(parent.getContext())
+--                .inflate(R.layout.item_goal, parent, false);
+--        return new GoalViewHolder(view);
+--    }
+--
+--    @Override
+--    public void onBindViewHolder(@NonNull GoalViewHolder holder, int position) {
+--        SavingsGoal goal = goals.get(position);
+--
+--        holder.tvGoalName.setText(goal.getGoalName());
+--        holder.tvCategoryName.setText("Category ID: " + goal.getCategoryId());
+--        holder.tvTargetAmount.setText(String.format(Locale.getDefault(), "Target: $%.2f", goal.getTargetAmount()));
+--
+--        // Format target date
+--        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+--        holder.tvTargetDate.setText(sdf.format(goal.getTargetDate()));
+--
+--        // Info icon click → show popup with details
+--        holder.ivInfo.setOnClickListener(v -> {
+--            new AlertDialog.Builder(v.getContext())
+--                    .setTitle(goal.getGoalName())
+--                    .setMessage(
+--                            "Description: " + goal.getGoalDescription() + "\n\n" +
+--                                    "Category ID: " + goal.getCategoryId() + "\n" +
+--                                    "Target Amount: $" + goal.getTargetAmount() + "\n" +
+--                                    "Target Date: " + sdf.format(goal.getTargetDate())
+--                    )
+--                    .setPositiveButton("OK", (dialog, which) -> dialog.dismiss())
+--                    .show();
+--        });
+--    }
+--
+--    @Override
+--    public int getItemCount() {
+--        return goals.size();
+--    }
+--
+--    static class GoalViewHolder extends RecyclerView.ViewHolder {
+--        TextView tvGoalName, tvCategoryName, tvTargetAmount, tvTargetDate;
+--        ImageView ivInfo;
+--
+--        GoalViewHolder(@NonNull View itemView) {
+--            super(itemView);
+--            tvGoalName = itemView.findViewById(R.id.tvGoalName);
+--            tvCategoryName = itemView.findViewById(R.id.tvCategoryName);
+--            tvTargetAmount = itemView.findViewById(R.id.tvTargetAmount);
+--            tvTargetDate = itemView.findViewById(R.id.tvTargetDate);
+--            ivInfo = itemView.findViewById(R.id.ivInfo);
+--        }
+--    }
+--}
+-Index: app/src/main/java/com/example/finix/data/SavingsGoal.java
+-IDEA additional info:
+-Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+-<+>package com.example.finix.data;\r\n\r\nimport androidx.room.ColumnInfo;\r\nimport androidx.room.Entity;\r\nimport androidx.room.ForeignKey;\r\nimport androidx.room.PrimaryKey;\r\n\r\n// Define a ForeignKey to link SavingsGoal to a Category\r\n@Entity(tableName = \"savings_goal\",\r\n        foreignKeys = @ForeignKey(entity = Category.class,\r\n                parentColumns = \"id\", // column in Category table\r\n                childColumns = \"category_id\", // column in this table\r\n                onDelete = ForeignKey.RESTRICT)) // prevents deleting a category if a goal uses it\r\npublic class SavingsGoal {\r\n\r\n    @PrimaryKey(autoGenerate = true)\r\n    @ColumnInfo(name = \"goal_id\")\r\n    private int id;\r\n\r\n    @ColumnInfo(name = \"category_id\")\r\n    private int categoryId;\r\n\r\n    @ColumnInfo(name = \"goal_name\")\r\n    private String goalName;\r\n\r\n    @ColumnInfo(name = \"goal_description\")\r\n    private String goalDescription;\r\n\r\n    @ColumnInfo(name = \"target_amount\")\r\n    private double targetAmount;\r\n\r\n    @ColumnInfo(name = \"target_date\")\r\n    private long targetDate;\r\n\r\n    // Constructor\r\n    public SavingsGoal(int categoryId, String goalName, String goalDescription, double targetAmount, long targetDate) {\r\n        this.categoryId = categoryId;\r\n        this.goalName = goalName;\r\n        this.goalDescription = goalDescription;\r\n        this.targetAmount = targetAmount;\r\n        this.targetDate = targetDate;\r\n    }\r\n\r\n    // Getters and Setters\r\n    public int getId() { return id; }\r\n    public void setId(int id) { this.id = id; }\r\n\r\n    public int getCategoryId() { return categoryId; }\r\n    public void setCategoryId(int categoryId) { this.categoryId = categoryId; }\r\n\r\n    public String getGoalName() { return goalName; }\r\n    public void setGoalName(String goalName) { this.goalName = goalName; }\r\n\r\n    public String getGoalDescription() { return goalDescription; }\r\n    public void setGoalDescription(String goalDescription) { this.goalDescription = goalDescription; }\r\n\r\n    public double getTargetAmount() { return targetAmount; }\r\n    public void setTargetAmount(double targetAmount) { this.targetAmount = targetAmount; }\r\n\r\n    public long getTargetDate() { return targetDate; }\r\n    public void setTargetDate(long targetDate) { this.targetDate = targetDate; }\r\n}\r\n
+-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+-<+>UTF-8
+-===================================================================
+-diff --git a/app/src/main/java/com/example/finix/data/SavingsGoal.java b/app/src/main/java/com/example/finix/data/SavingsGoal.java
+---- a/app/src/main/java/com/example/finix/data/SavingsGoal.java	(revision 231e3d8ab527dcd3cc2eeb94242103cb46abbe37)
+-+++ b/app/src/main/java/com/example/finix/data/SavingsGoal.java	(date 1761723801833)
+-@@ -41,7 +41,7 @@
+-         this.targetDate = targetDate;
+-     }
+- 
+--    // Getters and Setters
+-+    // Getters and Setters all
+-     public int getId() { return id; }
+-     public void setId(int id) { this.id = id; }
+- 
+-Index: app/src/main/java/com/example/finix/ui/savings/SavingsGoalsFragment.java
+-IDEA additional info:
+-Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+-<+>package com.example.finix.ui.savings;\r\n\r\nimport android.os.Bundle;\r\n\r\nimport androidx.fragment.app.Fragment;\r\n\r\nimport android.view.LayoutInflater;\r\nimport android.view.View;\r\nimport android.view.ViewGroup;\r\n\r\nimport com.example.finix.R;\r\n\r\n/**\r\n * A simple {@link Fragment} subclass.\r\n * Use the {@link SavingsGoalsFragment#newInstance} factory method to\r\n * create an instance of this fragment.\r\n */\r\npublic class SavingsGoalsFragment extends Fragment {\r\n\r\n    // TODO: Rename parameter arguments, choose names that match\r\n    // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER\r\n    private static final String ARG_PARAM1 = \"param1\";\r\n    private static final String ARG_PARAM2 = \"param2\";\r\n\r\n    // TODO: Rename and change types of parameters\r\n    private String mParam1;\r\n    private String mParam2;\r\n\r\n    public SavingsGoalsFragment() {\r\n        // Required empty public constructor\r\n    }\r\n\r\n    /**\r\n     * Use this factory method to create a new instance of\r\n     * this fragment using the provided parameters.\r\n     *\r\n     * @param param1 Parameter 1.\r\n     * @param param2 Parameter 2.\r\n     * @return A new instance of fragment SavingsGoalsFragment.\r\n     */\r\n    // TODO: Rename and change types and number of parameters\r\n    public static SavingsGoalsFragment newInstance(String param1, String param2) {\r\n        SavingsGoalsFragment fragment = new SavingsGoalsFragment();\r\n        Bundle args = new Bundle();\r\n        args.putString(ARG_PARAM1, param1);\r\n        args.putString(ARG_PARAM2, param2);\r\n        fragment.setArguments(args);\r\n        return fragment;\r\n    }\r\n\r\n    @Override\r\n    public void onCreate(Bundle savedInstanceState) {\r\n        super.onCreate(savedInstanceState);\r\n        if (getArguments() != null) {\r\n            mParam1 = getArguments().getString(ARG_PARAM1);\r\n            mParam2 = getArguments().getString(ARG_PARAM2);\r\n        }\r\n    }\r\n\r\n    @Override\r\n    public View onCreateView(LayoutInflater inflater, ViewGroup container,\r\n                             Bundle savedInstanceState) {\r\n        // Inflate the layout for this fragment\r\n        return inflater.inflate(R.layout.fragment_savings_goals, container, false);\r\n    }\r\n}
+-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+-<+>UTF-8
+-===================================================================
+-diff --git a/app/src/main/java/com/example/finix/ui/savings/SavingsGoalsFragment.java b/app/src/main/java/com/example/finix/ui/savings/SavingsGoalsFragment.java
+---- a/app/src/main/java/com/example/finix/ui/savings/SavingsGoalsFragment.java	(revision 231e3d8ab527dcd3cc2eeb94242103cb46abbe37)
+-+++ b/app/src/main/java/com/example/finix/ui/savings/SavingsGoalsFragment.java	(date 1761723801826)
+-@@ -38,7 +38,7 @@
+-      * @param param2 Parameter 2.
+-      * @return A new instance of fragment SavingsGoalsFragment.
+-      */
+--    // TODO: Rename and change types and number of parameters
+-+    //  Rename and change types and number of parameters
+-     public static SavingsGoalsFragment newInstance(String param1, String param2) {
+-         SavingsGoalsFragment fragment = new SavingsGoalsFragment();
+-         Bundle args = new Bundle();
+Index: .idea/shelf/Uncommitted_changes_before_Update_at_10_29_2025_1_35_PM__Changes_.xml
+===================================================================
+diff --git a/.idea/shelf/Uncommitted_changes_before_Update_at_10_29_2025_1_35_PM__Changes_.xml b/.idea/shelf/Uncommitted_changes_before_Update_at_10_29_2025_1_35_PM__Changes_.xml
+deleted file mode 100644
+--- a/.idea/shelf/Uncommitted_changes_before_Update_at_10_29_2025_1_35_PM__Changes_.xml	(revision ddd364270570d6c61e0b676b3f6243483bfbefbc)
++++ /dev/null	(revision ddd364270570d6c61e0b676b3f6243483bfbefbc)
+@@ -1,4 +0,0 @@
+-<changelist name="Uncommitted_changes_before_Update_at_10_29_2025_1_35_PM_[Changes]" date="1761725138317" recycled="true" deleted="true">
+-  <option name="PATH" value="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_10_29_2025_1_35_PM_[Changes]/shelved.patch" />
+-  <option name="DESCRIPTION" value="Uncommitted changes before Update at 10/29/2025 1:35 PM [Changes]" />
+-</changelist>
+\ No newline at end of file
+Index: .idea/shelf/Uncommitted_changes_before_Update_at_11_1_2025_2_18_PM__Changes_.xml
+===================================================================
+diff --git a/.idea/shelf/Uncommitted_changes_before_Update_at_11_1_2025_2_18_PM__Changes_.xml b/.idea/shelf/Uncommitted_changes_before_Update_at_11_1_2025_2_18_PM__Changes_.xml
+deleted file mode 100644
+--- a/.idea/shelf/Uncommitted_changes_before_Update_at_11_1_2025_2_18_PM__Changes_.xml	(revision ddd364270570d6c61e0b676b3f6243483bfbefbc)
++++ /dev/null	(revision ddd364270570d6c61e0b676b3f6243483bfbefbc)
+@@ -1,16 +0,0 @@
+-<changelist name="Uncommitted_changes_before_Update_at_11_1_2025_2_18_PM_[Changes]" date="1761986926931" recycled="true" deleted="true">
+-  <option name="PATH" value="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_11_1_2025_2_18_PM_[Changes]/shelved.patch" />
+-  <option name="DESCRIPTION" value="Uncommitted changes before Update at 11/1/2025 2:18 PM [Changes]" />
+-  <binary>
+-    <option name="AFTER_PATH" value="app/src/main/res/drawable/ic_no_categories.png" />
+-    <option name="SHELVED_PATH" value="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_11_1_2025_2_18_PM_[Changes]/ic_no_categories.png" />
+-  </binary>
+-  <binary>
+-    <option name="AFTER_PATH" value="app/src/main/res/drawable/ic_arrow_back.png" />
+-    <option name="SHELVED_PATH" value="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_11_1_2025_2_18_PM_[Changes]/ic_arrow_back.png" />
+-  </binary>
+-  <binary>
+-    <option name="AFTER_PATH" value="app/src/main/res/drawable/ic_search.png" />
+-    <option name="SHELVED_PATH" value="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_11_1_2025_2_18_PM_[Changes]/ic_search.png" />
+-  </binary>
+-</changelist>
+\ No newline at end of file
+Index: .idea/shelf/Uncommitted_changes_before_Update_at_10_30_2025_11_17_AM__Changes_.xml
+===================================================================
+diff --git a/.idea/shelf/Uncommitted_changes_before_Update_at_10_30_2025_11_17_AM__Changes_.xml b/.idea/shelf/Uncommitted_changes_before_Update_at_10_30_2025_11_17_AM__Changes_.xml
+deleted file mode 100644
+--- a/.idea/shelf/Uncommitted_changes_before_Update_at_10_30_2025_11_17_AM__Changes_.xml	(revision ddd364270570d6c61e0b676b3f6243483bfbefbc)
++++ /dev/null	(revision ddd364270570d6c61e0b676b3f6243483bfbefbc)
+@@ -1,4 +0,0 @@
+-<changelist name="Uncommitted_changes_before_Update_at_10_30_2025_11_17_AM_[Changes]" date="1761803233594" recycled="true" deleted="true">
+-  <option name="PATH" value="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_10_30_2025_11_17_AM_[Changes]/shelved.patch" />
+-  <option name="DESCRIPTION" value="Uncommitted changes before Update at 10/30/2025 11:17 AM [Changes]" />
+-</changelist>
+\ No newline at end of file
+Index: .idea/shelf/Uncommitted_changes_before_Update_at_11_1_2025_12_39_AM__Changes_.xml
+===================================================================
+diff --git a/.idea/shelf/Uncommitted_changes_before_Update_at_11_1_2025_12_39_AM__Changes_.xml b/.idea/shelf/Uncommitted_changes_before_Update_at_11_1_2025_12_39_AM__Changes_.xml
+deleted file mode 100644
+--- a/.idea/shelf/Uncommitted_changes_before_Update_at_11_1_2025_12_39_AM__Changes_.xml	(revision ddd364270570d6c61e0b676b3f6243483bfbefbc)
++++ /dev/null	(revision ddd364270570d6c61e0b676b3f6243483bfbefbc)
+@@ -1,12 +0,0 @@
+-<changelist name="Uncommitted_changes_before_Update_at_11_1_2025_12_39_AM_[Changes]" date="1761937793823" recycled="true" deleted="true">
+-  <option name="PATH" value="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_11_1_2025_12_39_AM_[Changes]/shelved.patch" />
+-  <option name="DESCRIPTION" value="Uncommitted changes before Update at 11/1/2025 12:39 AM [Changes]" />
+-  <binary>
+-    <option name="AFTER_PATH" value="app/src/main/res/drawable/ic_arrow_back.png" />
+-    <option name="SHELVED_PATH" value="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_11_1_2025_12_39_AM_[Changes]/ic_arrow_back.png" />
+-  </binary>
+-  <binary>
+-    <option name="AFTER_PATH" value="app/src/main/res/drawable/ic_search.png" />
+-    <option name="SHELVED_PATH" value="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_11_1_2025_12_39_AM_[Changes]/ic_search.png" />
+-  </binary>
+-</changelist>
+\ No newline at end of file
+Index: .idea/shelf/Uncommitted_changes_before_Update_at_29_10_2025_8_31_pm__Changes_.xml
+===================================================================
+diff --git a/.idea/shelf/Uncommitted_changes_before_Update_at_29_10_2025_8_31_pm__Changes_.xml b/.idea/shelf/Uncommitted_changes_before_Update_at_29_10_2025_8_31_pm__Changes_.xml
+deleted file mode 100644
+--- a/.idea/shelf/Uncommitted_changes_before_Update_at_29_10_2025_8_31_pm__Changes_.xml	(revision ddd364270570d6c61e0b676b3f6243483bfbefbc)
++++ /dev/null	(revision ddd364270570d6c61e0b676b3f6243483bfbefbc)
+@@ -1,4 +0,0 @@
+-<changelist name="Uncommitted_changes_before_Update_at_29_10_2025_8_31_pm_[Changes]" date="1761750108157" recycled="true" deleted="true">
+-  <option name="PATH" value="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_29_10_2025_8_31_pm_[Changes]/shelved.patch" />
+-  <option name="DESCRIPTION" value="Uncommitted changes before Update at 29/10/2025 8:31 pm [Changes]" />
+-</changelist>
+\ No newline at end of file
+Index: .idea/shelf/Uncommitted_changes_before_Update_at_29_10_2025_8_31_pm_[Changes]/shelved.patch
+===================================================================
+diff --git a/.idea/shelf/Uncommitted_changes_before_Update_at_29_10_2025_8_31_pm_[Changes]/shelved.patch b/.idea/shelf/Uncommitted_changes_before_Update_at_29_10_2025_8_31_pm_[Changes]/shelved.patch
+deleted file mode 100644
+--- a/.idea/shelf/Uncommitted_changes_before_Update_at_29_10_2025_8_31_pm_[Changes]/shelved.patch	(revision ddd364270570d6c61e0b676b3f6243483bfbefbc)
++++ /dev/null	(revision ddd364270570d6c61e0b676b3f6243483bfbefbc)
+@@ -1,71 +0,0 @@
+-Index: app/src/main/res/layout/fragment_budget.xml
+-IDEA additional info:
+-Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+-<+><?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<FrameLayout xmlns:android=\"http://schemas.android.com/apk/res/android\"\r\n    xmlns:tools=\"http://schemas.android.com/tools\"\r\n    android:layout_width=\"match_parent\"\r\n    android:layout_height=\"match_parent\"\r\n    tools:context=\".ui.budget.BudgetFragment\">\r\n\r\n    <!-- TODO: Update blank fragment layout -->\r\n    <TextView\r\n        android:layout_width=\"match_parent\"\r\n        android:layout_height=\"match_parent\"\r\n        android:text=\"@string/hello_blank_fragment\" />\r\n\r\n</FrameLayout>
+-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+-<+>UTF-8
+-===================================================================
+-diff --git a/app/src/main/res/layout/fragment_budget.xml b/app/src/main/res/layout/fragment_budget.xml
+---- a/app/src/main/res/layout/fragment_budget.xml	(revision 404177136d77d0d0d23fd3447f5d65d90d19a3cc)
+-+++ b/app/src/main/res/layout/fragment_budget.xml	(date 1761693651267)
+-@@ -1,14 +1,34 @@
+- <?xml version="1.0" encoding="utf-8"?>
+--<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+--    xmlns:tools="http://schemas.android.com/tools"
+-+<androidx.constraintlayout.widget.ConstraintLayout
+-+    xmlns:android="http://schemas.android.com/apk/res/android"
+-+    xmlns:app="http://schemas.android.com/apk/res-auto"
+-     android:layout_width="match_parent"
+--    android:layout_height="match_parent"
+--    tools:context=".ui.budget.BudgetFragment">
+-+    android:layout_height="match_parent">
+- 
+--    <!-- TODO: Update blank fragment layout -->
+--    <TextView
+--        android:layout_width="match_parent"
+--        android:layout_height="match_parent"
+--        android:text="@string/hello_blank_fragment" />
+-+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+-+        android:id="@+id/swipeRefresh"
+-+        android:layout_width="0dp"
+-+        android:layout_height="0dp"
+-+        app:layout_constraintTop_toTopOf="parent"
+-+        app:layout_constraintBottom_toTopOf="@+id/fabAdd"
+-+        app:layout_constraintLeft_toLeftOf="parent"
+-+        app:layout_constraintRight_toRightOf="parent">
+-+
+-+        <androidx.recyclerview.widget.RecyclerView
+-+            android:id="@+id/recyclerBudgets"
+-+            android:layout_width="match_parent"
+-+            android:layout_height="match_parent"
+-+            android:padding="12dp" />
+-+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+- 
+--</FrameLayout>
+-\ No newline at end of file
+-+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+-+        android:id="@+id/fabAdd"
+-+        android:layout_width="wrap_content"
+-+        android:layout_height="wrap_content"
+-+        android:contentDescription="Add budget"
+-+        app:srcCompat="@android:drawable/ic_input_add"
+-+        app:layout_constraintBottom_toBottomOf="parent"
+-+        app:layout_constraintEnd_toEndOf="parent"
+-+        android:layout_margin="16dp"/>
+-+
+-+</androidx.constraintlayout.widget.ConstraintLayout>
+-Index: .idea/misc.xml
+-IDEA additional info:
+-Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+-<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<project version=\"4\">\r\n  <component name=\"ExternalStorageConfigurationManager\" enabled=\"true\" />\r\n  <component name=\"ProjectRootManager\" version=\"2\" languageLevel=\"JDK_21\" default=\"true\" project-jdk-name=\"jbr-21\" project-jdk-type=\"JavaSDK\">\r\n    <output url=\"file://$PROJECT_DIR$/build/classes\" />\r\n  </component>\r\n  <component name=\"ProjectType\">\r\n    <option name=\"id\" value=\"Android\" />\r\n  </component>\r\n</project>
+-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+-<+>UTF-8
+-===================================================================
+-diff --git a/.idea/misc.xml b/.idea/misc.xml
+---- a/.idea/misc.xml	(revision 404177136d77d0d0d23fd3447f5d65d90d19a3cc)
+-+++ b/.idea/misc.xml	(date 1760826261750)
+-@@ -1,4 +1,3 @@
+--<?xml version="1.0" encoding="UTF-8"?>
+- <project version="4">
+-   <component name="ExternalStorageConfigurationManager" enabled="true" />
+-   <component name="ProjectRootManager" version="2" languageLevel="JDK_21" default="true" project-jdk-name="jbr-21" project-jdk-type="JavaSDK">
+Index: .idea/shelf/Uncommitted_changes_before_Update_at_10_30_2025_11_51_PM__Changes_.xml
+===================================================================
+diff --git a/.idea/shelf/Uncommitted_changes_before_Update_at_10_30_2025_11_51_PM__Changes_.xml b/.idea/shelf/Uncommitted_changes_before_Update_at_10_30_2025_11_51_PM__Changes_.xml
+deleted file mode 100644
+--- a/.idea/shelf/Uncommitted_changes_before_Update_at_10_30_2025_11_51_PM__Changes_.xml	(revision ddd364270570d6c61e0b676b3f6243483bfbefbc)
++++ /dev/null	(revision ddd364270570d6c61e0b676b3f6243483bfbefbc)
+@@ -1,8 +0,0 @@
+-<changelist name="Uncommitted_changes_before_Update_at_10_30_2025_11_51_PM_[Changes]" date="1761848518674" recycled="true" deleted="true">
+-  <option name="PATH" value="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_10_30_2025_11_51_PM_[Changes]/shelved.patch" />
+-  <option name="DESCRIPTION" value="Uncommitted changes before Update at 10/30/2025 11:51 PM [Changes]" />
+-  <binary>
+-    <option name="AFTER_PATH" value="app/src/main/res/drawable/ic_arrow_back.png" />
+-    <option name="SHELVED_PATH" value="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_10_30_2025_11_51_PM_[Changes]/ic_arrow_back.png" />
+-  </binary>
+-</changelist>
+\ No newline at end of file
+Index: .idea/shelf/Uncommitted_changes_before_Update_at_10_30_2025_11_17_AM_[Changes]/shelved.patch
+===================================================================
+diff --git a/.idea/shelf/Uncommitted_changes_before_Update_at_10_30_2025_11_17_AM_[Changes]/shelved.patch b/.idea/shelf/Uncommitted_changes_before_Update_at_10_30_2025_11_17_AM_[Changes]/shelved.patch
+deleted file mode 100644
+--- a/.idea/shelf/Uncommitted_changes_before_Update_at_10_30_2025_11_17_AM_[Changes]/shelved.patch	(revision ddd364270570d6c61e0b676b3f6243483bfbefbc)
++++ /dev/null	(revision ddd364270570d6c61e0b676b3f6243483bfbefbc)
+@@ -1,15 +0,0 @@
+-Index: .idea/misc.xml
+-IDEA additional info:
+-Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+-<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<project version=\"4\">\r\n  <component name=\"ExternalStorageConfigurationManager\" enabled=\"true\" />\r\n  <component name=\"ProjectRootManager\" version=\"2\" languageLevel=\"JDK_21\" default=\"true\" project-jdk-name=\"jbr-21\" project-jdk-type=\"JavaSDK\">\r\n    <output url=\"file://$PROJECT_DIR$/build/classes\" />\r\n  </component>\r\n  <component name=\"ProjectType\">\r\n    <option name=\"id\" value=\"Android\" />\r\n  </component>\r\n</project>
+-Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+-<+>UTF-8
+-===================================================================
+-diff --git a/.idea/misc.xml b/.idea/misc.xml
+---- a/.idea/misc.xml	(revision 404177136d77d0d0d23fd3447f5d65d90d19a3cc)
+-+++ b/.idea/misc.xml	(date 1760798159482)
+-@@ -1,4 +1,3 @@
+--<?xml version="1.0" encoding="UTF-8"?>
+- <project version="4">
+-   <component name="ExternalStorageConfigurationManager" enabled="true" />
+-   <component name="ProjectRootManager" version="2" languageLevel="JDK_21" default="true" project-jdk-name="jbr-21" project-jdk-type="JavaSDK">
+diff --git a/.idea/shelf/Uncommitted_changes_before_Update_at_11_1_2025_12_39_AM_[Changes]/shelved.patch b/.idea/shelf/Uncommitted_changes_before_Update_at_11_1_2025_12_39_AM_[Changes]/shelved.patch
+deleted file mode 100644
+diff --git a/.idea/shelf/Uncommitted_changes_before_Update_at_10_30_2025_11_51_PM_[Changes]/shelved.patch b/.idea/shelf/Uncommitted_changes_before_Update_at_10_30_2025_11_51_PM_[Changes]/shelved.patch
+deleted file mode 100644
+diff --git a/.idea/shelf/Uncommitted_changes_before_Update_at_11_1_2025_2_18_PM_[Changes]/shelved.patch b/.idea/shelf/Uncommitted_changes_before_Update_at_11_1_2025_2_18_PM_[Changes]/shelved.patch
+deleted file mode 100644
