@@ -1,0 +1,1115 @@
+------------------------------------------------------
+-- ✅ Enable schema
+BEGIN
+  ORDS.ENABLE_SCHEMA(
+    p_enabled             => TRUE,
+    p_schema              => 'FINIX_USERNAME',
+    p_url_mapping_type    => 'BASE_PATH',
+    p_url_mapping_pattern => 'finix',
+    p_auto_rest_auth      => FALSE
+  );
+  COMMIT;
+END;
+/
+------------------------------------------------------
+
+-- ✅ Module + Template
+BEGIN
+  ORDS.DEFINE_MODULE(
+    p_module_name    => 'finix_api',
+    p_base_path      => 'api/',
+    p_items_per_page => 0,
+    p_status         => 'PUBLISHED'
+  );
+
+  ORDS.DEFINE_TEMPLATE(
+    p_module_name => 'finix_api',
+    p_pattern     => 'categories/'
+  );
+  COMMIT;
+END;
+/
+------------------------------------------------------
+
+-- ✅ POST handler (Create category) - Fixed for Option A
+-- ✅ POST handler (Create category) - Fixed JSON for null local_id
+BEGIN
+  ORDS.DEFINE_HANDLER(
+    p_module_name  => 'finix_api',
+    p_pattern      => 'categories/',
+    p_method       => 'POST',
+    p_source_type  => 'plsql/block',
+    p_source       => q'[
+      DECLARE
+        v_id       categories.id%TYPE;
+        v_local_id categories.local_id%TYPE := :local_id; -- bind parameter
+        v_name     categories.name%TYPE     := :name;     -- bind parameter
+      BEGIN
+        INSERT INTO categories (local_id, name)
+        VALUES (v_local_id, v_name)
+        RETURNING id INTO v_id;
+
+        OWA_UTIL.MIME_HEADER('application/json', FALSE);
+        OWA_UTIL.HTTP_HEADER_CLOSE;
+
+        HTP.PRN('{
+          "status":"success",
+          "message":"Category created successfully.",
+          "data":{
+            "id":' || v_id || ',
+            "local_id":' || NVL(TO_CHAR(v_local_id), 'null') || ',
+            "name":"' || v_name || '"}
+        }');
+
+        :status := 200;
+
+      EXCEPTION
+        WHEN DUP_VAL_ON_INDEX THEN
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"Duplicate category name."}');
+          :status := 409;
+
+        WHEN OTHERS THEN
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"' || REPLACE(SQLERRM,'"','''') || '"}');
+          :status := 500;
+      END;
+    ]'
+  );
+  COMMIT;
+END;
+/
+
+
+
+------------------------------------------------------
+
+-- ✅ GET handler (List all)
+BEGIN
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'finix_api',
+    p_pattern     => 'categories/',
+    p_method      => 'GET',
+    p_source_type => 'json/collection',
+    p_source      => q'[
+      SELECT id, local_id, name
+      FROM categories
+      ORDER BY id
+    ]'
+  );
+  COMMIT;
+END;
+/
+------------------------------------------------------
+
+------------------------------------------------------
+-- ✅ Add missing template for PUT/DELETE (categories/:id)
+BEGIN
+  ORDS.DEFINE_TEMPLATE(
+    p_module_name => 'finix_api',
+    p_pattern     => 'categories/:id'
+  );
+  COMMIT;
+END;
+/
+
+
+------------------------------------------------------
+-- ✅ PUT handler (Update category)
+BEGIN
+  ORDS.DEFINE_HANDLER(
+    p_module_name  => 'finix_api',
+    p_pattern      => 'categories/:id',
+    p_method       => 'PUT',
+    p_source_type  => 'plsql/block',
+    p_source       => q'[
+      DECLARE
+        v_id        categories.id%TYPE := :id;        -- From URL path
+        v_name      categories.name%TYPE := :name;    -- From JSON body
+        v_exists    NUMBER;
+      BEGIN
+        -- Check if category exists
+        SELECT COUNT(*) INTO v_exists
+        FROM categories
+        WHERE id = v_id;
+
+        IF v_exists = 0 THEN
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"Category not found."}');
+          :status := 404;
+          RETURN;
+        END IF;
+
+        -- Perform the update
+        UPDATE categories
+        SET name = v_name
+        WHERE id = v_id;
+
+        IF SQL%ROWCOUNT = 0 THEN
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"No rows updated."}');
+          :status := 400;
+          RETURN;
+        END IF;
+
+        OWA_UTIL.MIME_HEADER('application/json', FALSE);
+        OWA_UTIL.HTTP_HEADER_CLOSE;
+
+        HTP.PRN('{
+          "status":"success",
+          "message":"Category updated successfully.",
+          "data":{
+            "id":' || v_id || ',
+            "name":"' || v_name || '"}
+        }');
+
+        :status := 200;
+
+      EXCEPTION
+        WHEN DUP_VAL_ON_INDEX THEN
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"Duplicate category name."}');
+          :status := 409;
+
+        WHEN OTHERS THEN
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"' || REPLACE(SQLERRM,'"','''') || '"}');
+          :status := 500;
+      END;
+    ]'
+  );
+  COMMIT;
+END;
+/
+
+
+BEGIN
+  ORDS.DEFINE_HANDLER(
+    p_module_name  => 'finix_api',
+    p_pattern      => 'categories/:id',
+    p_method       => 'DELETE',
+    p_source_type  => 'plsql/block',
+    p_source       => q'[
+      DECLARE
+        v_id      categories.id%TYPE := :id;  -- From URL path
+        v_exists  NUMBER;
+      BEGIN
+        -- Check if the category exists first
+        SELECT COUNT(*) INTO v_exists
+        FROM categories
+        WHERE id = v_id;
+
+        IF v_exists = 0 THEN
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"Category not found."}');
+          :status := 404;
+          RETURN;
+        END IF;
+
+        -- Delete the record
+        DELETE FROM categories
+        WHERE id = v_id;
+
+        OWA_UTIL.MIME_HEADER('application/json', FALSE);
+        OWA_UTIL.HTTP_HEADER_CLOSE;
+
+        HTP.PRN('{
+          "status":"success",
+          "message":"Category deleted successfully.",
+          "data":{"id":' || v_id || '}
+        }');
+
+        :status := 200;
+
+      EXCEPTION
+        WHEN OTHERS THEN
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"' || REPLACE(SQLERRM,'"','''') || '"}');
+          :status := 500;
+      END;
+    ]'
+  );
+  COMMIT;
+END;
+/
+
+
+
+
+
+
+
+
+
+
+------------------------------------------------------
+-- ✅ Enable schema
+BEGIN
+  ORDS.ENABLE_SCHEMA(
+    p_enabled             => TRUE,
+    p_schema              => 'FINIX_USERNAME',
+    p_url_mapping_type    => 'BASE_PATH',
+    p_url_mapping_pattern => 'finix',
+    p_auto_rest_auth      => FALSE
+  );
+  COMMIT;
+END;
+/
+------------------------------------------------------
+
+-- ✅ Module + Template
+BEGIN
+  ORDS.DEFINE_TEMPLATE(
+    p_module_name => 'finix_api',
+    p_pattern     => 'transactions/'
+  );
+  COMMIT;
+END;
+/
+------------------------------------------------------
+
+-- ✅ POST handler (Create transaction)
+BEGIN
+  ORDS.DEFINE_HANDLER(
+    p_module_name  => 'finix_api',
+    p_pattern      => 'transactions/',
+    p_method       => 'POST',
+    p_source_type  => 'plsql/block',
+    p_source       => q'[
+
+      DECLARE
+        v_id            transactions.id%TYPE;
+        v_local_id      transactions.local_id%TYPE := :local_id;
+        v_amount        transactions.amount%TYPE   := :amount;
+        v_type          transactions.type%TYPE     := :type;
+        v_category_id   transactions.category_id%TYPE := :categoryId;
+        v_date_time     transactions.date_time%TYPE := :dateTime;
+        v_description   transactions.description%TYPE := :description;
+      BEGIN
+        INSERT INTO transactions (local_id, amount, type, category_id, date_time, description)
+        VALUES (v_local_id, v_amount, v_type, v_category_id, v_date_time, v_description)
+        RETURNING id INTO v_id;
+
+        OWA_UTIL.MIME_HEADER('application/json', FALSE);
+        OWA_UTIL.HTTP_HEADER_CLOSE;
+
+        HTP.PRN('{
+          "status":"success",
+          "message":"Transaction created successfully.",
+          "data":{
+            "id":' || v_id || ',
+            "local_id":' || NVL(TO_CHAR(v_local_id), 'null') || ',
+            "amount":' || v_amount || ',
+            "type":"' || v_type || '",
+            "category_id":' || v_category_id || ',
+            "date_time":' || v_date_time || ',
+            "description":"' || NVL(v_description, '') || '"}
+        }');
+
+        :status := 200;
+
+      EXCEPTION
+        WHEN DUP_VAL_ON_INDEX THEN
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"Duplicate transaction local_id."}');
+          :status := 409;
+
+        WHEN OTHERS THEN
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"' || REPLACE(SQLERRM,'"','''') || '"}');
+          :status := 500;
+      END;
+    ]'
+  );
+  COMMIT;
+END;
+/
+------------------------------------------------------
+
+-- ✅ GET handler (List all transactions)
+BEGIN
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'finix_api',
+    p_pattern     => 'transactions/',
+    p_method      => 'GET',
+    p_source_type => 'json/collection',
+    p_source      => q'[
+      SELECT id, local_id, amount, type, category_id, date_time, description
+      FROM transactions
+      ORDER BY id
+    ]'
+  );
+  COMMIT;
+END;
+/
+------------------------------------------------------
+
+-- ✅ Add missing template for PUT/DELETE (transactions/:id)
+BEGIN
+  ORDS.DEFINE_TEMPLATE(
+    p_module_name => 'finix_api',
+    p_pattern     => 'transactions/:id'
+  );
+  COMMIT;
+END;
+/
+------------------------------------------------------
+
+-- ✅ PUT handler (Update transaction)
+BEGIN
+  ORDS.DEFINE_HANDLER(
+    p_module_name  => 'finix_api',
+    p_pattern      => 'transactions/:id',
+    p_method       => 'PUT',
+    p_source_type  => 'plsql/block',
+    p_source       => q'[
+
+      DECLARE
+        v_id            transactions.id%TYPE := :id;
+        v_local_id      transactions.local_id%TYPE := :local_id;
+        v_amount        transactions.amount%TYPE := :amount;
+        v_type          transactions.type%TYPE := :type;
+        v_category_id   transactions.category_id%TYPE := :categoryId;
+        v_date_time     transactions.date_time%TYPE := :dateTime;
+        v_description   transactions.description%TYPE := :description;
+        v_exists        NUMBER;
+      BEGIN
+        SELECT COUNT(*) INTO v_exists FROM transactions WHERE id = v_id;
+
+        IF v_exists = 0 THEN
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"Transaction not found."}');
+          :status := 404;
+          RETURN;
+        END IF;
+
+        UPDATE transactions
+        SET local_id = v_local_id,        -- ✅ include this line
+            amount = v_amount,
+            type = v_type,
+            category_id = v_category_id,
+            date_time = v_date_time,
+            description = v_description
+        WHERE id = v_id;
+
+        OWA_UTIL.MIME_HEADER('application/json', FALSE);
+        OWA_UTIL.HTTP_HEADER_CLOSE;
+
+        HTP.PRN('{
+          "status":"success",
+          "message":"Transaction updated successfully.",
+          "data":{
+            "id":' || v_id || ',
+            "local_id":' || NVL(TO_CHAR(v_local_id), 'null') || ',
+            "amount":' || v_amount || ',
+            "type":"' || v_type || '",
+            "category_id":' || v_category_id || ',
+            "date_time":' || v_date_time || ',
+            "description":"' || NVL(v_description, '') || '"}
+        }');
+
+        :status := 200;
+
+      EXCEPTION
+        WHEN DUP_VAL_ON_INDEX THEN
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"Duplicate transaction local_id."}');
+          :status := 409;
+
+        WHEN OTHERS THEN
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"' || REPLACE(SQLERRM,'"','''') || '"}');
+          :status := 500;
+      END;
+    ]'
+  );
+  COMMIT;
+END;
+/
+
+------------------------------------------------------
+
+-- ✅ DELETE handler (Delete transaction)
+BEGIN
+  ORDS.DEFINE_HANDLER(
+    p_module_name  => 'finix_api',
+    p_pattern      => 'transactions/:id',
+    p_method       => 'DELETE',
+    p_source_type  => 'plsql/block',
+    p_source       => q'[
+
+      DECLARE
+        v_id      transactions.id%TYPE := :id;
+        v_exists  NUMBER;
+      BEGIN
+        SELECT COUNT(*) INTO v_exists FROM transactions WHERE id = v_id;
+
+        IF v_exists = 0 THEN
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"Transaction not found."}');
+          :status := 404;
+          RETURN;
+        END IF;
+
+        DELETE FROM transactions WHERE id = v_id;
+
+        OWA_UTIL.MIME_HEADER('application/json', FALSE);
+        OWA_UTIL.HTTP_HEADER_CLOSE;
+
+        HTP.PRN('{
+          "status":"success",
+          "message":"Transaction deleted successfully.",
+          "data":{"id":' || v_id || '}
+        }');
+
+        :status := 200;
+
+      EXCEPTION
+        WHEN OTHERS THEN
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"' || REPLACE(SQLERRM,'"','''') || '"}');
+          :status := 500;
+      END;
+    ]'
+  );
+  COMMIT;
+END;
+/
+------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+------------------------------------------------------
+-- ✅ Add missing template for PUT/DELETE (budgets/)
+BEGIN
+  ORDS.DEFINE_TEMPLATE(
+    p_module_name => 'finix_api',
+    p_pattern     => 'budgets/'
+  );
+  COMMIT;
+END;
+/
+------------------------------------------------------
+
+-- ✅ POST handler (Create budget)
+BEGIN
+  ORDS.DEFINE_HANDLER(
+    p_module_name  => 'finix_api',
+    p_pattern      => 'budgets/',
+    p_method       => 'POST',
+    p_source_type  => 'plsql/block',
+    p_source       => q'[
+
+      DECLARE
+        v_id                budgets.id%TYPE;
+        v_local_id          budgets.local_id%TYPE := :local_id;
+        v_category_id       budgets.category_id%TYPE := :categoryId;
+        v_budgeted_amount   budgets.budgeted_amount%TYPE := :budgetedAmount;
+        v_start_date        budgets.start_date%TYPE := :startDate;
+        v_end_date          budgets.end_date%TYPE := :endDate;
+      BEGIN
+        INSERT INTO budgets (local_id, category_id, budgeted_amount, start_date, end_date)
+        VALUES (v_local_id, v_category_id, v_budgeted_amount, v_start_date, v_end_date)
+        RETURNING id INTO v_id;
+
+        OWA_UTIL.MIME_HEADER('application/json', FALSE);
+        OWA_UTIL.HTTP_HEADER_CLOSE;
+
+        HTP.PRN('{
+          "status":"success",
+          "message":"Budget created successfully.",
+          "data":{
+            "id":' || v_id || ',
+            "local_id":' || NVL(TO_CHAR(v_local_id), 'null') || ',
+            "category_id":' || v_category_id || ',
+            "budgeted_amount":' || v_budgeted_amount || ',
+            "start_date":' || v_start_date || ',
+            "end_date":' || v_end_date || '}
+        }');
+
+        :status := 200;
+
+      EXCEPTION
+        WHEN DUP_VAL_ON_INDEX THEN
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"Duplicate budget local_id."}');
+          :status := 409;
+
+        WHEN OTHERS THEN
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"' || REPLACE(SQLERRM,'"','''') || '"}');
+          :status := 500;
+      END;
+    ]'
+  );
+  COMMIT;
+END;
+/
+------------------------------------------------------
+
+-- ✅ GET handler (List all budgets)
+BEGIN
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'finix_api',
+    p_pattern     => 'budgets/',
+    p_method      => 'GET',
+    p_source_type => 'json/collection',
+    p_source      => q'[
+      SELECT id, local_id, category_id, budgeted_amount, start_date, end_date
+      FROM budgets
+      ORDER BY id
+    ]'
+  );
+  COMMIT;
+END;
+/
+------------------------------------------------------
+
+-- ✅ Add missing template for PUT/DELETE (budgets/:id)
+BEGIN
+  ORDS.DEFINE_TEMPLATE(
+    p_module_name => 'finix_api',
+    p_pattern     => 'budgets/:id'
+  );
+  COMMIT;
+END;
+/
+------------------------------------------------------
+
+-- ✅ PUT handler (Update budget)
+BEGIN
+  ORDS.DEFINE_HANDLER(
+    p_module_name  => 'finix_api',
+    p_pattern      => 'budgets/:id',
+    p_method       => 'PUT',
+    p_source_type  => 'plsql/block',
+    p_source       => q'[
+
+      DECLARE
+        v_id                budgets.id%TYPE := :id;
+        v_local_id          budgets.local_id%TYPE := :local_id;
+        v_category_id       budgets.category_id%TYPE := :categoryId;
+        v_budgeted_amount   budgets.budgeted_amount%TYPE := :budgetedAmount;
+        v_start_date        budgets.start_date%TYPE := :startDate;
+        v_end_date          budgets.end_date%TYPE := :endDate;
+        v_exists            NUMBER;
+      BEGIN
+        SELECT COUNT(*) INTO v_exists FROM budgets WHERE id = v_id;
+
+        IF v_exists = 0 THEN
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"Budget not found."}');
+          :status := 404;
+          RETURN;
+        END IF;
+
+        UPDATE budgets
+        SET local_id = v_local_id,
+            category_id = v_category_id,
+            budgeted_amount = v_budgeted_amount,
+            start_date = v_start_date,
+            end_date = v_end_date
+        WHERE id = v_id;
+
+        OWA_UTIL.MIME_HEADER('application/json', FALSE);
+        OWA_UTIL.HTTP_HEADER_CLOSE;
+
+        HTP.PRN('{
+          "status":"success",
+          "message":"Budget updated successfully.",
+          "data":{
+            "id":' || v_id || ',
+            "local_id":' || NVL(TO_CHAR(v_local_id), 'null') || ',
+            "category_id":' || v_category_id || ',
+            "budgeted_amount":' || v_budgeted_amount || ',
+            "start_date":' || v_start_date || ',
+            "end_date":' || v_end_date || '}
+        }');
+
+        :status := 200;
+
+      EXCEPTION
+        WHEN DUP_VAL_ON_INDEX THEN
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"Duplicate budget local_id."}');
+          :status := 409;
+
+        WHEN OTHERS THEN
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"' || REPLACE(SQLERRM,'"','''') || '"}');
+          :status := 500;
+      END;
+    ]'
+  );
+  COMMIT;
+END;
+/
+
+------------------------------------------------------
+
+-- ✅ DELETE handler (Delete budget)
+BEGIN
+  ORDS.DEFINE_HANDLER(
+    p_module_name  => 'finix_api',
+    p_pattern      => 'budgets/:id',
+    p_method       => 'DELETE',
+    p_source_type  => 'plsql/block',
+    p_source       => q'[
+
+      DECLARE
+        v_id      budgets.id%TYPE := :id;
+        v_exists  NUMBER;
+      BEGIN
+        SELECT COUNT(*) INTO v_exists FROM budgets WHERE id = v_id;
+
+        IF v_exists = 0 THEN
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"Budget not found."}');
+          :status := 404;
+          RETURN;
+        END IF;
+
+        DELETE FROM budgets WHERE id = v_id;
+
+        OWA_UTIL.MIME_HEADER('application/json', FALSE);
+        OWA_UTIL.HTTP_HEADER_CLOSE;
+
+        HTP.PRN('{
+          "status":"success",
+          "message":"Budget deleted successfully.",
+          "data":{"id":' || v_id || '}
+        }');
+
+        :status := 200;
+
+      EXCEPTION
+        WHEN OTHERS THEN
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"' || REPLACE(SQLERRM,'"','''') || '"}');
+          :status := 500;
+      END;
+    ]'
+  );
+  COMMIT;
+END;
+/
+------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+------------------------------------------------------
+-- ✅ Module + Template for savings_goals
+BEGIN
+  ORDS.DEFINE_TEMPLATE(
+    p_module_name => 'finix_api',
+    p_pattern     => 'savings_goals/'
+  );
+  COMMIT;
+END;
+/
+------------------------------------------------------
+
+-- ✅ POST handler (Create savings goal)
+BEGIN
+  ORDS.DEFINE_HANDLER(
+    p_module_name  => 'finix_api',
+    p_pattern      => 'savings_goals/',
+    p_method       => 'POST',
+    p_source_type  => 'plsql/block',
+    p_source       => q'[
+      DECLARE
+        v_id            savings_goals.id%TYPE;
+        v_local_id      savings_goals.local_id%TYPE := :local_id;
+        v_category_id   savings_goals.category_id%TYPE := :categoryId;
+        v_goal_name     savings_goals.goal_name%TYPE := :goalName;
+        v_goal_desc     savings_goals.goal_description%TYPE := :goalDescription;
+        v_target_amount savings_goals.target_amount%TYPE := :targetAmount;
+        v_target_date   savings_goals.target_date%TYPE := :targetDate;
+      BEGIN
+        INSERT INTO savings_goals (local_id, category_id, goal_name, goal_description, target_amount, target_date)
+        VALUES (v_local_id, v_category_id, v_goal_name, v_goal_desc, v_target_amount, v_target_date)
+        RETURNING id INTO v_id;
+
+        OWA_UTIL.MIME_HEADER('application/json', FALSE);
+        OWA_UTIL.HTTP_HEADER_CLOSE;
+
+        HTP.PRN('{
+          "status":"success",
+          "message":"Savings goal created successfully.",
+          "data":{
+            "id":' || v_id || ',
+            "local_id":' || NVL(TO_CHAR(v_local_id), 'null') || ',
+            "category_id":' || v_category_id || ',
+            "goal_name":"' || v_goal_name || '",
+            "goal_description":"' || NVL(v_goal_desc,'') || '",
+            "target_amount":' || v_target_amount || ',
+            "target_date":' || v_target_date || '
+          }
+        }');
+
+        :status := 200;
+
+      EXCEPTION
+        WHEN DUP_VAL_ON_INDEX THEN
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"Duplicate savings goal local_id."}');
+          :status := 409;
+
+        WHEN OTHERS THEN
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"' || REPLACE(SQLERRM,'"','''') || '"}');
+          :status := 500;
+      END;
+    ]'
+  );
+  COMMIT;
+END;
+/
+------------------------------------------------------
+
+-- ✅ GET handler (List all savings goals)
+BEGIN
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'finix_api',
+    p_pattern     => 'savings_goals/',
+    p_method      => 'GET',
+    p_source_type => 'json/collection',
+    p_source      => q'[
+      SELECT id, local_id, category_id, goal_name, goal_description, target_amount, target_date
+      FROM savings_goals
+      ORDER BY id
+    ]'
+  );
+  COMMIT;
+END;
+/
+------------------------------------------------------
+
+-- ✅ Add missing template for PUT/DELETE (savings_goals/:id)
+BEGIN
+  ORDS.DEFINE_TEMPLATE(
+    p_module_name => 'finix_api',
+    p_pattern     => 'savings_goals/:id'
+  );
+  COMMIT;
+END;
+/
+------------------------------------------------------
+
+-- ✅ PUT handler (Update savings goal)
+BEGIN
+  ORDS.DEFINE_HANDLER(
+    p_module_name  => 'finix_api',
+    p_pattern      => 'savings_goals/:id',
+    p_method       => 'PUT',
+    p_source_type  => 'plsql/block',
+    p_source       => q'[
+      DECLARE
+        v_id            savings_goals.id%TYPE := :id;
+        v_local_id      savings_goals.local_id%TYPE := :local_id;
+        v_category_id   savings_goals.category_id%TYPE := :categoryId;
+        v_goal_name     savings_goals.goal_name%TYPE := :goalName;
+        v_goal_desc     savings_goals.goal_description%TYPE := :goalDescription;
+        v_target_amount savings_goals.target_amount%TYPE := :targetAmount;
+        v_target_date   savings_goals.target_date%TYPE := :targetDate;
+        v_exists        NUMBER;
+      BEGIN
+        SELECT COUNT(*) INTO v_exists FROM savings_goals WHERE id = v_id;
+
+        IF v_exists = 0 THEN
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"Savings goal not found."}');
+          :status := 404;
+          RETURN;
+        END IF;
+
+        UPDATE savings_goals
+        SET local_id = v_local_id,
+            category_id = v_category_id,
+            goal_name = v_goal_name,
+            goal_description = v_goal_desc,
+            target_amount = v_target_amount,
+            target_date = v_target_date
+        WHERE id = v_id;
+
+        OWA_UTIL.MIME_HEADER('application/json', FALSE);
+        OWA_UTIL.HTTP_HEADER_CLOSE;
+
+        HTP.PRN('{
+          "status":"success",
+          "message":"Savings goal updated successfully.",
+          "data":{
+            "id":' || v_id || ',
+            "local_id":' || NVL(TO_CHAR(v_local_id), 'null') || ',
+            "category_id":' || v_category_id || ',
+            "goal_name":"' || v_goal_name || '",
+            "goal_description":"' || NVL(v_goal_desc,'') || '",
+            "target_amount":' || v_target_amount || ',
+            "target_date":' || v_target_date || '
+          }
+        }');
+
+        :status := 200;
+
+      EXCEPTION
+        WHEN DUP_VAL_ON_INDEX THEN
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"Duplicate local_id."}');
+          :status := 409;
+
+        WHEN OTHERS THEN
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"' || REPLACE(SQLERRM,'"','''') || '"}');
+          :status := 500;
+      END;
+    ]'
+  );
+  COMMIT;
+END;
+/
+------------------------------------------------------
+
+-- ✅ DELETE handler (Delete savings goal)
+BEGIN
+  ORDS.DEFINE_HANDLER(
+    p_module_name  => 'finix_api',
+    p_pattern      => 'savings_goals/:id',
+    p_method       => 'DELETE',
+    p_source_type  => 'plsql/block',
+    p_source       => q'[
+      DECLARE
+        v_id      savings_goals.id%TYPE := :id;
+        v_exists  NUMBER;
+      BEGIN
+        SELECT COUNT(*) INTO v_exists FROM savings_goals WHERE id = v_id;
+
+        IF v_exists = 0 THEN
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"Savings goal not found."}');
+          :status := 404;
+          RETURN;
+        END IF;
+
+        DELETE FROM savings_goals WHERE id = v_id;
+
+        OWA_UTIL.MIME_HEADER('application/json', FALSE);
+        OWA_UTIL.HTTP_HEADER_CLOSE;
+
+        HTP.PRN('{
+          "status":"success",
+          "message":"Savings goal deleted successfully.",
+          "data":{"id":' || v_id || '}
+        }');
+
+        :status := 200;
+
+      EXCEPTION
+        WHEN OTHERS THEN
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"' || REPLACE(SQLERRM,'"','''') || '"}');
+          :status := 500;
+      END;
+    ]'
+  );
+  COMMIT;
+END;
+/
+------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+------------------------------------------------------
+-- ✅ Template for Synchronization Log List
+------------------------------------------------------
+BEGIN
+  ORDS.DEFINE_TEMPLATE(
+    p_module_name => 'finix_api',
+    p_pattern     => 'synclogs/'
+  );
+  COMMIT;
+END;
+/
+
+------------------------------------------------------
+-- ✅ GET handler (List all sync logs)
+------------------------------------------------------
+BEGIN
+  ORDS.DEFINE_HANDLER(
+    p_module_name => 'finix_api',
+    p_pattern     => 'synclogs/',
+    p_method      => 'GET',
+    p_source_type => 'json/collection',
+    p_source      => q'[
+      SELECT 
+        log_id AS id,
+        table_name AS tableName,
+        record_id AS recordId,
+        last_synced_timestamp AS lastSyncedTimestamp,
+        status AS status,
+        message AS message
+      FROM sync_log
+      ORDER BY log_id
+    ]'
+  );
+  COMMIT;
+END;
+/
+
+------------------------------------------------------
+-- ✅ POST handler (Create Synchronization Log)
+------------------------------------------------------
+BEGIN
+  ORDS.DEFINE_HANDLER(
+    p_module_name  => 'finix_api',
+    p_pattern      => 'synclogs/',
+    p_method       => 'POST',
+    p_source_type  => 'plsql/block',
+    p_source       => q'[
+      DECLARE
+        v_id                    sync_log.log_id%TYPE;
+        v_table_name            sync_log.table_name%TYPE      := :tableName;
+        v_record_id             sync_log.record_id%TYPE       := :recordId;
+        v_last_synced_ts        sync_log.last_synced_timestamp%TYPE := :lastSyncedTimestamp;
+        v_status                sync_log.status%TYPE          := :status;
+        v_message               sync_log.message%TYPE         := :message;
+      BEGIN
+        INSERT INTO sync_log (table_name, record_id, last_synced_timestamp, status, message)
+        VALUES (v_table_name, v_record_id, v_last_synced_ts, v_status, v_message)
+        RETURNING log_id INTO v_id;
+
+        -- Return the newly created log_id (for the client's newServerId)
+        OWA_UTIL.MIME_HEADER('application/json', FALSE);
+        OWA_UTIL.HTTP_HEADER_CLOSE;
+
+        HTP.PRN('{
+          "status":"success",
+          "message":"Synchronization Log created successfully.",
+          "data":{
+            "id":' || v_id || ',
+            "tableName":"' || v_table_name || '",
+            "recordId":' || v_record_id || ',
+            "lastSyncedTimestamp":' || v_last_synced_ts || ',
+            "status":"' || v_status || '",
+            "message":"' || NVL(v_message, '') || '"
+          }
+        }');
+
+        :status := 200;
+
+      EXCEPTION
+        WHEN OTHERS THEN
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"' || REPLACE(SQLERRM,'"','''') || '"}');
+          :status := 500;
+      END;
+    ]'
+  );
+  COMMIT;
+END;
+/
+
+------------------------------------------------------
+-- 🚀 UPDATED DELETE handler (Wipe all sync logs & RESET SEQUENCE)
+------------------------------------------------------
+BEGIN
+  ORDS.DEFINE_HANDLER(
+    p_module_name  => 'finix_api',
+    p_pattern      => 'synclogs/',
+    p_method       => 'DELETE',
+    p_source_type  => 'plsql/block',
+    p_source       => q'[
+      BEGIN
+        -- 1. Delete all rows from the table
+        EXECUTE IMMEDIATE 'DELETE FROM sync_log';
+        
+        -- 2. Reset the identity column's sequence counter to 1
+        -- This ensures the next row inserted will get LOG_ID = 1
+        EXECUTE IMMEDIATE 'ALTER TABLE sync_log MODIFY (log_id GENERATED BY DEFAULT AS IDENTITY (START WITH 1))';
+        
+        -- Commit both changes atomically
+        COMMIT;
+
+        OWA_UTIL.MIME_HEADER('application/json', FALSE);
+        OWA_UTIL.HTTP_HEADER_CLOSE;
+
+        HTP.PRN('{"status":"success","message":"All synchronization logs deleted and sequence reset successfully."}');
+        :status := 200;
+
+      EXCEPTION
+        WHEN OTHERS THEN
+          -- Rollback any changes in case of error
+          ROLLBACK;
+          OWA_UTIL.MIME_HEADER('application/json', FALSE);
+          OWA_UTIL.HTTP_HEADER_CLOSE;
+          HTP.PRN('{"status":"error","message":"Failed to wipe logs or reset sequence: ' || REPLACE(SQLERRM,'"','''') || '"}');
+          :status := 500;
+      END;
+    ]'
+  );
+  COMMIT;
+END;
+/

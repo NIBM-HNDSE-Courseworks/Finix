@@ -1,0 +1,8 @@
+-- The username will be stored as FINIX_USERNAME (all caps)
+CREATE USER finix_username IDENTIFIED BY finix123;
+GRANT CONNECT, RESOURCE, UNLIMITED TABLESPACE TO finix_username;
+GRANT ALL PRIVILEGES TO finix_username;
+
+SELECT username, account_status
+FROM dba_users
+WHERE username = 'finix_username'
